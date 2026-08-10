@@ -1,0 +1,313 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Enums\CourtStatus;
+use App\Enums\MatchResult;
+use App\Enums\MatchStatus;
+use App\Enums\SessionPlayerStatus;
+use App\Models\GameMatch;
+use App\Models\Session;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class MatchResultService
+{
+    public function __construct(
+        private readonly RatingService $ratingService,
+        private readonly MatchmakingService $matchmakingService,
+        private readonly RealtimeEventService $eventService,
+    ) {}
+
+    /**
+     * Record a match result atomically with full idempotency.
+     *
+     * @return array{match: Match, rating_changes: array, next_matches: array}
+     */
+    public function recordResult(GameMatch $match, int $winningTeam): array
+    {
+        return DB::transaction(function () use ($match, $winningTeam) {
+            // Lock the match row for concurrent safety
+            $match = GameMatch::query()
+                ->where('id', $match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Idempotency: if already COMPLETED, return existing result
+            if ($match->isCompleted()) {
+                Log::info('match.result.idempotent', ['match_id' => $match->id]);
+                return $this->buildExistingResult($match);
+            }
+
+            // Validate match is in PLAYING state
+            if (! $match->isPlaying()) {
+                throw new \RuntimeException("Match {$match->id} is not in PLAYING state.");
+            }
+
+            $now = now();
+
+            // 1. Record winning/losing teams
+            $match->update([
+                'status' => MatchStatus::COMPLETED,
+                'winning_team' => $winningTeam,
+                'completed_at' => $now,
+            ]);
+
+            // 2. Calculate and apply rating changes
+            $ratingChanges = $this->ratingService->updateRatings($match, $winningTeam);
+
+            // 3. Update session player stats and set them to WAITING
+            $session = $match->session;
+            $match->load('matchPlayers');
+
+            // Preload session players once and index by player id (avoids N+1 on remote DB)
+            $sessionPlayerMap = $session->sessionPlayers()
+                ->get()
+                ->keyBy('player_id');
+
+            // Batch all session-player updates into a single query
+            $sessionPlayerRows = [];
+            foreach ($match->matchPlayers as $mp) {
+                $sessionPlayer = $sessionPlayerMap->get($mp->player_id);
+
+                if ($sessionPlayer) {
+                    $won = ($mp->team === $winningTeam);
+                    $sessionPlayerRows[] = [
+                        'id' => $sessionPlayer->id,
+                        'session_id' => $sessionPlayer->session_id,
+                        'player_id' => $sessionPlayer->player_id,
+                        'status' => SessionPlayerStatus::WAITING->value,
+                        'games_played' => $sessionPlayer->games_played + 1,
+                        'wins' => $sessionPlayer->wins + ($won ? 1 : 0),
+                        'losses' => $sessionPlayer->losses + ($won ? 0 : 1),
+                        'consecutive_games' => $sessionPlayer->consecutive_games + 1,
+                        'last_played_at' => $now,
+                        'waiting_since' => $now,
+                        'last_result' => $won ? MatchResult::WIN->value : MatchResult::LOSS->value,
+                    ];
+                }
+            }
+
+            if (! empty($sessionPlayerRows)) {
+                \Illuminate\Support\Facades\DB::table('session_players')
+                    ->upsert($sessionPlayerRows, ['id'], [
+                        'status', 'games_played', 'wins', 'losses', 'consecutive_games',
+                        'last_played_at', 'waiting_since', 'last_result',
+                    ]);
+            }
+
+            // 4. Mark court as AVAILABLE
+            $match->court->update(['status' => CourtStatus::AVAILABLE]);
+
+            // 5. Allocate the next batch immediately — a court must never sit idle
+            //    while at least 4 players are waiting. allocateMatches() already
+            //    no-ops when there are no available courts or fewer than 4 WAITING
+            //    players, and enforces the active-player hard constraint.
+            $nextMatches = $this->matchmakingService->allocateMatches($session);
+
+            // 6. Publish all SSE events in a single batched insert (fast on remote DB)
+            $events = [
+                ['type' => 'match.completed', 'data' => [
+                    'match_id' => $match->id,
+                    'court_id' => $match->court_id,
+                    'winning_team' => $winningTeam,
+                ]],
+                ['type' => 'court.updated', 'data' => [
+                    'court_id' => $match->court_id,
+                    'status' => 'AVAILABLE',
+                ]],
+            ];
+
+            foreach ($ratingChanges as $change) {
+                $events[] = ['type' => 'rating.updated', 'data' => [
+                    'player_id' => $change['player']->id,
+                    'old_rating' => $change['rating_before'],
+                    'new_rating' => $change['rating_after'],
+                ]];
+            }
+
+            if (! empty($nextMatches)) {
+                $events[] = ['type' => 'waiting_list.updated', 'data' => []];
+            }
+
+            $this->eventService->publishBatch($session->id, $events);
+
+            Log::info('match.result.processed', [
+                'match_id' => $match->id,
+                'winning_team' => $winningTeam,
+                'next_matches' => count($nextMatches),
+            ]);
+
+            return [
+                'match' => $match->fresh(['matchPlayers.player', 'court']),
+                'rating_changes' => array_map(fn (array $c) => [
+                    'player_id' => $c['player']->id,
+                    'name' => $c['player']->name,
+                    'change' => $c['change'],
+                    'new_rating' => $c['rating_after'],
+                ], $ratingChanges),
+                'next_matches' => $nextMatches,
+            ];
+        }, 3); // Retry up to 3 times on deadlock
+    }
+
+    /**
+     * Build result for an already-completed match (idempotent response).
+     */
+    private function buildExistingResult(GameMatch $match): array
+    {
+        $match->load(['matchPlayers.player', 'court']);
+
+        $ratingChanges = $match->matchPlayers->map(fn ($mp) => [
+            'player_id' => $mp->player_id,
+            'name' => $mp->player->name,
+            'change' => round($mp->rating_after - $mp->rating_before, 2),
+            'new_rating' => $mp->rating_after,
+        ])->toArray();
+
+        return [
+            'match' => $match,
+            'rating_changes' => $ratingChanges,
+            'next_matches' => [],
+        ];
+    }
+
+    /**
+     * Correct a completed match's winner — reverts the previous result
+     * and recalculates ratings/stats with the new winning team.
+     */
+    public function correctResult(GameMatch $match, int $newWinningTeam): array
+    {
+        return DB::transaction(function () use ($match, $newWinningTeam) {
+            $match = GameMatch::query()
+                ->where('id', $match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Only completed matches can be corrected
+            if (! $match->isCompleted()) {
+                throw new \RuntimeException("Match {$match->id} must be completed before correcting.");
+            }
+
+            // No-op if same winner
+            if ((int) $match->winning_team === $newWinningTeam) {
+                return $this->buildExistingResult($match);
+            }
+
+            $session = $match->session;
+
+            // 1. Revert the previous result
+            $this->revertResult($match, $session);
+
+            // 2. Re-apply with the corrected winner
+            $ratingChanges = $this->ratingService->updateRatings($match, $newWinningTeam);
+
+            $match->update([
+                'winning_team' => $newWinningTeam,
+                'completed_at' => now(),
+            ]);
+
+            // 3. Update session player stats for corrected result
+            $match->load('matchPlayers');
+            foreach ($match->matchPlayers as $mp) {
+                $sessionPlayer = $session->sessionPlayers()
+                    ->where('player_id', $mp->player_id)
+                    ->first();
+
+                if ($sessionPlayer) {
+                    $won = ($mp->team === $newWinningTeam);
+                    $sessionPlayer->update([
+                        'wins' => $sessionPlayer->wins + ($won ? 1 : 0),
+                        'losses' => $sessionPlayer->losses + ($won ? 0 : 1),
+                        'last_result' => $won ? MatchResult::WIN : MatchResult::LOSS,
+                    ]);
+                }
+            }
+
+            // 4. Publish events so clients refresh
+            $this->eventService->publish($session->id, 'match.completed', [
+                'match_id' => $match->id,
+                'court_id' => $match->court_id,
+                'winning_team' => $newWinningTeam,
+                'corrected' => true,
+            ]);
+            $this->eventService->publish($session->id, 'rating.updated', []);
+
+            Log::info('match.result.corrected', [
+                'match_id' => $match->id,
+                'previous_winner' => $match->winning_team,
+                'new_winner' => $newWinningTeam,
+            ]);
+
+            return [
+                'match' => $match->fresh(['matchPlayers.player', 'court']),
+                'rating_changes' => array_map(fn (array $c) => [
+                    'player_id' => $c['player']->id,
+                    'name' => $c['player']->name,
+                    'change' => $c['change'],
+                    'new_rating' => $c['rating_after'],
+                ], $ratingChanges),
+                'next_matches' => [],
+                'corrected' => true,
+            ];
+        }, 3);
+    }
+
+    /**
+     * Undo a completed match's effect on ratings, player stats, and session stats.
+     */
+    private function revertResult(GameMatch $match, $session): void
+    {
+        $match->load('matchPlayers.player');
+
+        // Remove the audit trail for this match
+        \App\Models\RatingHistory::where('match_id', $match->id)->delete();
+
+        foreach ($match->matchPlayers as $mp) {
+            $player = $mp->player;
+            $wasWin = $mp->result === MatchResult::WIN;
+
+            // Revert player rating and stats
+            $player->rating = $mp->rating_before;
+            $player->rated_games_count = max(0, $player->rated_games_count - 1);
+            $player->total_games = max(0, $player->total_games - 1);
+            $player->wins = max(0, $player->wins - ($wasWin ? 1 : 0));
+            $player->losses = max(0, $player->losses - ($wasWin ? 0 : 1));
+            $player->rating_confidence = $this->ratingService->getConfidence($player->rated_games_count);
+            $player->rating_status = $player->rated_games_count >= config('courtly.rating.provisional_threshold')
+                ? \App\Enums\RatingStatus::ESTABLISHED
+                : \App\Enums\RatingStatus::PROVISIONAL;
+            $player->save();
+
+            // Reset the match player record for re-application
+            $mp->update([
+                'rating_after' => null,
+                'rating_confidence_after' => null,
+                'result' => null,
+            ]);
+
+            // Revert session player stats
+            $sessionPlayer = $session->sessionPlayers()
+                ->where('player_id', $mp->player_id)
+                ->first();
+
+            if ($sessionPlayer) {
+                $sessionPlayer->update([
+                    'games_played' => max(0, $sessionPlayer->games_played - 1),
+                    'wins' => max(0, $sessionPlayer->wins - ($wasWin ? 1 : 0)),
+                    'losses' => max(0, $sessionPlayer->losses - ($wasWin ? 0 : 1)),
+                    'consecutive_games' => max(0, $sessionPlayer->consecutive_games - 1),
+                    'last_result' => null,
+                ]);
+            }
+        }
+
+        // Clear the match's winning team (status stays COMPLETED so we re-apply below)
+        $match->update([
+            'winning_team' => null,
+            'completed_at' => null,
+        ]);
+    }
+}
