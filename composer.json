@@ -1,0 +1,46 @@
+{
+    "name": "courtly/courtly",
+    "description": "Badminton session-management and matchmaking platform",
+    "type": "project",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^11.0",
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^2.9"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.13",
+        "pestphp/pest": "^2.34",
+        "pestphp/pest-plugin-laravel": "^2.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "policy": {
+            "advisories": {
+                "block": false
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

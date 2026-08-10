@@ -1,0 +1,32 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect trailing slashes
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send requests to index.php if not a real file/directory
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# ─── SSE Endpoint: Disable output buffering ───
+<LocationMatch "/api/sessions/[0-9]+/events">
+    SetEnv no-gzip 1
+    SetEnv downgrade-1.0 1
+</LocationMatch>
+
+# ─── Security ───
+<FilesMatch "\.(env|json|lock|md|log|sql)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.env.example$">
+    Require all denied
+</FilesMatch>
