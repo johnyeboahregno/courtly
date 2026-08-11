@@ -10,6 +10,7 @@ use App\Enums\SessionPlayerStatus;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
+use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class SessionPlayerController extends Controller
 {
     public function __construct(
         private readonly RealtimeEventService $events,
+        private readonly MatchmakingService $matchmaking,
     ) {}
 
     /**
@@ -73,14 +75,18 @@ class SessionPlayerController extends Controller
             }
         }
 
-        // 2. Create and add a brand-new player
+        // 2. Create and add a brand-new player (or reuse existing if name matches)
         if (! empty($newName)) {
-            $player = Player::create([
-                'name' => $newName,
-                'rating' => config('courtly.rating.default_rating', 0.00),
-                'rating_status' => 'PROVISIONAL',
-                'rating_confidence' => 0.10,
-            ]);
+            $player = Player::where('name', $newName)->first();
+
+            if (! $player) {
+                $player = Player::create([
+                    'name' => $newName,
+                    'rating' => config('courtly.rating.default_rating', 0.00),
+                    'rating_status' => 'PROVISIONAL',
+                    'rating_confidence' => 0.10,
+                ]);
+            }
 
             $this->addPlayerToSession($session, $player);
             $added[] = $player->id;
@@ -89,6 +95,10 @@ class SessionPlayerController extends Controller
         if (! empty($added)) {
             $this->events->publish($session->id, 'player.checked_in', []);
             $this->events->publish($session->id, 'waiting_list.updated', []);
+
+            // Immediately fill any empty courts — a court must never sit idle
+            // while at least 4 players are waiting.
+            $this->matchmaking->allocateMatches($session);
         }
 
         return response()->json([
@@ -177,6 +187,9 @@ class SessionPlayerController extends Controller
         ]);
 
         $this->events->publish($session->id, 'waiting_list.updated', []);
+
+        // Fill courts if we now have enough waiting players
+        $this->matchmaking->allocateMatches($session);
 
         return response()->json(['data' => $sessionPlayer->fresh()]);
     }

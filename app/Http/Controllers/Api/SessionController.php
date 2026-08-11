@@ -77,12 +77,18 @@ class SessionController extends Controller
     }
 
     /**
-     * Get session details.
+     * Get session details. Also ensures no court sits idle while
+     * enough players are waiting.
      */
     public function show(Session $session): JsonResponse
     {
+        // Fill any empty courts — a court must never sit idle
+        if ($session->status === SessionStatus::ACTIVE) {
+            $this->matchmaking->allocateMatches($session);
+        }
+
         return response()->json([
-            'data' => $session->load(['courts', 'sessionPlayers.player', 'matches.matchPlayers.player']),
+            'data' => $session->fresh()->load(['courts', 'sessionPlayers.player', 'matches.matchPlayers.player']),
         ]);
     }
 
