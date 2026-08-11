@@ -6,6 +6,7 @@
         "php": "^8.3",
         "laravel/framework": "^11.0",
         "laravel/sanctum": "^4.0",
+        "laravel/socialite": "^5.29",
         "laravel/tinker": "^2.9"
     },
     "require-dev": {
@@ -39,6 +40,9 @@
             "advisories": {
                 "block": false
             }
+        },
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
         }
     },
     "minimum-stability": "stable",

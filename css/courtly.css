@@ -1,0 +1,910 @@
+/* Courtly visual refresh: cleaner hierarchy, brighter surfaces, stronger typography */
+
+:root {
+    --court-green: #2f9a58;
+    --court-green-light: #3cae67;
+    --court-lines: #ffffff;
+    --team-1: #0f62fe;
+    --team-2: #ff5a3c;
+
+    --bg: #eef3f1;
+    --bg-accent: #dbe9e4;
+    --surface: #ffffff;
+    --surface-2: #f6faf8;
+    --text: #172026;
+    --text-muted: #5f707f;
+
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow-card: 0 10px 28px rgba(27, 40, 52, 0.08);
+    --shadow-soft: 0 4px 10px rgba(26, 40, 50, 0.08);
+    --stroke: #d7e1de;
+    --min-touch: 46px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 110%;
+}
+
+body {
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 0% 0%, var(--bg-accent), transparent 30%),
+        radial-gradient(circle at 100% 0%, #e9f6f1, transparent 26%),
+        var(--bg);
+    color: var(--text);
+}
+
+.session-header,
+.courts-grid,
+.waiting-list,
+.session-controls {
+    max-width: 1240px;
+}
+
+/* Header */
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px auto;
+    padding: 14px 18px;
+    background: linear-gradient(160deg, #ffffff 0%, #f8fcfa 100%);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+}
+
+.session-header__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.session-header__logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    font-family: "Space Grotesk", "Manrope", sans-serif;
+    letter-spacing: 0.03em;
+    color: #1f7a47;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.session-header__logo-img {
+    height: 64px;
+    width: auto;
+    display: block;
+}
+
+.session-header__logo:hover {
+    color: #0e5c35;
+}
+
+.session-header__name {
+    font-size: 1.24rem;
+    font-weight: 700;
+}
+
+.session-header__stats {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 0.93rem;
+    color: var(--text-muted);
+}
+
+.session-header__timer {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.session-header__badge {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.session-header__badge--active { background: #d7f6e2; color: #0e6b3a; }
+.session-header__badge--upcoming { background: #d9e8ff; color: #174ea8; }
+.session-header__badge--paused { background: #ffefc8; color: #8a5200; }
+.session-header__badge--finished { background: #e6ebf0; color: #46515b; }
+
+/* Subtle connection status dot next to the status badge */
+.connection-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: -6px;
+    cursor: default;
+}
+.connection-dot--connecting {
+    background: #f0b400;
+    animation: connection-pulse 1.4s ease-in-out infinite;
+}
+.connection-dot--offline {
+    background: #e0554a;
+    animation: connection-pulse 1.4s ease-in-out infinite;
+}
+@keyframes connection-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* Courts grid */
+.courts-grid {
+    display: grid;
+    gap: 16px;
+    margin: 0 24px 14px;
+    padding: 0 8px;
+    max-width: calc(100vw - 48px);
+}
+
+@media (min-width: 768px) {
+    .courts-grid { grid-template-columns: repeat(2, calc(50vw - 40px)); }
+    .courts-1 { grid-template-columns: calc(50vw - 40px); justify-content: center; }
+}
+
+@media (max-width: 767px) {
+    .courts-grid { grid-template-columns: 1fr; }
+}
+
+/* Court card — no container, courts shown directly */
+.court-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Court header: name + status */
+.court-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.court-card__number {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: "Space Grotesk", "Manrope", sans-serif;
+    letter-spacing: 0.03em;
+    color: var(--text);
+}
+
+.court-card__status {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.court-card__status--playing { color: #0f7441; }
+.court-card__status--available { color: #3f4b55; }
+
+/* Court body: white surface with court lines */
+.court-card__body {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #d7e1de;
+    border-radius: 0;
+    box-shadow: var(--shadow-card);
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+}
+
+/* Court lines overlay */
+.court-card__lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Center line (horizontal, between sides) */
+.court-card__lines::before {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 50%;
+    height: 1px;
+    background: #d7e1de;
+    transform: translateY(-50%);
+}
+
+/* Service line (vertical) */
+.court-card__lines::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 8%;
+    bottom: 8%;
+    width: 1px;
+    background: #d7e1de;
+    transform: translateX(-50%);
+}
+
+/* Ensure court content sits above the lines */
+.court-card__court,
+.court-card__divider,
+.btn-win {
+    position: relative;
+    z-index: 2;
+}
+
+/* Court layout: two sides with VS in the middle */
+.court-card__court {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+}
+
+.court-card__side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.court-card__body--empty {
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    background: #f5f8f7;
+    border: 1px solid #d7e1de;
+    border-radius: 0;
+}
+
+.court-empty-text {
+    color: #8fa39b;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+/* Individual player box */
+.court-card__player-box {
+    flex: 1;
+    min-width: 0;
+    padding: 14px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 52px;
+    position: relative;
+}
+
+.court-card__player-box--team-1 {
+    background: #0084ff;
+}
+
+.court-card__player-box--team-2 {
+    background: #00c764;
+}
+
+.court-card__player {
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-family: "Manrope", sans-serif;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    line-height: 1.2;
+}
+
+/* Individual win tally — badge on the edge of the player box */
+.court-card__win {
+    font-style: normal;
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #ffd700;
+    color: #3d2e00;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.court-card__divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.court-card__divider span {
+    background: #f0f4f2;
+    color: #8fa39b;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 6px 18px;
+    border-radius: 999px;
+}
+
+/* WIN buttons — on left/right sides, vertical */
+.btn-win {
+    width: auto;
+    min-height: 30px;
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 16px 8px;
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    writing-mode: vertical-lr;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
+.btn-win:hover {
+    opacity: 0.75;
+}
+
+.btn-win--team-1 { color: #0084ff; border-color: #0084ff; }
+.btn-win--team-2 { color: #00c764; border-color: #00c764; }
+
+/* Solid matte while pressed */
+.btn-win:active {
+    color: #ffffff;
+}
+.btn-win--team-1:active { background: #0084ff; border-color: #0084ff; }
+.btn-win--team-2:active { background: #00c764; border-color: #00c764; }
+
+/* Solid matte while a result is being submitted */
+.btn-win.is-submitting {
+    color: transparent;
+    position: relative;
+    min-width: 30px;
+    min-height: 30px;
+}
+.btn-win--team-1.is-submitting { background: #0084ff; border-color: #0084ff; }
+.btn-win--team-2.is-submitting { background: #00c764; border-color: #00c764; }
+
+.btn-win.is-submitting::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Only one winner: the other team's button is locked out */
+.btn-win:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Waiting list */
+.waiting-list {
+    margin: 0 auto 14px;
+    padding: 13px 16px;
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+}
+
+.waiting-list__title {
+    margin-bottom: 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.waiting-list__cards {
+    overflow-x: auto;
+}
+
+.waiting-list__row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    flex-wrap: nowrap;
+}
+
+.waiting-list__empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.player-card {
+    min-width: 100px;
+    flex-shrink: 0;
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid #dfe8e4;
+    border-radius: 10px;
+    background: var(--surface-2);
+    position: relative;
+}
+
+.player-card:not(:last-child) {
+    margin-right: 22px;
+}
+
+/* Arrow between queued players showing direction */
+.player-card:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    color: #bcc7c2;
+    font-weight: 700;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.player-card__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-card__name {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.player-card__rating {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+/* Small pause button beside a waiting player's name */
+.player-card__pause {
+    border: none;
+    background: var(--bg-accent);
+    color: var(--text-muted);
+    border-radius: 8px;
+    font-size: 1.4rem;
+    line-height: 1;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.player-card__pause:hover {
+    background: #ffefc8;
+    color: #8a5200;
+}
+
+/* Paused player in the NEXT UP list: dimmed card, light-gray name, play icon */
+.player-card--paused {
+    opacity: 0.78;
+}
+
+.player-card--paused .player-card__name {
+    color: #aab8b3;
+}
+
+.player-card--paused .player-card__pause:hover {
+    background: #d7f6e2;
+    color: #0e6b3a;
+}
+
+/* Controls */
+.session-controls {
+    margin: 0 auto;
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    min-height: var(--min-touch);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+}
+
+.btn:hover { filter: brightness(1.03); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn--primary { background: linear-gradient(180deg, #3b84ff, #0f62fe); color: #fff; }
+.btn--secondary { background: #ebf0ed; color: #23313d; }
+.btn--warning { background: linear-gradient(180deg, #f6b63d, #ea9a07); color: #fff; }
+.btn--danger { background: linear-gradient(180deg, #ff6f57, #ef4f34); color: #fff; }
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(14, 24, 30, 0.44);
+}
+
+.modal {
+    min-width: 320px;
+    padding: 24px;
+    background: #fff;
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    box-shadow: 0 14px 36px rgba(15, 22, 30, 0.2);
+}
+
+.modal h3 {
+    margin-bottom: 12px;
+}
+
+.modal--wide {
+    width: min(560px, 92vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Styled confirmation dialog */
+.modal--confirm {
+    width: min(380px, 90vw);
+    text-align: center;
+}
+
+.confirm-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fdeeea;
+    color: #c0392b;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.modal--confirm h3 {
+    margin-bottom: 8px;
+}
+
+.confirm-note {
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal__head h3 {
+    margin-bottom: 0;
+}
+
+.modal__close {
+    border: none;
+    background: transparent;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+/* Manage players list */
+.manage-list {
+    margin-top: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Add players section */
+.add-section {
+    border-bottom: 1px solid var(--stroke);
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+}
+
+.add-section__new {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.add-section__new .modal__input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.add-section__label {
+    margin: 12px 0 6px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.existing-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 6px;
+}
+
+.existing-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border: 1px solid #e2ebe7;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+}
+
+.existing-item:hover { border-color: #2f9a58; }
+
+.existing-item input {
+    width: 18px;
+    height: 18px;
+    accent-color: #2f9a58;
+    flex-shrink: 0;
+}
+
+.existing-item__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    cursor: pointer;
+}
+
+.existing-item__name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.existing-item__rating {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.existing-item__del {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #c0392b;
+    opacity: 0.6;
+    transition: opacity 0.12s, background 0.12s;
+}
+
+.existing-item__del:hover { opacity: 1; background: #fdeeea; }
+
+/* Confirm modal delete icon variant */
+.confirm-icon--delete {
+    background: #fdeeea;
+    color: #c0392b;
+}
+
+/* Roster within the players dialog */
+.roster {
+    overflow-y: auto;
+    max-height: 40vh;
+}
+
+.manage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid #e2ebe7;
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+
+.manage-row__info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.manage-row__name {
+    font-weight: 800;
+    font-size: 0.95rem;
+}
+
+.manage-row__status {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.manage-row__status--waiting { background: #e7f4ee; color: #0e6b3a; }
+.manage-row__status--playing { background: #e0ebff; color: #174ea8; }
+.manage-row__status--paused { background: #fff0cf; color: #8a5200; }
+.manage-row__status--left { background: #e9ecef; color: #46515b; }
+
+.manage-row__meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.manage-row__actions {
+    display: flex;
+    gap: 6px;
+}
+
+.manage-btn {
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid #cfdcd7;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.manage-btn:hover { background: #f0f5f2; }
+.manage-btn--danger { border-color: #f3c9c0; color: #c0392b; }
+.manage-btn--danger:hover { background: #fdeeea; }
+.manage-btn--delete { border-color: #d1cccc; color: #555; }
+.manage-btn--delete:hover { background: #fbf6f6; border-color: #c0392b; color: #c0392b; }
+
+/* Delete confirmation icon */
+.confirm-icon--delete {
+    background: #fdf2f2;
+    color: #555;
+    font-size: 1.3rem;
+}
+
+.manage-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 16px 0;
+}
+
+.modal__input {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 11px;
+    border: 1px solid #ccd8d3;
+    border-radius: 10px;
+    font-size: 0.96rem;
+}
+
+.modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* ── Transition animations for Next Up queue ── */
+
+/* Player entering the queue (fade in from court) */
+.queue-enter-active {
+    transition: all 0.4s ease;
+}
+.queue-enter-from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.92);
+}
+
+/* Player leaving the queue (fade out to court) */
+.queue-leave-active {
+    transition: all 0.35s ease;
+    position: absolute;
+}
+.queue-leave-from {
+    opacity: 1;
+}
+.queue-leave-to {
+    opacity: 0;
+    transform: scale(0.85);
+}
+
+/* Smooth movement of remaining cards when one leaves */
+.queue-move {
+    transition: transform 0.35s ease;
+}
+
+/* ── Court player fade animations ── */
+
+/* Players appearing on court */
+.court-fade-enter-active {
+    transition: all 0.45s ease;
+}
+.court-fade-enter-from {
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+/* Players leaving court (winner fade out) */
+.court-fade-leave-active {
+    transition: all 0.35s ease;
+}
+.court-fade-leave-to {
+    opacity: 0;
+    transform: scale(0.85);
+}

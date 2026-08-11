@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="/css/courtly.css">
+    <link rel="stylesheet" href="/css/courtly.css?v=5">
 </head>
 <body>
 
@@ -17,8 +17,7 @@
     <header class="session-header">
         <div class="session-header__left">
             <a href="/" class="session-header__logo" title="Back to home">
-                <img src="/assets/courtly_dark.png" alt="Courtly" class="session-header__logo-img">
-                <span>COURTLY</span>
+                <img src="/assets/courtly_light.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
@@ -27,13 +26,14 @@
             <span>🏟 {{ courts.length }} Courts</span>
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
+            <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
+            <div class="theme-toggle">
+                <button :class="{ active: theme === 'light' }" @click="setTheme('light')" title="Light">☀</button>
+                <button :class="{ active: theme === 'dark' }" @click="setTheme('dark')" title="Dark">☾</button>
+                <button :class="{ active: theme === 'system' }" @click="setTheme('system')" title="System">◐</button>
+            </div>
         </div>
     </header>
-
-    <div v-if="connectionState !== 'connected'" class="connection-banner" :class="'connection-banner--' + connectionState">
-        <span v-if="connectionState === 'connecting'" class="connection-banner__text">⟳ Connecting to server…</span>
-        <span v-else class="connection-banner__text">⚠ Server unreachable — data may be stale. Reconnecting…</span>
-    </div>
 
     <div class="courts-grid" :class="'courts-' + courts.length">
         <div v-for="court in courts" :key="court.id" class="court-card">
@@ -42,25 +42,31 @@
                 <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
             </div>
             <div v-if="!court.match" class="court-card__body court-card__body--empty">
+                <div class="court-card__lines"></div>
                 <span class="court-empty-text">Waiting for players</span>
             </div>
             <div v-else class="court-card__body">
-                <div class="court-row">
-                    <div class="court-card__team">
-                        <span class="court-card__player">{{ court.match.t1[0].name }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i></span>
-                        <span class="court-card__plus">+</span>
-                        <span class="court-card__player">{{ court.match.t1[1].name }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i></span>
+                <div class="court-card__lines"></div>
+                <div class="court-card__court">
+                    <div class="court-card__side court-card__side--team-1">
+                        <div class="court-card__player-box court-card__player-box--team-1">
+                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i></span>
+                        </div>
+                        <div class="court-card__player-box court-card__player-box--team-1">
+                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i></span>
+                        </div>
+                        <button class="btn-win btn-win--team-1" :class="{ 'is-submitting': submitting[court.match.id + '_1'] }" :disabled="submitting[court.match.id + '_2']" @click="recordResult(court.match.id, 1)">WIN</button>
                     </div>
-                    <button class="btn-win btn-win--team-1" :class="{ 'is-submitting': submitting[court.match.id + '_1'] }" :disabled="submitting[court.match.id + '_2']" @click="recordResult(court.match.id, 1)">WIN</button>
-                </div>
-                <div class="court-card__divider"><span>VS</span></div>
-                <div class="court-row">
-                    <div class="court-card__team">
-                        <span class="court-card__player">{{ court.match.t2[0].name }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i></span>
-                        <span class="court-card__plus">+</span>
-                        <span class="court-card__player">{{ court.match.t2[1].name }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i></span>
+                    <div class="court-card__divider"><span>VS</span></div>
+                    <div class="court-card__side court-card__side--team-2">
+                        <div class="court-card__player-box court-card__player-box--team-2">
+                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i></span>
+                        </div>
+                        <div class="court-card__player-box court-card__player-box--team-2">
+                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i></span>
+                        </div>
+                        <button class="btn-win btn-win--team-2" :class="{ 'is-submitting': submitting[court.match.id + '_2'] }" :disabled="submitting[court.match.id + '_1']" @click="recordResult(court.match.id, 2)">WIN</button>
                     </div>
-                    <button class="btn-win btn-win--team-2" :class="{ 'is-submitting': submitting[court.match.id + '_2'] }" :disabled="submitting[court.match.id + '_1']" @click="recordResult(court.match.id, 2)">WIN</button>
                 </div>
             </div>
         </div>
@@ -69,13 +75,15 @@
     <div class="waiting-list">
         <h3 class="waiting-list__title">NEXT UP</h3>
         <div class="waiting-list__cards">
-            <div v-for="sp in queuePlayers" :key="sp.id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED' }">
-                <div class="player-card__row">
-                    <span class="player-card__name">{{ sp.player.name }}</span>
-                    <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
+            <TransitionGroup name="queue" tag="div" class="waiting-list__row">
+                <div v-for="sp in queuePlayers" :key="sp.id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED' }">
+                    <div class="player-card__row">
+                        <span class="player-card__name">{{ formatName(sp.player.name) }}</span>
+                        <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
+                    </div>
+                    <span class="player-card__rating">{{ Math.round(sp.player.rating) }}</span>
                 </div>
-                <span class="player-card__rating">{{ Math.round(sp.player.rating) }}</span>
-            </div>
+            </TransitionGroup>
             <p v-if="queuePlayers.length === 0" class="waiting-list__empty">No players waiting</p>
         </div>
     </div>
@@ -111,7 +119,7 @@
                         <div v-for="p in availablePlayers" :key="p.id" class="existing-item">
                             <input type="checkbox" :value="p.id" v-model="selectedExisting" :id="'chk-' + p.id">
                             <label :for="'chk-' + p.id" class="existing-item__label">
-                                <span class="existing-item__name">{{ p.name }}</span>
+                                <span class="existing-item__name">{{ formatName(p.name) }}</span>
                                 <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
                             </label>
                             <button class="existing-item__del" @click.stop="openDeleteById(p.id, p.name)" title="Delete permanently">🗑</button>
@@ -125,7 +133,7 @@
                 <p class="add-section__label">In this session ({{ activePlayers.length }}):</p>
                 <div v-for="sp in activePlayers" :key="sp.id" class="manage-row">
                     <div class="manage-row__info">
-                        <span class="manage-row__name">{{ sp.player.name }}</span>
+                        <span class="manage-row__name">{{ formatName(sp.player.name) }}</span>
                         <span class="manage-row__status" :class="'manage-row__status--' + sp.status.toLowerCase()">{{ sp.status }}</span>
                         <span class="manage-row__meta">{{ sp.games_played }} games · {{ sp.wins }}W {{ sp.losses }}L</span>
                     </div>
@@ -166,6 +174,19 @@
             </div>
         </div>
     </div>
+
+    <!-- New session confirmation dialog -->
+    <div v-if="confirmNewSession.show" class="modal-overlay" @click.self="confirmNewSession.show = false">
+        <div class="modal modal--confirm">
+            <div class="confirm-icon confirm-icon--new">🆕</div>
+            <h3>Start a new session?</h3>
+            <p class="confirm-note">This will create a new "{{ sessionName }}" session with {{ courts.length || 3 }} court(s). The current session will remain available.</p>
+            <div class="modal__actions">
+                <button class="btn btn--secondary" @click="confirmNewSession.show = false">Cancel</button>
+                <button class="btn btn--primary" @click="doStartNewSession">Start New Session</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 
@@ -174,7 +195,7 @@ const SESSION_ID = <?php echo e($sessionId); ?>;
 const START_STATUS = "<?php echo e($sessionStatus); ?>";
 const START_NAME = "<?php echo e($sessionName); ?>";
 
-const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
+const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, TransitionGroup } = Vue;
 
 createApp({
     setup() {
@@ -202,7 +223,18 @@ createApp({
         );
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
+        const confirmNewSession = ref({ show: false });
+        const theme = ref(localStorage.getItem('courtly-theme') || 'system');
         let pollTimer = null;
+
+        function setTheme(t) {
+            theme.value = t;
+            localStorage.setItem('courtly-theme', t);
+            if (t === 'system') document.documentElement.removeAttribute('data-theme');
+            else document.documentElement.setAttribute('data-theme', t);
+        }
+        // Apply on load
+        if (theme.value !== 'system') document.documentElement.setAttribute('data-theme', theme.value);
 
         const COURT_COLORS = { 1:'#3B82F6', 2:'#EF4444', 3:'#F59E0B', 4:'#10B981', 5:'#8B5CF6', 6:'#EC4899', 7:'#06B6D4', 8:'#F97316' };
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
@@ -269,8 +301,11 @@ createApp({
         }
         async function startSession() { await postApi('/api/sessions/' + SESSION_ID + '/start'); fetchSession(); }
         async function startNewSession() {
+            confirmNewSession.value = { show: true };
+        }
+        async function doStartNewSession() {
+            confirmNewSession.value = { show: false };
             const courtCount = courts.value.length || 3;
-            if (!window.confirm('Start a new session ("' + sessionName.value + '") on ' + courtCount + ' court(s)?')) return;
             const res = await fetch('/api/sessions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -359,7 +394,20 @@ createApp({
         });
         onUnmounted(() => { if (pollTimer) clearTimeout(pollTimer); });
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, showPlayers, newPlayerName, availablePlayers, selectedExisting, confirmRemove, confirmDelete, courtAccent, recordResult, startSession, startNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, Math };
+        // Lock body scroll when any modal is open
+        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show);
+        watch(modalOpen, (val) => { document.body.style.overflow = val ? 'hidden' : ''; });
+
+        function formatName(name) {
+            const parts = name.trim().split(/\s+/);
+            if (parts.length < 2) return name;
+            const last = parts[parts.length - 1];
+            if (/^[A-Z]\.?$/i.test(last)) return name;
+            parts[parts.length - 1] = last.charAt(0).toUpperCase() + '.';
+            return parts.join(' ');
+        }
+
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, newPlayerName, availablePlayers, selectedExisting, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
     }
 }).mount('#courtly-app');
 </script>
