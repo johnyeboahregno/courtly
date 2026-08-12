@@ -37,15 +37,14 @@ body {
     font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", "Manrope", monospace;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-    overflow-y: auto;
+    min-height: 100dvh;
 }
 
 .session-header,
 .courts-grid,
 .waiting-list,
 .session-controls {
-    max-width: 1240px;
+    max-width: 1400px;
 }
 
 /* Header */
@@ -55,8 +54,9 @@ body {
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 0 auto 14px;
+    margin: 14px auto 14px;
     padding: 14px 18px;
+    width: 100%;
     background: var(--surface);
     border: 1px solid var(--stroke);
     border-radius: var(--radius);
@@ -83,13 +83,53 @@ body {
 }
 
 .session-header__logo-img {
-    height: 128px;
+    height: 5vh;
     width: auto;
     display: block;
 }
 
 .session-header__logo:hover {
     color: #0e5c35;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 700;
+    transition: background 0.15s, transform 0.12s;
+    flex-shrink: 0;
+}
+
+.back-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.back-btn:active {
+    transform: scale(0.95);
+}
+
+#courtly-app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+#courtly-app > * {
+    width: 100%;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .session-header__name {
@@ -449,8 +489,8 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0;
-    flex-wrap: nowrap;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .waiting-list__empty {
@@ -730,9 +770,10 @@ body {
     border-radius: 9px;
     cursor: pointer;
     transition: border-color 0.12s, background 0.12s;
+    user-select: none;
 }
 
-.existing-item:hover { border-color: #2f9a58; }
+.existing-item:hover { border-color: var(--accent); background: var(--surface); }
 
 .existing-item input {
     width: 18px;

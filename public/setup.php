@@ -62,7 +62,7 @@ try { DB::statement("ALTER TABLE session_players ADD consecutive_games INT UNSIG
 try { DB::statement("ALTER TABLE session_players ADD last_result VARCHAR(10) NULL AFTER left_at"); echo "✅ last_result<br>"; } catch (\Exception $e) { echo "last_result: ".$e->getMessage()."<br>"; }
 
 echo "<br>Fixing sessions table...<br>";
-try { DB::statement("ALTER TABLE sessions ADD COLUMN payload LONGTEXT NOT NULL AFTER id"); echo "✅ payload<br>"; } catch (\Exception $e) { echo "payload: ".substr($e->getMessage(),0,50)."<br>"; }
-try { DB::statement("ALTER TABLE sessions ADD COLUMN last_activity INT NOT NULL DEFAULT 0 AFTER payload"); echo "✅ last_activity<br>"; } catch (\Exception $e) { echo "last_activity exists<br>"; }
+try { DB::statement("ALTER TABLE sessions MODIFY payload LONGTEXT NULL"); echo "✅ payload nullable<br>"; } catch (\Exception $e) { echo "payload: ".substr($e->getMessage(),0,50)."<br>"; }
+try { DB::statement("ALTER TABLE sessions MODIFY last_activity INT NULL DEFAULT NULL"); echo "✅ last_activity nullable<br>"; } catch (\Exception $e) { echo "last_activity: ".substr($e->getMessage(),0,50)."<br>"; }
 
 echo "<br><strong>Done!</strong> Visit the site now.";
