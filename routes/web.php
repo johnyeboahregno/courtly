@@ -27,13 +27,14 @@ Route::get('/auth/facebook/callback', [AuthController::class, 'handleFacebookCal
 
 // Dashboard — lists all sessions dynamically
 Route::get('/', function () {
+    $base = rtrim(request()->getBasePath(), '/');
     $sessions = \App\Models\Session::select('id', 'name', 'date', 'number_of_courts', 'status')
         ->orderByDesc('date')->limit(20)->get();
 
     $rows = '';
     foreach ($sessions as $session) {
         $status = $session->status->value;
-        $rows .= '<a class="session-link" href="/sessions/'.$session->id.'/live">'
+        $rows .= '<a class="session-link" href="'.$base.'/sessions/'.$session->id.'/live">'
             .'<span class="session-link__name">'.e($session->name).'</span>'
             .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span></span>'
             .'</a>';
@@ -44,8 +45,8 @@ Route::get('/', function () {
     }
 
     return '<!DOCTYPE html><html><head><title>Courtly</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="icon" type="image/png" href="/assets/favicon.png?v=2">
-    <link rel="stylesheet" href="/css/courtly.css?v=3">
+    <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=2">
+    <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=3">
     <style>
         body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;background:var(--bg,#12121f);color:var(--text,#e4e4f0);margin:0;padding:40px 20px}
         .wrap{max-width:560px;margin:0 auto}
@@ -73,7 +74,7 @@ Route::get('/', function () {
     </style>
     </head><body><div class="wrap">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <h1 style="margin:0"><img src="/assets/courtly_light.png" style="height:128px;vertical-align:middle;"></h1>
+            <h1 style="margin:0"><img src="'.$base.'/assets/courtly_light.png" style="height:5vh;vertical-align:middle;"></h1>
             <div style="display:flex;gap:8px;align-items:center">
                 <div class="theme-toggle" id="themeToggle">
                     <button onclick="setTheme(\'light\')" title="Light">☀</button>
@@ -155,10 +156,18 @@ Route::get('/sessions/{session}/live', function ($session) {
         // "server unreachable" banner and keep retrying once it's back.
     }
 
-    return view('session-live', [
+    $data = [
         'sessionId' => (int) $session,
         'sessionName' => $sessionName,
         'sessionStatus' => $sessionStatus,
-    ]);
+        'base' => rtrim(request()->getBasePath(), '/'),
+    ];
+
+    $__path = resource_path('views/session-live.php');
+    extract($data, EXTR_SKIP);
+    ob_start();
+    include $__path;
+
+    return response(ob_get_clean());
 });
 

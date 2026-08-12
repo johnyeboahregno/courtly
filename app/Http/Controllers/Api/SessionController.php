@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 
 use App\Enums\CourtStatus;
+use App\Enums\MatchStatus;
 use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
 use App\Models\Court;
@@ -184,8 +185,6 @@ class SessionController extends Controller
      */
     public function finish(Session $session): JsonResponse
     {
-        // public
-
         if (! in_array($session->status, [SessionStatus::ACTIVE, SessionStatus::PAUSED])) {
             return response()->json(['message' => 'Session cannot be finished from current status.'], 409);
         }
@@ -194,6 +193,18 @@ class SessionController extends Controller
             'status' => SessionStatus::FINISHED,
             'finished_at' => now(),
         ]);
+
+        // Complete any active matches and free up courts
+        $session->matches()->where('status', MatchStatus::PLAYING)->update([
+            'status' => MatchStatus::COMPLETED,
+            'completed_at' => now(),
+        ]);
+
+        $session->courts()->update(['status' => CourtStatus::AVAILABLE]);
+
+        $session->sessionPlayers()
+            ->where('status', SessionPlayerStatus::PLAYING)
+            ->update(['status' => SessionPlayerStatus::WAITING]);
 
         $this->events->publish($session->id, 'session.updated', [
             'session_id' => $session->id,

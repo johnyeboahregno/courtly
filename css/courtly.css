@@ -57,7 +57,7 @@ body {
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 14px auto;
+    margin: 1rem;
     padding: 14px 18px;
     background: linear-gradient(160deg, #ffffff 0%, #f8fcfa 100%);
     border: 1px solid var(--stroke);
@@ -85,7 +85,7 @@ body {
 }
 
 .session-header__logo-img {
-    height: 64px;
+    height: 5vh;
     width: auto;
     display: block;
 }

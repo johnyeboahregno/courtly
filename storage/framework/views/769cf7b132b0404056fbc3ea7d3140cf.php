@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="/css/courtly.css?v=5">
+    <link rel="stylesheet" href="/css/courtly.css?v=6">
 </head>
 <body>
 
@@ -295,8 +295,32 @@ createApp({
         async function postApi(url) { const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, credentials:'include' }); return res.json(); }
         async function recordResult(matchId, team) {
             submitting[matchId + '_' + team] = true;
+
+            // Optimistic UI: move losing players to waiting list immediately
+            const losingTeam = team === 1 ? 2 : 1;
+            const court = courts.value.find(c => c.match && c.match.id === matchId);
+            if (court && court.match) {
+                const losers = losingTeam === 1 ? court.match.t1 : court.match.t2;
+                const winnerNames = (team === 1 ? court.match.t1 : court.match.t2).map(p => p.name);
+
+                // Update player statuses locally
+                players.value = players.value.map(sp => {
+                    const isLoser = losers.some(l => l.name === sp.player.name);
+                    const isWinner = winnerNames.includes(sp.player.name);
+                    if (isLoser) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins, losses: sp.losses + 1 };
+                    if (isWinner) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins + 1, losses: sp.losses };
+                    return sp;
+                });
+
+                // Clear the court
+                court.match = null;
+            }
+
+            // Send to server in background
             const res = await fetch('/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'include',body:JSON.stringify({winning_team:team})});
             submitting[matchId + '_' + team] = false;
+
+            // Full refresh to reconcile with server
             if (res.ok) fetchSession();
         }
         async function startSession() { await postApi('/api/sessions/' + SESSION_ID + '/start'); fetchSession(); }

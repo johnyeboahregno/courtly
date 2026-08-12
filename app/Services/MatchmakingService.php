@@ -497,7 +497,17 @@ class MatchmakingService
             'duration_ms' => $durationMs,
         ]);
 
-        return $matches;
+        // Eager-load relations so the API response includes player data —
+        // the frontend uses this to populate courts immediately (no extra GET).
+        if (! empty($matches)) {
+            $matchIds = array_map(fn (GameMatch $m) => $m->id, $matches);
+            return GameMatch::whereIn('id', $matchIds)
+                ->with('matchPlayers.player')
+                ->get()
+                ->all();
+        }
+
+        return [];
     }
 
     // ─── Relationship tracking helpers ───

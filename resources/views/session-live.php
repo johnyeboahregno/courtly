@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Courtly — {{ $sessionName }}</title>
-    <link rel="icon" type="image/png" href="/assets/favicon.png?v=2">
+    <title>Courtly — <?= htmlspecialchars($sessionName ?? 'Session') ?></title>
+    <link rel="icon" type="image/png" href="<?= $base ?? '/courtly' ?>/assets/favicon.png?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="/css/courtly.css?v=6">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=6">
 </head>
 <body>
-@verbatim
 <div id="courtly-app">
     <header class="session-header">
         <div class="session-header__left">
-            <a href="/" class="session-header__logo" title="Back to home">
-                <img src="/assets/courtly_light.png" alt="Courtly" class="session-header__logo-img">
+            <a href="<?= $base ?? '/courtly' ?>/" class="back-btn" title="Back to dashboard">←</a>
+            <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
+                <img src="<?= $base ?? '/courtly' ?>/assets/courtly_light.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
@@ -110,40 +110,19 @@
             <div class="add-section">
                 <div class="add-section__new">
                     <input v-model="newPlayerName" placeholder="New player name (or guest)" class="modal__input" @keyup.enter="addPlayers">
-                    <button class="btn btn--primary" @click="addPlayers" :disabled="(!newPlayerName.trim() && selectedExisting.length === 0)">Add</button>
+                    <button class="btn btn--primary" @click="addPlayers" :disabled="!newPlayerName.trim()">New</button>
                 </div>
 
                 <div v-if="availablePlayers.length" class="add-section__existing">
-                    <p class="add-section__label">Select existing players to add:</p>
+                    <p class="add-section__label">Tap to add:</p>
                     <div class="existing-list">
-                        <div v-for="p in availablePlayers" :key="p.id" class="existing-item">
-                            <input type="checkbox" :value="p.id" v-model="selectedExisting" :id="'chk-' + p.id">
-                            <label :for="'chk-' + p.id" class="existing-item__label">
-                                <span class="existing-item__name">{{ formatName(p.name) }}</span>
-                                <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
-                            </label>
+                        <div v-for="p in availablePlayers" :key="p.id" class="existing-item" @click="addExistingPlayer(p.id)">
+                            <span class="existing-item__name">{{ formatName(p.name) }}</span>
+                            <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
                             <button class="existing-item__del" @click.stop="openDeleteById(p.id, p.name)" title="Delete permanently">🗑</button>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Roster (manage) — only show active players, not LEFT -->
-            <div class="roster">
-                <p class="add-section__label">In this session ({{ activePlayers.length }}):</p>
-                <div v-for="sp in activePlayers" :key="sp.id" class="manage-row">
-                    <div class="manage-row__info">
-                        <span class="manage-row__name">{{ formatName(sp.player.name) }}</span>
-                        <span class="manage-row__status" :class="'manage-row__status--' + sp.status.toLowerCase()">{{ sp.status }}</span>
-                        <span class="manage-row__meta">{{ sp.games_played }} games · {{ sp.wins }}W {{ sp.losses }}L</span>
-                    </div>
-                    <div class="manage-row__actions">
-                        <button v-if="sp.status === 'WAITING'" class="manage-btn" @click="pausePlayer(sp.id)">⏸ Pause</button>
-                        <button v-if="sp.status === 'PAUSED'" class="manage-btn" @click="resumePlayer(sp.id)">▶ Resume</button>
-                        <button v-if="sp.status !== 'LEFT'" class="manage-btn manage-btn--danger" @click="openRemove(sp)">✕ Remove</button>
-                    </div>
-                </div>
-                <p v-if="activePlayers.length === 0" class="manage-empty">No players in this session yet.</p>
             </div>
         </div>
     </div>
@@ -188,12 +167,12 @@
         </div>
     </div>
 </div>
-@endverbatim
 
 <script>
-const SESSION_ID = {{ $sessionId }};
-const START_STATUS = "{{ $sessionStatus }}";
-const START_NAME = "{{ $sessionName }}";
+const SESSION_ID = <?= (int) ($sessionId ?? 0) ?>;
+const START_STATUS = "<?= htmlspecialchars($sessionStatus ?? 'UNKNOWN', ENT_QUOTES) ?>";
+const START_NAME = "<?= htmlspecialchars($sessionName ?? 'Session', ENT_QUOTES) ?>";
+const BASE_URL = "<?= htmlspecialchars(($base ?? '') . '', ENT_QUOTES) ?>";
 
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, TransitionGroup } = Vue;
 
@@ -217,7 +196,6 @@ createApp({
         const showPlayers = ref(false);
         const newPlayerName = ref('');
         const allKnownPlayers = ref([]);
-        const selectedExisting = ref([]);
         const availablePlayers = computed(() =>
             allKnownPlayers.value.filter(p => !activePlayers.value.some(sp => sp.player_id === p.id))
         );
@@ -240,13 +218,12 @@ createApp({
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
 
         async function loadKnownPlayers() {
-            const res = await fetch('/api/players', { credentials: 'include', headers: { 'Accept': 'application/json' } });
+            const res = await fetch(BASE_URL + '/api/players', { credentials: 'include', headers: { 'Accept': 'application/json' } });
             const json = await res.json();
             allKnownPlayers.value = json.data || [];
         }
 
         function openPlayers() {
-            selectedExisting.value = [];
             newPlayerName.value = '';
             showPlayers.value = true;
         }
@@ -256,7 +233,7 @@ createApp({
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 8000);
             try {
-                const res = await fetch('/api/sessions/' + SESSION_ID, { credentials: 'include', signal: controller.signal });
+                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID, { credentials: 'include', signal: controller.signal });
                 clearTimeout(timer);
                 if (!res.ok) { connectionState.value = 'offline'; return; }
                 const json = await res.json();
@@ -316,12 +293,45 @@ createApp({
                 court.match = null;
             }
 
-            // Send to server in background
-            const res = await fetch('/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'include',body:JSON.stringify({winning_team:team})});
+            // Send to server
+            const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'include',body:JSON.stringify({winning_team:team})});
             submitting[matchId + '_' + team] = false;
 
-            // Full refresh to reconcile with server
-            if (res.ok) fetchSession();
+            if (res.ok) {
+                const json = await res.json();
+                const nextMatches = json?.data?.next_matches || [];
+
+                // Populate courts immediately from the POST response — no extra GET roundtrip
+                for (const nm of nextMatches) {
+                    const targetCourt = courts.value.find(c => c.id === nm.court_id);
+                    if (targetCourt && nm.match_players && nm.match_players.length === 4) {
+                        const t1 = nm.match_players.filter(p => p.team === 1);
+                        const t2 = nm.match_players.filter(p => p.team === 2);
+                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: 0 });
+                        targetCourt.match = {
+                            id: nm.id,
+                            t1: [build(t1[0]), build(t1[1])],
+                            t2: [build(t2[0]), build(t2[1])]
+                        };
+                    }
+                }
+
+                // Update player statuses for newly assigned players
+                const newPlayingIds = nextMatches.flatMap(nm =>
+                    (nm.match_players || []).map(mp => mp.player_id)
+                );
+                if (newPlayingIds.length > 0) {
+                    players.value = players.value.map(sp => {
+                        if (newPlayingIds.includes(sp.player_id)) {
+                            return { ...sp, status: 'PLAYING' };
+                        }
+                        return sp;
+                    });
+                }
+
+                // Background refresh for ratings/stats reconciliation
+                fetchSession();
+            }
         }
         async function startSession() { await postApi('/api/sessions/' + SESSION_ID + '/start'); fetchSession(); }
         async function startNewSession() {
@@ -330,7 +340,7 @@ createApp({
         async function doStartNewSession() {
             confirmNewSession.value = { show: false };
             const courtCount = courts.value.length || 3;
-            const res = await fetch('/api/sessions', {
+            const res = await fetch(BASE_URL + '/api/sessions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 credentials: 'include',
@@ -338,37 +348,53 @@ createApp({
             });
             const json = await res.json();
             if (!res.ok || !json.data || !json.data.id) return;
-            window.location.href = '/sessions/' + json.data.id + '/live';
+            window.location.href = BASE_URL + '/sessions/' + json.data.id + '/live';
         }
         async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
         async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
         async function finishSession() { await postApi('/api/sessions/' + SESSION_ID + '/finish'); fetchSession(); }
         async function addPlayers() {
-            const ids = selectedExisting.value;
             const name = newPlayerName.value.trim();
-            if (ids.length === 0 && !name) return;
+            if (!name) return;
 
-            const body = {};
-            if (ids.length) body.player_ids = ids;
-            if (name) body.name = name;
+            // Optimistic: add to waiting list immediately
+            players.value.push({
+                player_id: 'new',
+                player: { id: 'new', name: name, rating: 0 },
+                status: 'WAITING',
+                games_played: 0, wins: 0, losses: 0
+            });
+            newPlayerName.value = '';
 
-            const res = await fetch('/api/sessions/' + SESSION_ID + '/players', {
+            const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/players', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(body)
+                body: JSON.stringify({ name: name })
             });
-            const json = await res.json();
-            newPlayerName.value = '';
-            selectedExisting.value = [];
-            // Update local cache from the response instead of refetching
-            if (json && json.data && json.data.session_players) {
-                json.data.session_players.forEach(sp => {
-                    if (!allKnownPlayers.value.some(p => p.id === sp.player.id)) {
-                        allKnownPlayers.value.push({ id: sp.player.id, name: sp.player.name, rating: sp.player.rating, total_games: sp.player.total_games });
-                    }
+            await fetchSession();
+        }
+
+        async function addExistingPlayer(id) {
+            // Optimistic: remove from available list, add to waiting list
+            const player = allKnownPlayers.value.find(p => p.id === id);
+            allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== id);
+
+            if (player) {
+                players.value.push({
+                    player_id: id,
+                    player: { id: id, name: player.name, rating: player.rating },
+                    status: 'WAITING',
+                    games_played: 0, wins: 0, losses: 0
                 });
             }
+
+            await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/players', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ player_ids: [id] })
+            });
             await fetchSession();
         }
 
@@ -398,7 +424,7 @@ createApp({
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            await fetch('/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json' } });
+            await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json' } });
             allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
             fetchSession();
         }
@@ -431,7 +457,7 @@ createApp({
             return parts.join(' ');
         }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, newPlayerName, availablePlayers, selectedExisting, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, newPlayerName, availablePlayers, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
     }
 }).mount('#courtly-app');
 </script>
