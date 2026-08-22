@@ -22,6 +22,11 @@ return [
         'max_calculation_time_ms' => 500,
         'winner_priority_bonus' => 500,
 
+        // Cost per player who would return to the court they just won on.
+        // Strong enough to rotate winners onto a different court, but far below
+        // the unfair-group / exact-repeat hard blocks so those still dominate.
+        'winner_return_penalty' => 2000,
+
         // Never put the same two players on the same side in consecutive games.
         // Hard constraint; automatically falls back when numbers don't allow it.
         'same_side_consecutive_block' => true,
