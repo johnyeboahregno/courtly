@@ -1,0 +1,48 @@
+name: Deploy to FTP
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: FTP Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.bytedemon.com
+          port: "666"
+          username: regnocloud
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: public_html/courtly2/
+          exclude: |
+            **/.git/**
+            **/.gitignore
+            **/.github/**
+            **/.env
+            **/.env.example
+            **/vendor/**
+            **/storage/**
+            **/bootstrap/cache/**
+            **/node_modules/**
+            **/public/**
+            **/README.md
+            **/CLAUDE.md
+            **/USER_GUIDE.md
+            **/test.html
+            **/debug.php
+            **/info.php
+            **/start.bat
+            **/start.sh
+            **/composer.phar
+            **/composer.lock
+            **/cacert.pem
+            **/*.log
+            **/peg-board.md

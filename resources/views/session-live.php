@@ -105,13 +105,13 @@
     </div>
 
     <footer class="session-controls">
-        <button v-if="session.status === 'UPCOMING'" class="btn btn--primary" @click="startSession">▶ START SESSION</button>
         <button v-if="session.status === 'ACTIVE'" class="btn btn--warning" @click="pauseSession">⏸ PAUSE</button>
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" @click="resumeSession">▶ RESUME</button>
         <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
         <button class="btn btn--secondary" @click="openPlayers">+ PLAYERS</button>
         <button class="btn btn--secondary" @click="openPlayers">👥 MANAGE</button>
+        <button v-if="syncEnabled" class="btn btn--secondary" @click="syncNow" :disabled="syncing">⟳ SYNC<span v-if="pendingCount"> ({{ pendingCount }})</span></button>
     </footer>
 
     <!-- Players dialog: add new/select existing + manage roster -->
@@ -125,7 +125,7 @@
             <!-- Add section -->
             <div class="add-section">
                 <div class="add-section__new">
-                    <input v-model="newPlayerName" placeholder="Player name" class="modal__input" @keyup.enter="addPlayers" @focus="showSuggestionsNow" @blur="hideSuggestionsLater">
+                    <input ref="playerNameInput" v-model="newPlayerName" placeholder="Player name" class="modal__input" @keyup.enter="addPlayers" @focus="showSuggestionsNow" @blur="hideSuggestionsLater">
                     <button class="btn btn--primary" @click="addPlayers" :disabled="!newPlayerName.trim()">Add</button>
                 </div>
 
@@ -190,8 +190,9 @@ const START_STATUS = "<?= htmlspecialchars($sessionStatus ?? 'UNKNOWN', ENT_QUOT
 const START_NAME = "<?= htmlspecialchars($sessionName ?? 'Session', ENT_QUOTES) ?>";
 const BASE_URL = "<?= htmlspecialchars(($base ?? '') . '', ENT_QUOTES) ?>";
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+const SYNC_CONFIG = <?= json_encode($syncConfig ?? []) ?>;
 
-const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, TransitionGroup } = Vue;
+const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, TransitionGroup } = Vue;
 
 createApp({
     setup() {
@@ -250,6 +251,7 @@ createApp({
         const showPlayers = ref(false);
         const showSuggestions = ref(false);
         const newPlayerName = ref('');
+        const playerNameInput = ref(null);
         const allKnownPlayers = ref([]);
         let blurTimer = null;
         const availablePlayers = computed(() =>
@@ -278,9 +280,10 @@ createApp({
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
         const theme = ref(localStorage.getItem('courtly-theme') || 'system');
-        let pollTimer = null;
         let syncTimer = null;
-        let syncing = false;
+        let reconcileTimer = null;
+        const syncing = ref(false);
+        const syncEnabled = ref(SYNC_CONFIG.sync_button !== false);
 
         // ── Offline-first player store + sync queue ──
         // Remote connection is only needed for the initial player load and
@@ -288,6 +291,11 @@ createApp({
         // pushed to the server periodically; failures are silent and retried.
         const LS_PLAYERS = 'courtly.players.v1';
         const LS_QUEUE = 'courtly.syncQueue.v1';
+        const LS_SESSION = 'courtly.session.' + SESSION_ID + '.v1';
+        const SYNC_INTERVAL_MS = Number(SYNC_CONFIG.auto_sync_interval_ms ?? 30000);
+        const RECONCILE_INTERVAL_MS = Number(SYNC_CONFIG.reconcile_interval_ms ?? SYNC_INTERVAL_MS);
+        const SYNC_ON_IDLE = SYNC_CONFIG.sync_on_idle !== false;
+        const SYNC_ON_SESSION_END = SYNC_CONFIG.sync_on_session_end !== false;
         function readLS(key, fallback) {
             try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch { return fallback; }
         }
@@ -295,6 +303,7 @@ createApp({
             try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
         }
         const syncQueue = ref(readLS(LS_QUEUE, []));
+        const pendingCount = computed(() => syncQueue.value.length);
         function persistQueue() { writeLS(LS_QUEUE, syncQueue.value); }
         function enqueueSync(path, method, body) {
             syncQueue.value.push({
@@ -303,6 +312,25 @@ createApp({
             });
             persistQueue();
         }
+        // Persist the current session state to browser storage so the UI can
+        // restore instantly and run snappily without waiting on the network.
+        function persistSessionState() {
+            writeLS(LS_SESSION, {
+                status: session.status,
+                players: players.value,
+                courts: courts.value,
+                savedAt: Date.now()
+            });
+        }
+        function loadSessionState() {
+            const cached = readLS(LS_SESSION, null);
+            if (!cached) return;
+            if (cached.status) session.status = cached.status;
+            if (Array.isArray(cached.players)) players.value = cached.players;
+            if (Array.isArray(cached.courts)) courts.value = cached.courts;
+        }
+        // Keep the local store in sync with reactive state (any change persists).
+        watch([players, courts, () => session.status], persistSessionState, { deep: true });
         // Fetch the full player list from the server and cache it locally.
         async function refreshPlayerCache() {
             try {
@@ -318,8 +346,8 @@ createApp({
         // Push pending ops to the server. Failures are silent — kept in queue,
         // retried 30s later by the sync loop.
         async function flushSyncQueue() {
-            if (syncing || syncQueue.value.length === 0) return;
-            syncing = true;
+            if (syncing.value || syncQueue.value.length === 0) return;
+            syncing.value = true;
             try {
                 const remaining = [];
                 let progressed = false;
@@ -339,11 +367,13 @@ createApp({
                 persistQueue();
                 // On any success, reconcile local state with the server in the background
                 if (progressed) { refreshPlayerCache(); fetchSession(); }
-            } finally { syncing = false; }
+            } finally { syncing.value = false; }
         }
         function startSyncLoop() {
             flushSyncQueue();
-            syncTimer = setInterval(flushSyncQueue, 30000); // retry every 30s
+            if (SYNC_INTERVAL_MS > 0) {
+                syncTimer = setInterval(flushSyncQueue, SYNC_INTERVAL_MS);
+            }
         }
 
         function setTheme(t) {
@@ -370,6 +400,7 @@ createApp({
             newPlayerName.value = '';
             showPlayers.value = true;
             showSuggestions.value = true;
+            nextTick(() => playerNameInput.value && playerNameInput.value.focus());
         }
         function showSuggestionsNow() {
             clearTimeout(blurTimer);
@@ -493,7 +524,6 @@ createApp({
                 fetchSession();
             }
         }
-        async function startSession() { await postApi('/api/sessions/' + SESSION_ID + '/start'); fetchSession(); }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
         }
@@ -513,7 +543,7 @@ createApp({
         async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
         async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
         async function finishSession() {
-            await flushSyncQueue(); // session-end sync: push any pending changes
+            if (SYNC_ON_SESSION_END) await flushSyncQueue(); // push any pending changes
             await postApi('/api/sessions/' + SESSION_ID + '/finish');
             fetchSession();
         }
@@ -532,9 +562,9 @@ createApp({
             });
             newPlayerName.value = '';
 
-            // Queue and flush immediately so the server knows right away
+            // Queue for background sync (flushed on the configured schedule,
+            // on idle, via the Sync button, or at session end).
             enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { name: name });
-            flushSyncQueue();
         }
 
         async function addExistingPlayer(id) {
@@ -553,22 +583,33 @@ createApp({
 
             newPlayerName.value = ''; // clear the autocomplete input
             enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { player_ids: [id] });
-            flushSyncQueue();
         }
 
-        async function pausePlayer(spId) { await postApi('/api/session-players/' + spId + '/pause'); fetchSession(); }
-        async function resumePlayer(spId) { await postApi('/api/session-players/' + spId + '/resume'); fetchSession(); }
+        function pausePlayer(spId) {
+            if (typeof spId === 'number') {
+                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'PAUSED', waiting_since: null } : sp);
+                enqueueSync('/api/session-players/' + spId + '/pause', 'POST');
+            }
+        }
+        function resumePlayer(spId) {
+            if (typeof spId === 'number') {
+                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'WAITING' } : sp);
+                enqueueSync('/api/session-players/' + spId + '/resume', 'POST');
+            }
+        }
 
         // Styled remove confirmation
         function openRemove(sp) {
             confirmRemove.value = { show: true, spId: sp.id, name: sp.player.name, isPlaying: sp.status === 'PLAYING' };
         }
-        async function confirmLeave() {
+        function confirmLeave() {
             if (!confirmRemove.value.spId) return;
             const spId = confirmRemove.value.spId;
             confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false };
-            await postApi('/api/session-players/' + spId + '/leave');
-            fetchSession();
+            if (typeof spId === 'number') {
+                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'LEFT', left_at: new Date().toISOString() } : sp);
+                enqueueSync('/api/session-players/' + spId + '/leave', 'POST');
+            }
         }
 
         // Permanent delete from system
@@ -578,30 +619,44 @@ createApp({
         function openDeleteById(playerId, playerName) {
             confirmDelete.value = { show: true, playerId: playerId, name: playerName };
         }
-        async function deletePlayer() {
+        function deletePlayer() {
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
             allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
-            fetchSession();
+            enqueueSync('/api/players/' + playerId, 'DELETE');
+        }
+
+        function onVisibilityChange() {
+            if (document.visibilityState === 'hidden') flushSyncQueue();
+        }
+        function onPageHide() {
+            flushSyncQueue();
         }
 
         onMounted(() => {
-            let backoff = 3000;
-            function schedulePoll() {
-                pollTimer = setTimeout(async () => {
-                    await fetchSession();
-                    backoff = connectionState.value === 'connected' ? 3000 : Math.min(backoff * 2, 15000);
-                    schedulePoll();
-                }, backoff);
-            }
-            fetchSession();
+            loadSessionState();          // instant from browser storage
+            fetchSession();              // reconcile with the server once
             loadKnownPlayers();
             startSyncLoop();
-            schedulePoll();
+
+            // Background reconcile (safety net) instead of a 3s poll.
+            if (RECONCILE_INTERVAL_MS > 0) {
+                reconcileTimer = setInterval(fetchSession, RECONCILE_INTERVAL_MS);
+            }
+
+            // Flush pending changes when the user leaves / tab goes idle.
+            if (SYNC_ON_IDLE) {
+                document.addEventListener('visibilitychange', onVisibilityChange);
+                window.addEventListener('pagehide', onPageHide);
+            }
         });
-        onUnmounted(() => { if (pollTimer) clearTimeout(pollTimer); if (syncTimer) clearInterval(syncTimer); });
+        onUnmounted(() => {
+            if (syncTimer) clearInterval(syncTimer);
+            if (reconcileTimer) clearInterval(reconcileTimer);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('pagehide', onPageHide);
+        });
 
         // Lock body scroll when any modal is open
         const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show);
@@ -623,7 +678,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
     }
 }).mount('#courtly-app');
 </script>

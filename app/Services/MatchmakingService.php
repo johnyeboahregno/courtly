@@ -76,7 +76,17 @@ class MatchmakingService
 
         $assignments = $this->findBestCourtAssignments($session, $numCourts, $waitingPlayers);
 
-        return $this->createMatchesFromAssignments($session, $availableCourts, $assignments, $startTime);
+        $matches = $this->createMatchesFromAssignments($session, $availableCourts, $assignments, $startTime);
+
+        // Auto-start: the first match kicks the session from UPCOMING → ACTIVE.
+        if (! empty($matches) && $session->status === SessionStatus::UPCOMING) {
+            $session->update([
+                'status' => SessionStatus::ACTIVE,
+                'started_at' => now(),
+            ]);
+        }
+
+        return $matches;
     }
 
     /**
