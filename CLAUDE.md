@@ -588,7 +588,7 @@ The core algorithm that allocates 4-player matches to available courts.
 
 **Hard Constraints:**
 - A player in an active PLAYING match cannot be re-allocated (MM-005)
-- Exact same 4-player group as any court's last round is blocked (100k cost)
+- Exact same 4-player group as any court's last round is blocked (100k cost); repeat guards check each court's own last round, not just the globally-latest match (config: `matchmaking.per_court_repeat_guards`)
 - Consecutive matchup (same 2v2) is blocked (10k cost)
 - Fewer than 4 WAITING players → no allocation
 
