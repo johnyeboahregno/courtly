@@ -72,6 +72,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Courtly Offline-First Sync Configuration
+    |--------------------------------------------------------------------------
+    */
+    'sync' => [
+        // How often (ms) pending local changes are flushed to the server.
+        'auto_sync_interval_ms' => (int) env('COURTLY_SYNC_INTERVAL_MS', 30000),
+        // How often (ms) the live view re-fetches session state from the server.
+        'reconcile_interval_ms' => (int) env('COURTLY_RECONCILE_INTERVAL_MS', 30000),
+        // Flush pending changes when the tab is hidden / the page is closing.
+        'sync_on_idle' => (bool) env('COURTLY_SYNC_ON_IDLE', true),
+        // Show a manual "Sync" button in the session view.
+        'sync_button' => (bool) env('COURTLY_SYNC_BUTTON', true),
+        // Flush pending changes when the session is finished.
+        'sync_on_session_end' => (bool) env('COURTLY_SYNC_ON_SESSION_END', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Courtly Match Feedback Configuration
     |--------------------------------------------------------------------------
     */

@@ -86,7 +86,8 @@ Route::get('/', function () {
         .empty{color:var(--text-muted,#8888a8)}
         .user-name{font-size:.85rem;font-weight:700;color:var(--text,#e4e4f0);padding:6px 12px;border:1px solid var(--stroke,#2e2e4a);border-radius:999px;background:var(--surface,#1e1e32)}
         .tag--passed{background:#3a2024;color:#d47a8a}
-        .session-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+        .session-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;transition:opacity .3s ease,transform .3s ease,margin-bottom .3s ease}
+        .session-row.session-row--removing{opacity:0;transform:translateX(16px);margin-bottom:0;pointer-events:none}
         .session-row .session-link{flex:1;margin-bottom:0}
         .session-delete{border:none;background:transparent;color:var(--text-muted,#8888a8);border-radius:6px;width:32px;height:32px;font-size:1.1rem;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s}
         .session-delete:hover{color:var(--accent,#ff2d55);background:var(--surface,#1e1e32)}
@@ -245,12 +246,16 @@ Route::get('/', function () {
         var id = btn.getAttribute("data-id");
         var row = btn.closest(".session-row");
         showConfirmDialog("Delete session", "Delete this session and all its data? This cannot be undone.", function(){
+            // Optimistic: fade the row out immediately.
+            if (row) {
+                row.classList.add("session-row--removing");
+                setTimeout(function(){ if (row) row.remove(); }, 300);
+            }
             fetch("/api/sessions/" + id, { method: "DELETE", headers: {"Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'"} })
                 .then(function(res){
-                    if (res.ok) { if (row) row.remove(); }
-                    else { showAlertDialog("Error", "Failed to delete session"); }
+                    if (!res.ok) { showAlertDialog("Error", "Failed to delete session — refresh to restore the list."); }
                 })
-                .catch(function(){ showAlertDialog("Error", "Failed to delete session"); });
+                .catch(function(){ showAlertDialog("Error", "Failed to delete session — refresh to restore the list."); });
         });
     });
     </script>
@@ -280,6 +285,7 @@ Route::get('/sessions/{session}/live', function ($session) {
         'sessionName' => $sessionName,
         'sessionStatus' => $sessionStatus,
         'base' => rtrim(request()->getBasePath(), '/'),
+        'syncConfig' => config('courtly.sync'),
     ];
 
     $__path = resource_path('views/session-live.php');
