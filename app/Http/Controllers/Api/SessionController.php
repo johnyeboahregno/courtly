@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Enums\CourtStatus;
 use App\Enums\MatchStatus;
 use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
+use App\Models\AIRun;
 use App\Models\Court;
 use App\Models\Player;
+use App\Models\RatingHistory;
 use App\Models\Session;
 use App\Models\SessionPlayer;
 use App\Services\MatchmakingService;
@@ -19,9 +22,12 @@ use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SessionController extends Controller
 {
+    use AuthorizesOwnership;
+
     public function __construct(
         private readonly MatchmakingService $matchmaking,
         private readonly RealtimeEventService $events,
@@ -29,12 +35,11 @@ class SessionController extends Controller
     ) {}
 
     /**
-     * List sessions visible to the authenticated user.
+     * List the authenticated user's sessions.
      */
     public function index(Request $request): JsonResponse
     {
         $sessions = Session::where('created_by', $request->user()->id)
-            ->orWhereHas('sessionPlayers', fn ($q) => $q->where('player_id', $request->user()->player?->id))
             ->latest('date')
             ->paginate(20);
 
@@ -60,7 +65,7 @@ class SessionController extends Controller
             'start_time' => $validated['start_time'] ?? null,
             'number_of_courts' => $validated['number_of_courts'],
             'status' => SessionStatus::UPCOMING,
-            'created_by' => $request->user()?->id ?? \App\Models\User::first()?->id,
+            'created_by' => $request->user()->id,
         ]);
 
         // Create courts
@@ -83,6 +88,8 @@ class SessionController extends Controller
      */
     public function show(Session $session): JsonResponse
     {
+        $this->authorizeSession($session);
+
         // Fill any empty courts — a court must never sit idle
         if ($session->status === SessionStatus::ACTIVE) {
             $this->matchmaking->allocateMatches($session);
@@ -98,7 +105,7 @@ class SessionController extends Controller
      */
     public function start(Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         if ($session->status !== SessionStatus::UPCOMING) {
             return response()->json(['message' => 'Session can only be started from UPCOMING status.'], 409);
@@ -135,7 +142,7 @@ class SessionController extends Controller
      */
     public function pause(Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         if ($session->status !== SessionStatus::ACTIVE) {
             return response()->json(['message' => 'Only active sessions can be paused.'], 409);
@@ -156,7 +163,7 @@ class SessionController extends Controller
      */
     public function resume(Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         if ($session->status !== SessionStatus::PAUSED) {
             return response()->json(['message' => 'Only paused sessions can be resumed.'], 409);
@@ -185,6 +192,8 @@ class SessionController extends Controller
      */
     public function finish(Session $session): JsonResponse
     {
+        $this->authorizeSession($session);
+
         if (! in_array($session->status, [SessionStatus::ACTIVE, SessionStatus::PAUSED])) {
             return response()->json(['message' => 'Session cannot be finished from current status.'], 409);
         }
@@ -224,10 +233,37 @@ class SessionController extends Controller
      */
     public function summary(Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         return response()->json([
             'data' => $this->analytics->calculateSummary($session),
         ]);
+    }
+
+    /**
+     * Delete a session and all of its data.
+     */
+    public function destroy(Session $session): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        DB::transaction(function () use ($session) {
+            $matchIds = $session->matches()->pluck('id');
+
+            // rating_history.match_id has no ON DELETE CASCADE, so clear it first.
+            if ($matchIds->isNotEmpty()) {
+                RatingHistory::whereIn('match_id', $matchIds)->delete();
+            }
+
+            AIRun::where('session_id', $session->id)->delete();
+
+            // matches (DB cascades match_players, match_feedback, matchmaking_logs)
+            $session->matches()->delete();
+            $session->sessionPlayers()->delete();
+            $session->courts()->delete();
+            $session->delete();
+        });
+
+        return response()->json(['message' => 'Session deleted.']);
     }
 }

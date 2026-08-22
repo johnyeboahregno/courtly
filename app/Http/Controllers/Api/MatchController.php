@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\GameMatch;
 use App\Services\MatchResultService;
@@ -13,6 +14,8 @@ use Illuminate\Http\Request;
 
 class MatchController extends Controller
 {
+    use AuthorizesOwnership;
+
     public function __construct(
         private readonly MatchResultService $resultService,
     ) {}
@@ -22,7 +25,7 @@ class MatchController extends Controller
      */
     public function recordResult(Request $request, GameMatch $match): JsonResponse
     {
-        // public
+        $this->authorizeSession($match->session);
 
         $validated = $request->validate([
             'winning_team' => ['required', 'integer', 'in:1,2'],
@@ -38,7 +41,7 @@ class MatchController extends Controller
      */
     public function correctResult(Request $request, GameMatch $match): JsonResponse
     {
-        // public
+        $this->authorizeSession($match->session);
 
         $validated = $request->validate([
             'winning_team' => ['required', 'integer', 'in:1,2'],

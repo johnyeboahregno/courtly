@@ -71,4 +71,12 @@ class Session extends Model
     {
         return (int) $this->sessionPlayers()->max('games_played');
     }
+
+    /**
+     * Whether this session belongs to the given user.
+     */
+    public function belongsToUser(User $user): bool
+    {
+        return (int) $this->created_by === (int) $user->id;
+    }
 }

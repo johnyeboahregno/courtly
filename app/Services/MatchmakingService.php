@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\CourtStatus;
 use App\Enums\MatchStatus;
 use App\Enums\SessionPlayerStatus;
+use App\Enums\SessionStatus;
 use App\Models\Court;
 use App\Models\GameMatch;
 use App\Models\MatchmakingLog;
@@ -31,6 +32,13 @@ class MatchmakingService
      */
     public function allocateMatches(Session $session): array
     {
+        // Never matchmake a paused or finished session. UPCOMING sessions DO
+        // matchmake — that's how courts fill with teams (blue/green) as soon
+        // as four players have checked in, before the session is "started".
+        if ($session->status === SessionStatus::PAUSED || $session->status === SessionStatus::FINISHED) {
+            return [];
+        }
+
         $startTime = microtime(true);
 
         $availableCourts = $session->courts()
@@ -93,7 +101,13 @@ class MatchmakingService
             $priority += 50;
         }
 
-        // 4. Winner preference (soft)
+        // 4. Forced sit-out after too many consecutive games — players who have
+        //    been on court non-stop are pushed down so everyone rotates out.
+        if ($sp->consecutive_games >= config('courtly.matchmaking.max_consecutive_games')) {
+            $priority -= config('courtly.matchmaking.consecutive_games_penalty');
+        }
+
+        // 5. Winner preference (soft)
         if ($sp->last_result?->value === 'WIN') {
             $priority += config('courtly.matchmaking.winner_priority_bonus');
         }
@@ -225,14 +239,41 @@ class MatchmakingService
         $splits = $this->generateTeamSplits($players);
         $bestSplit = null;
         $bestCost = PHP_FLOAT_MAX;
+        $fallbackSplit = null;
+        $fallbackCost = PHP_FLOAT_MAX;
 
         foreach ($splits as $split) {
             $cost = $this->calculatePairingCost($split['team1'], $split['team2'], $session);
+
+            // Track the least-bad split regardless of hard constraints so we can
+            // fall back to it when every split violates the side-repeat rule.
+            if ($cost < $fallbackCost) {
+                $fallbackCost = $cost;
+                $fallbackSplit = $split;
+            }
+
+            // HARD CONSTRAINT: never repeat a side pairing from the last game.
+            // Only relaxed when the numbers force it (all splits blocked).
+            if (config('courtly.matchmaking.same_side_consecutive_block')) {
+                $repeatsSide = $this->wereTeammatesInLastMatch($split['team1'][0], $split['team1'][1], $session)
+                    || $this->wereTeammatesInLastMatch($split['team2'][0], $split['team2'][1], $session);
+
+                if ($repeatsSide) {
+                    continue;
+                }
+            }
 
             if ($cost < $bestCost) {
                 $bestCost = $cost;
                 $bestSplit = $split;
             }
+        }
+
+        // Numbers didn't allow the constraint — use the least-bad split so the
+        // players keep playing rather than a court sitting idle.
+        if ($bestSplit === null) {
+            $bestSplit = $fallbackSplit;
+            $bestCost = $fallbackCost;
         }
 
         return [
@@ -283,10 +324,11 @@ class MatchmakingService
     public function findBestCourtAssignments(Session $session, int $numCourts, Collection $eligiblePlayers): array
     {
         $maxGames = $session->maxGamesPlayed();
+        $config = config('courtly.matchmaking');
 
         // Load match-history data ONCE so the pairing-cost helpers reuse it instead
         // of re-querying the DB for every split (huge speedup on high-latency DBs).
-        $window = config('courtly.matchmaking.recent_match_window');
+        $window = $config['recent_match_window'];
         $session->cachedRecentMatches = $session->matches()
             ->where('status', MatchStatus::COMPLETED->value)
             ->latest()
@@ -296,22 +338,90 @@ class MatchmakingService
         $session->cachedLastMatch = $session->matches()->latest()->first();
 
         // 1. Rank by rotation priority (fairness FIRST: fewest games, longest waiting,
-        //    previous sit-out, then soft winner preference)
+        //    previous sit-out, forced sit-out after N consecutive games, then soft
+        //    winner preference).
         $ranked = $eligiblePlayers
             ->sortByDesc(fn (SessionPlayer $sp) => $this->calculateRotationPriority($sp, $maxGames))
             ->values();
 
-        // 2. The top players (highest priority) are guaranteed court time
         $slots = $numCourts * 4;
-        $selected = $ranked->take($slots);
 
-        // 3. Within the selected set, sort by rating for skill cohesion
-        $sorted = $selected
+        // 2. Candidate pool — top players plus a buffer. The buffer lets the selector
+        //    swap in a slightly lower-priority player when the strict rotation would
+        //    produce a badly weighted game (the "keep playing" escape hatch).
+        $candidate = $ranked->take($slots + $config['candidate_pool_buffer']);
+
+        // 3. Sort the candidate pool by rating for skill cohesion.
+        $sorted = $candidate
             ->sortBy(fn (SessionPlayer $sp) => $sp->player->rating)
             ->values();
 
-        // 4. Group into windows of 4 and find the best team split
+        // 4. Generate every sliding-window 4-player group and score it.
+        $scored = [];
+        foreach ($this->generateCandidateGroups($sorted, $numCourts) as $group) {
+            $best = $this->findBestSplit($group, $session);
+            $groupCost = $this->calculateGroupCost($group, $session);
+            $unfair = $best['balance_difference'] > $config['max_balance_difference'];
+            $totalCost = $groupCost + $best['pairing_cost'] + ($unfair ? $config['unfair_group_penalty'] : 0);
+
+            $scored[] = [
+                'players' => $group,
+                'best_split' => $best,
+                'group_cost' => $groupCost,
+                'total_cost' => $totalCost,
+                'unfair' => $unfair,
+            ];
+        }
+
+        // 5. Select the best non-overlapping set (lowest total cost first). Unfair
+        //    groups are heavily penalised but not forbidden — if no fair group
+        //    exists, players keep playing rather than leaving a court empty.
+        $selected = $this->selectBestNonOverlapping($scored, $numCourts);
+
+        // 6. Fallback: sliding-window selection can under-fill when windows overlap
+        //    heavily — fall back to adjacent windows so no court is left idle.
+        if (count($selected) < $numCourts) {
+            $selected = $this->buildAdjacentWindowAssignments($session, $sorted, $numCourts);
+        }
+
+        // 7. Shape the final assignments.
         $assignments = [];
+        foreach ($selected as $candidate) {
+            $assignments[] = [
+                'players' => $candidate['players'],
+                'best_split' => $candidate['best_split'],
+                'rotation_score' => $this->calculateRotationScore($candidate['players'], $session),
+                'skill_spread' => $this->calculateSkillSpread($candidate['players']),
+                'group_cost' => $candidate['group_cost'],
+                'unfair' => $candidate['unfair'] ?? false,
+            ];
+        }
+
+        return $assignments;
+    }
+
+    /**
+     * Score how rotation-fair a group is (0-100). 100 = every player has played
+     * the same number of games; each excess game beyond the group minimum costs
+     * 20 points.
+     */
+    private function calculateRotationScore(array $players, Session $session): float
+    {
+        $games = array_map(fn (Player $p) => (int) $p->sessionPlayer->games_played, $players);
+        $min = min($games);
+        $excess = array_sum(array_map(fn (int $g) => $g - $min, $games));
+
+        return (float) max(0, 100 - $excess * 20);
+    }
+
+    /**
+     * Build assignments using adjacent rating-sorted windows (fallback).
+     */
+    private function buildAdjacentWindowAssignments(Session $session, Collection $sorted, int $numCourts): array
+    {
+        $config = config('courtly.matchmaking');
+        $assignments = [];
+
         for ($i = 0; $i < $numCourts && ($i * 4 + 3) < $sorted->count(); $i++) {
             $players = [];
             for ($j = 0; $j < 4; $j++) {
@@ -321,14 +431,13 @@ class MatchmakingService
                 $players[] = $p;
             }
 
-            $bestSplit = $this->findBestSplit($players, $session);
+            $best = $this->findBestSplit($players, $session);
 
             $assignments[] = [
                 'players' => $players,
-                'best_split' => $bestSplit,
-                'rotation_score' => 50,
-                'skill_spread' => $this->calculateSkillSpread($players),
-                'group_cost' => 0,
+                'best_split' => $best,
+                'group_cost' => $this->calculateGroupCost($players, $session),
+                'unfair' => $best['balance_difference'] > $config['max_balance_difference'],
             ];
         }
 
@@ -377,8 +486,11 @@ class MatchmakingService
         $selected = [];
         $usedPlayerIds = [];
 
-        // Sort by group cost (lowest = best)
-        usort($scored, fn (array $a, array $b) => $a['group_cost'] <=> $b['group_cost']);
+        // Sort by total cost (lowest = best); fall back to group cost for callers
+        // that only computed group_cost.
+        usort($scored, fn (array $a, array $b) =>
+            ($a['total_cost'] ?? $a['group_cost']) <=> ($b['total_cost'] ?? $b['group_cost'])
+        );
 
         foreach ($scored as $candidate) {
             if (count($selected) >= $numCourts) {

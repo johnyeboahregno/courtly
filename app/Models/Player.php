@@ -74,4 +74,12 @@ class Player extends Model
 
         return round(($this->wins / $this->total_games) * 100, 1);
     }
+
+    /**
+     * Whether this player belongs to the given user.
+     */
+    public function belongsToUser(User $user): bool
+    {
+        return (int) $this->user_id === (int) $user->id;
+    }
 }

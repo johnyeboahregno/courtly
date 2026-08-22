@@ -98,6 +98,15 @@ class MatchResultService
                     ]);
             }
 
+            // Reset the consecutive-games streak for everyone who sat out this round,
+            // so it accurately means "games in a row without sitting out". Players
+            // still WAITING (not in this match) just sat out.
+            $playedIds = $match->matchPlayers->pluck('player_id')->toArray();
+            $session->sessionPlayers()
+                ->where('status', SessionPlayerStatus::WAITING->value)
+                ->whereNotIn('player_id', $playedIds)
+                ->update(['consecutive_games' => 0]);
+
             // 4. Mark court as AVAILABLE
             $match->court->update(['status' => CourtStatus::AVAILABLE]);
 
