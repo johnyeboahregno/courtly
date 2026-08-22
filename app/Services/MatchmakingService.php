@@ -79,11 +79,15 @@ class MatchmakingService
         $matches = $this->createMatchesFromAssignments($session, $availableCourts, $assignments, $startTime);
 
         // Auto-start: the first match kicks the session from UPCOMING → ACTIVE.
+        // Use a direct query — the $session model also carries non-column
+        // attributes (cachedRecentMatches/cachedLastMatch) that would end up in
+        // the UPDATE SET clause and break a regular ->update() call.
         if (! empty($matches) && $session->status === SessionStatus::UPCOMING) {
-            $session->update([
-                'status' => SessionStatus::ACTIVE,
+            Session::where('id', $session->id)->update([
+                'status' => SessionStatus::ACTIVE->value,
                 'started_at' => now(),
             ]);
+            $session->setAttribute('status', SessionStatus::ACTIVE);
         }
 
         return $matches;
