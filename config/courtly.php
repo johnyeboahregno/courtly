@@ -26,6 +26,11 @@ return [
         // Hard constraint; automatically falls back when numbers don't allow it.
         'same_side_consecutive_block' => true,
 
+        // Check each court's previous round (not just the globally-latest match)
+        // when blocking exact-repeat groups, repeated teammates and repeated
+        // matchups. Disable to revert to the legacy single-match guard.
+        'per_court_repeat_guards' => true,
+
         // A match whose team-average rating difference exceeds this is considered
         // "completely unfair" and triggers the rotation escape hatch.
         'max_balance_difference' => 25.0,

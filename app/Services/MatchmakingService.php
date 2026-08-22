@@ -80,8 +80,8 @@ class MatchmakingService
 
         // Auto-start: the first match kicks the session from UPCOMING → ACTIVE.
         // Use a direct query — the $session model also carries non-column
-        // attributes (cachedRecentMatches/cachedLastMatch) that would end up in
-        // the UPDATE SET clause and break a regular ->update() call.
+        // attributes (cachedRecentMatches/cachedLastMatchPerCourt) that would
+        // end up in the UPDATE SET clause and break a regular ->update() call.
         if (! empty($matches) && $session->status === SessionStatus::UPCOMING) {
             Session::where('id', $session->id)->update([
                 'status' => SessionStatus::ACTIVE->value,
@@ -349,7 +349,10 @@ class MatchmakingService
             ->take($window)
             ->with('matchPlayers')
             ->get();
-        $session->cachedLastMatch = $session->matches()->latest()->first();
+
+        // Preload the latest match per court so repeat-guards consider each
+        // court's previous round instead of only the globally-latest match.
+        $this->lastMatchPerCourt($session);
 
         // 1. Rank by rotation priority (fairness FIRST: fewest games, longest waiting,
         //    previous sit-out, forced sit-out after N consecutive games, then soft
@@ -636,6 +639,53 @@ class MatchmakingService
         return [];
     }
 
+    /**
+     * Latest match per court (PLAYING or COMPLETED), with match players loaded.
+     *
+     * When several courts are in play, matches finish in a staggered order, so the
+     * globally-latest match is NOT the previous round for every court. This returns
+     * one match per court so the repeat-guards can check each court's own last
+     * round instead of only the single most recent match.
+     *
+     * @return Collection<int, GameMatch>
+     */
+    private function lastMatchPerCourt(Session $session): Collection
+    {
+        if (! config('courtly.matchmaking.per_court_repeat_guards', true)) {
+            // Legacy behaviour: only the single most recent match is considered.
+            if (isset($session->cachedLastMatch)) {
+                return $session->cachedLastMatch ? collect([$session->cachedLastMatch]) : collect();
+            }
+
+            $session->cachedLastMatch = $session->matches()
+                ->latest()
+                ->with('matchPlayers')
+                ->first();
+
+            return $session->cachedLastMatch ? collect([$session->cachedLastMatch]) : collect();
+        }
+
+        if (isset($session->cachedLastMatchPerCourt)) {
+            return $session->cachedLastMatchPerCourt;
+        }
+
+        $latestIds = DB::table('matches')
+            ->where('session_id', $session->id)
+            ->whereIn('status', [MatchStatus::PLAYING->value, MatchStatus::COMPLETED->value])
+            ->groupBy('court_id')
+            ->selectRaw('MAX(id) as latest_id')
+            ->get()
+            ->pluck('latest_id');
+
+        $session->cachedLastMatchPerCourt = $latestIds->isEmpty()
+            ? collect()
+            : GameMatch::whereIn('id', $latestIds->all())
+                ->with('matchPlayers')
+                ->get();
+
+        return $session->cachedLastMatchPerCourt;
+    }
+
     // ─── Relationship tracking helpers ───
 
     private function isExactRepeat(array $players, Session $session): bool
@@ -643,35 +693,28 @@ class MatchmakingService
         $playerIds = array_map(fn (Player $p) => $p->id, $players);
         sort($playerIds);
 
-        $lastMatch = $session->matches()
-            ->where('status', MatchStatus::PLAYING->value)
-            ->orWhere('status', MatchStatus::COMPLETED->value)
-            ->latest()
-            ->first();
+        foreach ($this->lastMatchPerCourt($session) as $lastMatch) {
+            $lastPlayerIds = $lastMatch->matchPlayers->pluck('player_id')->toArray();
+            sort($lastPlayerIds);
 
-        if (! $lastMatch) {
-            return false;
+            if ($playerIds === $lastPlayerIds) {
+                return true;
+            }
         }
 
-        $lastPlayerIds = $lastMatch->matchPlayers()->pluck('player_id')->toArray();
-        sort($lastPlayerIds);
-
-        return $playerIds === $lastPlayerIds;
+        return false;
     }
 
     private function wereTeammatesInLastMatch(Player $p1, Player $p2, Session $session): bool
     {
-        $lastMatch = $session->cachedLastMatch ?? $session->matches()->latest()->first();
-        if (! $lastMatch) {
-            return false;
-        }
+        foreach ($this->lastMatchPerCourt($session) as $lastMatch) {
+            $teams = $lastMatch->matchPlayers->groupBy('team');
 
-        $teams = $lastMatch->matchPlayers()->get()->groupBy('team');
-
-        foreach ($teams as $teamPlayers) {
-            $ids = $teamPlayers->pluck('player_id')->toArray();
-            if (in_array($p1->id, $ids) && in_array($p2->id, $ids)) {
-                return true;
+            foreach ($teams as $teamPlayers) {
+                $ids = $teamPlayers->pluck('player_id')->toArray();
+                if (in_array($p1->id, $ids, true) && in_array($p2->id, $ids, true)) {
+                    return true;
+                }
             }
         }
 
@@ -749,30 +792,30 @@ class MatchmakingService
 
     private function isConsecutiveMatchup(array $team1, array $team2, Session $session): bool
     {
-        $t1Ids = array_map(fn (Player $p) => $p->id, $team1);
-        $t2Ids = array_map(fn (Player $p) => $p->id, $team2);
-
-        $lastMatch = $session->cachedLastMatch ?? $session->matches()->latest()->first();
-        if (! $lastMatch) {
-            return false;
-        }
-
-        $lastTeams = $lastMatch->matchPlayers()->get()->groupBy('team');
-        if ($lastTeams->count() !== 2) {
-            return false;
-        }
-
-        $lastTeamIds = $lastTeams->map(fn ($team) => $team->pluck('player_id')->sort()->values()->toArray())->values()->toArray();
-
         $proposedTeamIds = [
-            collect($t1Ids)->sort()->values()->toArray(),
-            collect($t2Ids)->sort()->values()->toArray(),
+            collect(array_map(fn (Player $p) => $p->id, $team1))->sort()->values()->toArray(),
+            collect(array_map(fn (Player $p) => $p->id, $team2))->sort()->values()->toArray(),
         ];
 
         // Check if the two team-sets are the same (order-independent)
-        sort($lastTeamIds);
         sort($proposedTeamIds);
 
-        return $lastTeamIds === $proposedTeamIds;
+        foreach ($this->lastMatchPerCourt($session) as $lastMatch) {
+            $lastTeams = $lastMatch->matchPlayers->groupBy('team');
+            if ($lastTeams->count() !== 2) {
+                continue;
+            }
+
+            $lastTeamIds = $lastTeams->map(
+                fn ($team) => $team->pluck('player_id')->sort()->values()->toArray()
+            )->values()->toArray();
+            sort($lastTeamIds);
+
+            if ($lastTeamIds === $proposedTeamIds) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
