@@ -64,6 +64,26 @@ class MatchmakingService
             )->values();
         }
 
+        // ROTATION: when exactly one court is free and other courts are still
+        // playing, don't immediately put the players who just came off that court
+        // back onto it. They join the "next up" queue and wait for another court
+        // to free so the pool can be mixed (winners then re-enter on split sides).
+        if ($availableCourts->count() === 1) {
+            $playingCourts = $session->courts()
+                ->where('status', CourtStatus::PLAYING->value)
+                ->count();
+
+            if ($playingCourts > 0) {
+                $justCameOffIds = $this->lastMatchPlayerIds($session, (int) $availableCourts->first()->id);
+
+                if (! empty($justCameOffIds)) {
+                    $waitingPlayers = $waitingPlayers->reject(
+                        fn (SessionPlayer $sp) => in_array((int) $sp->player_id, $justCameOffIds, true)
+                    )->values();
+                }
+            }
+        }
+
         if ($availableCourts->isEmpty() || $waitingPlayers->count() < 4) {
             return [];
         }
@@ -74,7 +94,7 @@ class MatchmakingService
             return [];
         }
 
-        $assignments = $this->findBestCourtAssignments($session, $numCourts, $waitingPlayers);
+        $assignments = $this->findBestCourtAssignments($session, $numCourts, $waitingPlayers, $availableCourts);
 
         $matches = $this->createMatchesFromAssignments($session, $availableCourts, $assignments, $startTime);
 
@@ -335,7 +355,12 @@ class MatchmakingService
     /**
      * Find the best set of non-overlapping court assignments.
      */
-    public function findBestCourtAssignments(Session $session, int $numCourts, Collection $eligiblePlayers): array
+    public function findBestCourtAssignments(
+        Session $session,
+        int $numCourts,
+        Collection $eligiblePlayers,
+        Collection $availableCourts
+    ): array
     {
         $maxGames = $session->maxGamesPlayed();
         $config = config('courtly.matchmaking');
@@ -374,12 +399,21 @@ class MatchmakingService
             ->values();
 
         // 4. Generate every sliding-window 4-player group and score it.
+        $courtWinnerMap = $this->courtWinnerMap($session);
         $scored = [];
         foreach ($this->generateCandidateGroups($sorted, $numCourts) as $group) {
             $best = $this->findBestSplit($group, $session);
             $groupCost = $this->calculateGroupCost($group, $session);
             $unfair = $best['balance_difference'] > $config['max_balance_difference'];
-            $totalCost = $groupCost + $best['pairing_cost'] + ($unfair ? $config['unfair_group_penalty'] : 0);
+
+            // Rotate winners off the court they just won on: penalise a group by
+            // the fewest winners it would return to any of the available courts.
+            $returningWinners = $this->minReturningWinners($group, $availableCourts, $courtWinnerMap);
+            $winnerReturnPenalty = (int) ($config['winner_return_penalty'] ?? 2000);
+            $totalCost = $groupCost
+                + $best['pairing_cost']
+                + ($unfair ? $config['unfair_group_penalty'] : 0)
+                + ($returningWinners * $winnerReturnPenalty);
 
             $scored[] = [
                 'players' => $group,
@@ -387,6 +421,7 @@ class MatchmakingService
                 'group_cost' => $groupCost,
                 'total_cost' => $totalCost,
                 'unfair' => $unfair,
+                'returning_winners' => $returningWinners,
             ];
         }
 
@@ -536,12 +571,10 @@ class MatchmakingService
         $nextGameNumber = ($session->matches()->max('game_number') ?? 0) + 1;
         $algoVersion = config('courtly.matchmaking.algorithm_version');
 
-        foreach ($assignments as $i => $assignment) {
-            if (! isset($availableCourts[$i])) {
-                break;
-            }
+        $assignments = $this->assignCourtsGreedily($assignments, $availableCourts, $session);
 
-            $court = $availableCourts[$i];
+        foreach ($assignments as $assignment) {
+            $court = $assignment['court'];
             $players = $assignment['players'];
             $split = $assignment['best_split'];
             $now = now();
@@ -684,6 +717,118 @@ class MatchmakingService
                 ->get();
 
         return $session->cachedLastMatchPerCourt;
+    }
+
+    /**
+     * Player ids from a court's most recent match (the players who just came off).
+     */
+    private function lastMatchPlayerIds(Session $session, int $courtId): array
+    {
+        $match = $this->lastMatchPerCourt($session)->firstWhere('court_id', $courtId);
+
+        if (! $match) {
+            return [];
+        }
+
+        return $match->matchPlayers
+            ->pluck('player_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Map each court id to the player ids who won its most recent match.
+     *
+     * @return array<int, array<int, int>>
+     */
+    private function courtWinnerMap(Session $session): array
+    {
+        $map = [];
+
+        foreach ($this->lastMatchPerCourt($session) as $match) {
+            if ($match->winning_team === null) {
+                continue;
+            }
+
+            $map[$match->court_id] = $match->matchPlayers
+                ->filter(fn (MatchPlayer $mp) => $mp->team === $match->winning_team)
+                ->pluck('player_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        return $map;
+    }
+
+    /**
+     * Fewest winners a 4-player group would return to any available court.
+     * 0 means the group can be placed on a court nobody in it just won on.
+     */
+    private function minReturningWinners(array $players, Collection $availableCourts, array $courtWinnerMap): int
+    {
+        $playerIds = array_map(fn (Player $p) => (int) $p->id, $players);
+        $min = PHP_INT_MAX;
+
+        foreach ($availableCourts as $court) {
+            $winners = $courtWinnerMap[$court->id] ?? [];
+            $returning = count(array_intersect($playerIds, $winners));
+
+            if ($returning < $min) {
+                $min = $returning;
+            }
+
+            if ($min === 0) {
+                break;
+            }
+        }
+
+        return $min === PHP_INT_MAX ? 0 : $min;
+    }
+
+    /**
+     * Assign each 4-player group to an available court, rotating winners off the
+     * court they just won on. Greedy min-conflict: each group takes the remaining
+     * court that returns the fewest of its winners (tie-break: lowest court number).
+     */
+    private function assignCourtsGreedily(array $assignments, Collection $availableCourts, Session $session): array
+    {
+        $courtWinnerMap = $this->courtWinnerMap($session);
+        $available = $availableCourts->values();
+        $usedCourtIds = [];
+        $assigned = [];
+
+        foreach ($assignments as $assignment) {
+            $playerIds = array_map(fn (Player $p) => (int) $p->id, $assignment['players']);
+
+            $bestCourt = null;
+            $bestCost = PHP_INT_MAX;
+
+            foreach ($available as $court) {
+                if (in_array($court->id, $usedCourtIds, true)) {
+                    continue;
+                }
+
+                $winners = $courtWinnerMap[$court->id] ?? [];
+                $cost = count(array_intersect($playerIds, $winners));
+
+                if ($cost < $bestCost
+                    || ($cost === $bestCost && $court->court_number < ($bestCourt?->court_number ?? PHP_INT_MAX))) {
+                    $bestCost = $cost;
+                    $bestCourt = $court;
+                }
+            }
+
+            if ($bestCourt === null) {
+                break;
+            }
+
+            $assignment['court'] = $bestCourt;
+            $assignment['returning_winners'] = $bestCost;
+            $assigned[] = $assignment;
+            $usedCourtIds[] = $bestCourt->id;
+        }
+
+        return $assigned;
     }
 
     // ─── Relationship tracking helpers ───
