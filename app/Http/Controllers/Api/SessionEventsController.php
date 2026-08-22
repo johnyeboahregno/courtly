@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\Session;
 use App\Services\RealtimeEventService;
@@ -14,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SessionEventsController extends Controller
 {
+    use AuthorizesOwnership;
+
     public function __construct(
         private readonly RealtimeEventService $eventService,
     ) {}
@@ -28,7 +31,7 @@ class SessionEventsController extends Controller
      */
     public function __invoke(Request $request, Session $session): JsonResponse|StreamedResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         // If streaming requested and headers allow, try SSE
         if ($request->has('stream')) {

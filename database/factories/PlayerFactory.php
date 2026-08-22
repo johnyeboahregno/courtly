@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\RatingStatus;
 use App\Models\Player;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PlayerFactory extends Factory
@@ -15,6 +16,7 @@ class PlayerFactory extends Factory
     public function definition(): array
     {
         return [
+            'user_id' => User::factory(),
             'name' => fake()->name(),
             'rating' => fake()->randomFloat(2, 10, 95),
             'rating_status' => RatingStatus::ESTABLISHED->value,

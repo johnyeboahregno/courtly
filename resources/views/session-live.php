@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title>Courtly — <?= htmlspecialchars($sessionName ?? 'Session') ?></title>
     <link rel="icon" type="image/png" href="<?= $base ?? '/courtly' ?>/assets/favicon.png?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=6">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=13">
 </head>
 <body>
 <div id="courtly-app">
@@ -43,16 +44,27 @@
             </div>
             <div v-if="!court.match" class="court-card__body court-card__body--empty">
                 <div class="court-card__lines"></div>
-                <span class="court-empty-text">Waiting for players</span>
+                <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
+                    <div class="court-card__pending-grid">
+                        <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending">
+                            <i class="court-card__rating">{{ ratingBadge(sp.player.rating) }}</i>
+                            <span class="court-card__player">{{ formatName(sp.player.name) }}</span>
+                        </div>
+                    </div>
+                    <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
+                </div>
+                <span v-else class="court-empty-text">Waiting for players</span>
             </div>
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
                 <div class="court-card__court">
                     <div class="court-card__side court-card__side--team-1">
                         <div class="court-card__player-box court-card__player-box--team-1">
+                            <i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1">
+                            <i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i></span>
                         </div>
                         <button class="btn-win btn-win--team-1" :class="{ 'is-submitting': submitting[court.match.id + '_1'] }" :disabled="submitting[court.match.id + '_2']" @click="recordResult(court.match.id, 1)">WIN</button>
@@ -60,9 +72,11 @@
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2">
                         <div class="court-card__player-box court-card__player-box--team-2">
+                            <i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2">
+                            <i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i></span>
                         </div>
                         <button class="btn-win btn-win--team-2" :class="{ 'is-submitting': submitting[court.match.id + '_2'] }" :disabled="submitting[court.match.id + '_1']" @click="recordResult(court.match.id, 2)">WIN</button>
@@ -76,12 +90,14 @@
         <h3 class="waiting-list__title">NEXT UP</h3>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
-                <div v-for="sp in queuePlayers" :key="sp.id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED' }">
-                    <div class="player-card__row">
+                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }">
+                    <div class="player-card__col">
                         <span class="player-card__name">{{ formatName(sp.player.name) }}</span>
+                        <span class="player-card__rating">{{ Math.round(sp.player.rating) }}-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
+                    </div>
+                    <div class="player-card__actions">
                         <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
                     </div>
-                    <span class="player-card__rating">{{ Math.round(sp.player.rating) }}</span>
                 </div>
             </TransitionGroup>
             <p v-if="queuePlayers.length === 0" class="waiting-list__empty">No players waiting</p>
@@ -109,17 +125,17 @@
             <!-- Add section -->
             <div class="add-section">
                 <div class="add-section__new">
-                    <input v-model="newPlayerName" placeholder="New player name (or guest)" class="modal__input" @keyup.enter="addPlayers">
-                    <button class="btn btn--primary" @click="addPlayers" :disabled="!newPlayerName.trim()">New</button>
+                    <input v-model="newPlayerName" placeholder="Player name" class="modal__input" @keyup.enter="addPlayers" @focus="showSuggestionsNow" @blur="hideSuggestionsLater">
+                    <button class="btn btn--primary" @click="addPlayers" :disabled="!newPlayerName.trim()">Add</button>
                 </div>
 
-                <div v-if="availablePlayers.length" class="add-section__existing">
-                    <p class="add-section__label">Tap to add:</p>
+                <!-- Autocomplete suggestions: top 10 on focus, matches while typing -->
+                <div v-if="showSuggestions && playerSuggestions.length" class="add-section__existing">
+                    <p class="add-section__label">{{ newPlayerName.trim() ? 'Suggestions:' : 'Top players:' }}</p>
                     <div class="existing-list">
-                        <div v-for="p in availablePlayers" :key="p.id" class="existing-item" @click="addExistingPlayer(p.id)">
+                        <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
                             <span class="existing-item__name">{{ formatName(p.name) }}</span>
                             <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
-                            <button class="existing-item__del" @click.stop="openDeleteById(p.id, p.name)" title="Delete permanently">🗑</button>
                         </div>
                     </div>
                 </div>
@@ -173,6 +189,7 @@ const SESSION_ID = <?= (int) ($sessionId ?? 0) ?>;
 const START_STATUS = "<?= htmlspecialchars($sessionStatus ?? 'UNKNOWN', ENT_QUOTES) ?>";
 const START_NAME = "<?= htmlspecialchars($sessionName ?? 'Session', ENT_QUOTES) ?>";
 const BASE_URL = "<?= htmlspecialchars(($base ?? '') . '', ENT_QUOTES) ?>";
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
 
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, TransitionGroup } = Vue;
 
@@ -183,27 +200,151 @@ createApp({
         const courts = ref([]);
         const players = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
+        const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
+        // Preview of players heading to each empty court. They render grayed
+        // out until the court reaches a full four — the server then forms the
+        // real match and the court switches to full colour. Sorted by name so
+        // the distribution stays stable across polls.
+        const pendingCourtPlayers = computed(() => {
+            const result = {};
+            const emptyCourts = courts.value.filter(c => !c.match);
+            const waiting = [...waitingPlayers.value].sort((a, b) =>
+                String(a.player?.name || '').localeCompare(String(b.player?.name || ''))
+            );
+            let idx = 0;
+            emptyCourts.forEach(court => {
+                result[court.id] = waiting.slice(idx, idx + 4);
+                idx += 4;
+            });
+            return result;
+        });
+
+        // Player ids currently shown on a court preview — hidden from NEXT UP
+        // so a player never appears in two places at once.
+        const previewedPlayerIds = computed(() => {
+            const ids = new Set();
+            Object.values(pendingCourtPlayers.value).forEach(list => {
+                list.forEach(sp => ids.add(sp.player_id));
+            });
+            return ids;
+        });
+
+        // NEXT UP — waiting/paused players not already placed on a court preview.
         const queuePlayers = computed(() => {
             const order = { WAITING: 0, PAUSED: 1 };
+            const previewed = previewedPlayerIds.value;
             return players.value
-                .filter(p => p.status === 'WAITING' || p.status === 'PAUSED')
+                .filter(p => (p.status === 'WAITING' || p.status === 'PAUSED') && !previewed.has(p.player_id))
                 .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
         });
-        const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
+        // The first 4 WAITING players — the next game on court
+        const nextFourIds = computed(() =>
+            players.value
+                .filter(p => p.status === 'WAITING')
+                .slice(0, 4)
+                .map(p => p.player_id)
+        );
         const submitting = reactive({});
         const connectionState = ref('connecting');
         const elapsed = ref('');
         const showPlayers = ref(false);
+        const showSuggestions = ref(false);
         const newPlayerName = ref('');
         const allKnownPlayers = ref([]);
+        let blurTimer = null;
         const availablePlayers = computed(() =>
             allKnownPlayers.value.filter(p => !activePlayers.value.some(sp => sp.player_id === p.id))
         );
+        // Autocomplete: exclude players already in the session. Show the top 10
+        // (by rating) when the box is empty/focused, and matching names when the
+        // user actually searches.
+        const playerSuggestions = computed(() => {
+            const q = newPlayerName.value.trim().toLowerCase();
+            const inSession = new Set(activePlayers.value.map(sp => sp.player_id));
+            const pool = allKnownPlayers.value.filter(p => !inSession.has(p.id));
+
+            if (!q) {
+                return [...pool].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 10);
+            }
+
+            return pool
+                .filter(p => (p.name || '').toLowerCase().startsWith(q))
+                .slice(0, 10);
+        });
+        function isInSession(playerId) {
+            return activePlayers.value.some(sp => sp.player_id === playerId);
+        }
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
         const theme = ref(localStorage.getItem('courtly-theme') || 'system');
         let pollTimer = null;
+        let syncTimer = null;
+        let syncing = false;
+
+        // ── Offline-first player store + sync queue ──
+        // Remote connection is only needed for the initial player load and
+        // session-end sync. During a session, players are stored locally and
+        // pushed to the server periodically; failures are silent and retried.
+        const LS_PLAYERS = 'courtly.players.v1';
+        const LS_QUEUE = 'courtly.syncQueue.v1';
+        function readLS(key, fallback) {
+            try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch { return fallback; }
+        }
+        function writeLS(key, val) {
+            try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+        }
+        const syncQueue = ref(readLS(LS_QUEUE, []));
+        function persistQueue() { writeLS(LS_QUEUE, syncQueue.value); }
+        function enqueueSync(path, method, body) {
+            syncQueue.value.push({
+                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+                path, method, body, attempts: 0
+            });
+            persistQueue();
+        }
+        // Fetch the full player list from the server and cache it locally.
+        async function refreshPlayerCache() {
+            try {
+                const res = await fetch(BASE_URL + '/api/players', { credentials: 'include', headers: { 'Accept': 'application/json' } });
+                if (res.ok) {
+                    const json = await res.json();
+                    const list = json.data || [];
+                    allKnownPlayers.value = list;
+                    writeLS(LS_PLAYERS, list);
+                }
+            } catch { /* server unreachable — keep cached players */ }
+        }
+        // Push pending ops to the server. Failures are silent — kept in queue,
+        // retried 30s later by the sync loop.
+        async function flushSyncQueue() {
+            if (syncing || syncQueue.value.length === 0) return;
+            syncing = true;
+            try {
+                const remaining = [];
+                let progressed = false;
+                for (const op of syncQueue.value) {
+                    try {
+                        const res = await fetch(BASE_URL + op.path, {
+                            method: op.method,
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                            credentials: 'include',
+                            body: op.body ? JSON.stringify(op.body) : undefined
+                        });
+                        if (res.ok) { progressed = true; }
+                        else { op.attempts++; remaining.push(op); }
+                    } catch { op.attempts++; remaining.push(op); }
+                }
+                syncQueue.value = remaining;
+                persistQueue();
+                // On any success, reconcile local state with the server in the background
+                if (progressed) { refreshPlayerCache(); fetchSession(); }
+            } finally { syncing = false; }
+        }
+        function startSyncLoop() {
+            flushSyncQueue();
+            syncTimer = setInterval(flushSyncQueue, 30000); // retry every 30s
+        }
 
         function setTheme(t) {
             theme.value = t;
@@ -218,20 +359,32 @@ createApp({
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
 
         async function loadKnownPlayers() {
-            const res = await fetch(BASE_URL + '/api/players', { credentials: 'include', headers: { 'Accept': 'application/json' } });
-            const json = await res.json();
-            allKnownPlayers.value = json.data || [];
+            // 1. Instant from local cache (works offline)
+            const cached = readLS(LS_PLAYERS, []);
+            if (cached.length > 0) allKnownPlayers.value = cached;
+            // 2. Background refresh from server
+            await refreshPlayerCache();
         }
 
         function openPlayers() {
             newPlayerName.value = '';
             showPlayers.value = true;
+            showSuggestions.value = true;
+        }
+        function showSuggestionsNow() {
+            clearTimeout(blurTimer);
+            showSuggestions.value = true;
+        }
+        function hideSuggestionsLater() {
+            clearTimeout(blurTimer);
+            blurTimer = setTimeout(() => { showSuggestions.value = false; }, 150);
         }
 
         async function fetchSession() {
-            // Abort after 8s so a hung server (e.g. DB down) is flagged as unreachable
+            // Abort after 45s so a hung server (e.g. DB down) is flagged as unreachable.
+            // (Remote DB can take ~30s per request, so 8s was too aggressive.)
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 8000);
+            const timer = setTimeout(() => controller.abort(), 45000);
             try {
                 const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID, { credentials: 'include', signal: controller.signal });
                 clearTimeout(timer);
@@ -256,7 +409,14 @@ createApp({
                     }
                     return { ...c, match: md };
                 });
-                players.value = d.session_players || [];
+                const serverPlayers = d.session_players || [];
+                // Keep optimistic local-only players (not yet synced) so they
+                // don't blink out of the list before the server catches up.
+                const serverNames = new Set(serverPlayers.map(sp => sp.player && sp.player.name));
+                const localOnly = players.value.filter(sp =>
+                    sp.player && sp.player._local && !serverNames.has(sp.player.name)
+                );
+                players.value = [...serverPlayers, ...localOnly];
                 connectionState.value = 'connected';
             } catch (err) {
                 clearTimeout(timer);
@@ -265,11 +425,11 @@ createApp({
         }
 
         async function api(url, body) {
-            const res = await fetch(url, { method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','Accept':'application/json'} : {'Accept':'application/json'}, credentials: 'include', body: body ? JSON.stringify(body) : undefined });
+            const res = await fetch(BASE_URL + url, { method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN} : {'Accept':'application/json'}, credentials: 'include', body: body ? JSON.stringify(body) : undefined });
             return res.json();
         }
 
-        async function postApi(url) { const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, credentials:'include' }); return res.json(); }
+        async function postApi(url) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include' }); return res.json(); }
         async function recordResult(matchId, team) {
             submitting[matchId + '_' + team] = true;
 
@@ -294,7 +454,7 @@ createApp({
             }
 
             // Send to server
-            const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'include',body:JSON.stringify({winning_team:team})});
+            const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN},credentials:'include',body:JSON.stringify({winning_team:team})});
             submitting[matchId + '_' + team] = false;
 
             if (res.ok) {
@@ -342,7 +502,7 @@ createApp({
             const courtCount = courts.value.length || 3;
             const res = await fetch(BASE_URL + '/api/sessions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
                 credentials: 'include',
                 body: JSON.stringify({ name: sessionName.value, number_of_courts: courtCount })
             });
@@ -352,27 +512,29 @@ createApp({
         }
         async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
         async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
-        async function finishSession() { await postApi('/api/sessions/' + SESSION_ID + '/finish'); fetchSession(); }
+        async function finishSession() {
+            await flushSyncQueue(); // session-end sync: push any pending changes
+            await postApi('/api/sessions/' + SESSION_ID + '/finish');
+            fetchSession();
+        }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
             if (!name) return;
 
-            // Optimistic: add to waiting list immediately
+            const tempId = 'local_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+            // Local-first: show in the waiting queue immediately (no server wait)
             players.value.push({
-                player_id: 'new',
-                player: { id: 'new', name: name, rating: 0 },
+                player_id: tempId,
+                player: { id: tempId, name: name, rating: 0, _local: true },
                 status: 'WAITING',
                 games_played: 0, wins: 0, losses: 0
             });
             newPlayerName.value = '';
 
-            const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/players', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ name: name })
-            });
-            await fetchSession();
+            // Queue and flush immediately so the server knows right away
+            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { name: name });
+            flushSyncQueue();
         }
 
         async function addExistingPlayer(id) {
@@ -389,13 +551,9 @@ createApp({
                 });
             }
 
-            await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/players', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ player_ids: [id] })
-            });
-            await fetchSession();
+            newPlayerName.value = ''; // clear the autocomplete input
+            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { player_ids: [id] });
+            flushSyncQueue();
         }
 
         async function pausePlayer(spId) { await postApi('/api/session-players/' + spId + '/pause'); fetchSession(); }
@@ -424,7 +582,7 @@ createApp({
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json' } });
+            await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
             allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
             fetchSession();
         }
@@ -440,9 +598,10 @@ createApp({
             }
             fetchSession();
             loadKnownPlayers();
+            startSyncLoop();
             schedulePoll();
         });
-        onUnmounted(() => { if (pollTimer) clearTimeout(pollTimer); });
+        onUnmounted(() => { if (pollTimer) clearTimeout(pollTimer); if (syncTimer) clearInterval(syncTimer); });
 
         // Lock body scroll when any modal is open
         const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show);
@@ -457,7 +616,14 @@ createApp({
             return parts.join(' ');
         }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, newPlayerName, availablePlayers, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
+        // Clamp a rating into the visible 1–100 badge range.
+        function ratingBadge(r) { return Math.max(1, Math.min(100, Math.round(Number(r) || 0))); }
+
+        // How many games this player has sat out (relative to the session leader).
+        const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
+        function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
+
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
     }
 }).mount('#courtly-app');
 </script>

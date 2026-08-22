@@ -12,6 +12,8 @@ class AIRun extends Model
 {
     use HasFactory;
 
+    protected $table = 'ai_runs';
+
     public $timestamps = false;
 
     protected $fillable = [

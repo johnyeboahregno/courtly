@@ -5,18 +5,22 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\Player;
 use Illuminate\Http\JsonResponse;
 
 class PlayerController extends Controller
 {
+    use AuthorizesOwnership;
+
     /**
-     * List all known players (for selecting to add to a session).
+     * List the authenticated user's players (for selecting to add to a session).
      */
     public function index(): JsonResponse
     {
         $players = Player::query()
+            ->where('user_id', $this->currentUser()->id)
             ->orderBy('name')
             ->get()
             ->map(fn ($p) => [
@@ -34,6 +38,8 @@ class PlayerController extends Controller
      */
     public function show(Player $player): JsonResponse
     {
+        $this->authorizePlayer($player);
+
         $player->load('user');
 
         $recentMatches = $player->matchPlayers()
@@ -72,6 +78,8 @@ class PlayerController extends Controller
      */
     public function history(Player $player): JsonResponse
     {
+        $this->authorizePlayer($player);
+
         return response()->json([
             'data' => $player->ratingHistory()
                 ->with('match.session')
@@ -87,6 +95,8 @@ class PlayerController extends Controller
      */
     public function destroy(Player $player): JsonResponse
     {
+        $this->authorizePlayer($player);
+
         $name = $player->name;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($player) {

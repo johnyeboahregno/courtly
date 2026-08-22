@@ -40,13 +40,13 @@ class DevelopmentSeeder extends Seeder
         $playerIds = [];
 
         foreach ($ratings as $rating) {
-            $player = Player::factory()->withRating($rating)->create();
+            $player = Player::factory()->withRating($rating)->create(['user_id' => $organiser->id]);
             $playerIds[] = $player->id;
         }
 
         // Create provisional players
         for ($i = 0; $i < 6; $i++) {
-            $player = Player::factory()->provisional()->create();
+            $player = Player::factory()->provisional()->create(['user_id' => $organiser->id]);
             $playerIds[] = $player->id;
         }
 

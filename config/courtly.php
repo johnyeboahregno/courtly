@@ -10,17 +10,34 @@ return [
     |--------------------------------------------------------------------------
     */
     'matchmaking' => [
-        'algorithm_version' => 'courtly-v1.0',
-        'skill_spread_weight' => 5,
-        'balance_weight' => 10,
+        'algorithm_version' => 'courtly-v1.1',
+        'skill_spread_weight' => 8,
+        'balance_weight' => 15,
         'repeat_teammate_penalty' => 20,
         'recent_teammate_penalty' => 50,
         'repeat_opponent_penalty' => 5,
         'consecutive_matchup_penalty' => 10000,
-        'candidate_pool_buffer' => 2,
+        'candidate_pool_buffer' => 3,
         'recent_match_window' => 5,
         'max_calculation_time_ms' => 500,
         'winner_priority_bonus' => 500,
+
+        // Never put the same two players on the same side in consecutive games.
+        // Hard constraint; automatically falls back when numbers don't allow it.
+        'same_side_consecutive_block' => true,
+
+        // A match whose team-average rating difference exceeds this is considered
+        // "completely unfair" and triggers the rotation escape hatch.
+        'max_balance_difference' => 25.0,
+
+        // After this many games in a row a player is pushed to sit out.
+        'max_consecutive_games' => 2,
+
+        // Priority penalty applied to force the sit-out rule.
+        'consecutive_games_penalty' => 200,
+
+        // Cost added to unfair candidate groups (still selectable if no fair group exists).
+        'unfair_group_penalty' => 100000,
     ],
 
     /*

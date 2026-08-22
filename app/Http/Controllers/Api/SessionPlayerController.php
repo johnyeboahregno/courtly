@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Enums\SessionPlayerStatus;
 use App\Models\Player;
@@ -17,6 +18,8 @@ use Illuminate\Http\Request;
 
 class SessionPlayerController extends Controller
 {
+    use AuthorizesOwnership;
+
     public function __construct(
         private readonly RealtimeEventService $events,
         private readonly MatchmakingService $matchmaking,
@@ -27,7 +30,7 @@ class SessionPlayerController extends Controller
      */
     public function index(Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         return response()->json([
             'data' => $session->sessionPlayers()->with('player')->get(),
@@ -40,7 +43,7 @@ class SessionPlayerController extends Controller
      */
     public function store(Request $request, Session $session): JsonResponse
     {
-        // public
+        $this->authorizeSession($session);
 
         $playerIds = $request->input('player_ids', []);
         $newName = $request->input('name');
@@ -60,9 +63,11 @@ class SessionPlayerController extends Controller
         $added = [];
         $skipped = [];
 
-        // 1. Add existing players by id
+        // 1. Add existing players by id (only the user's own players)
         if (! empty($playerIds)) {
-            $players = Player::whereIn('id', $playerIds)->get();
+            $players = Player::whereIn('id', $playerIds)
+                ->where('user_id', $this->currentUser()->id)
+                ->get();
 
             foreach ($players as $player) {
                 $result = $this->addPlayerToSession($session, $player);
@@ -75,12 +80,16 @@ class SessionPlayerController extends Controller
             }
         }
 
-        // 2. Create and add a brand-new player (or reuse existing if name matches)
+        // 2. Create and add a brand-new player (or reuse the user's existing
+        //    player if the name matches within this user's roster)
         if (! empty($newName)) {
-            $player = Player::where('name', $newName)->first();
+            $player = Player::where('name', $newName)
+                ->where('user_id', $this->currentUser()->id)
+                ->first();
 
             if (! $player) {
                 $player = Player::create([
+                    'user_id' => $this->currentUser()->id,
                     'name' => $newName,
                     'rating' => config('courtly.rating.default_rating', 0.00),
                     'rating_status' => 'PROVISIONAL',
@@ -153,7 +162,7 @@ class SessionPlayerController extends Controller
     public function pause(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
-        // public
+        $this->authorizeSession($session);
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::PAUSED,
@@ -175,7 +184,7 @@ class SessionPlayerController extends Controller
     public function resume(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
-        // public
+        $this->authorizeSession($session);
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::WAITING,
@@ -200,7 +209,7 @@ class SessionPlayerController extends Controller
     public function leave(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
-        // public
+        $this->authorizeSession($session);
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::LEFT,

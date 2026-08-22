@@ -1,159 +1,134 @@
 # Courtly
 
-A web-based social badminton session-management, court-allocation and intelligent matchmaking platform.
+A web-based badminton session-management, court-allocation, and intelligent matchmaking platform — **multi-tenant per-user**: every user owns their own sessions and player roster.
 
-Courtly automatically determines who should play next, allocates players to courts, creates balanced doubles matches, tracks ratings, and rotates players fairly — so organisers can focus on playing, not administrating.
+Courtly automatically determines who should play next, allocates players to courts, creates balanced doubles matches, tracks Elo-based ratings, and rotates players fairly — so organisers can focus on playing, not administrating.
 
 ## Features
 
-- **Session Management** — Create, start, pause, and finish badminton sessions with configurable courts
-- **Automatic Matchmaking** — Deterministic two-stage algorithm: skill-based grouping + team balancing
-- **Rating System** — Elo-derived 0–100 rating with provisional/established states and confidence tracking
-- **Multi-Court Optimisation** — Simultaneous allocation across all available courts (not greedy)
-- **Rotation Fairness** — Fair sit-out rotation; max games difference ≤ 1 for steady attendees
-- **Real-time Updates** — SSE-driven live session view updates across all tablets
-- **Graphical Court Diagrams** — Tablet-optimised badminton court visuals with player positions
-- **Analytics** — Session summaries, matchmaking diagnostics, player statistics
-- **Match Feedback** — Optional post-match quality ratings
-- **AI Insights** — Optional AI-powered explanations and session analysis (advisory only)
-- **Email Notifications** — Queued transactional email (verification, password reset)
+- **Multi-tenant per-user** — sessions, players, and matches are strictly scoped to the signed-in user
+- **Session Management** — create, start, pause/resume, and finish sessions with 1–8 courts
+- **Automatic Matchmaking** — fairness-based: rotation priority, skill grouping, team balancing, repeat-matchup avoidance
+- **Rating System** — Elo-derived 0–100 rating with provisional/established states, K-factor, and streak bonuses
+- **Rotation Fairness** — fewest games, longest wait, and sit-out bonuses decide who plays next
+- **Real-time Updates** — 3-second polling with optional SSE streaming (no Redis/WebSockets)
+- **Graphical Court Diagrams** — tablet-optimised badminton court visuals with player positions
+- **Analytics** — session summaries, matchmaking diagnostics, per-player statistics
+- **Match Feedback** — optional post-match quality ratings
+- **AI Insights** — optional AI-powered session analysis (advisory only)
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | PHP 8.3+ / Laravel |
-| Frontend | React 18+ / TypeScript (strict) / Vite |
-| Server State | TanStack Query |
-| Database | MariaDB 10.11+ |
-| Cache/Queue | Redis 7.0+ |
-| Real-time | Server-Sent Events (SSE) |
-| Email | SMTP (mail.postale.io) |
-| Testing | Pest (PHP) |
+| Backend | PHP 8.3+, Laravel 11 |
+| Frontend | Vue 3 (CDN, no build step), plain JS |
+| Database | MySQL |
+| Auth | Laravel session (web) + Sanctum (API), Google/Facebook OAuth |
+| Real-time | DB-backed polling + optional SSE streaming |
+| CSS | Single file, dark/light/system themes via CSS variables |
 
 ## Requirements
 
 - PHP 8.3+
 - Composer
-- Node.js 18+ & npm
-- MariaDB 10.11+ or MySQL 8.0+
-- Redis 7.0+
+- MySQL 8.0+ (or MariaDB)
+- No Node.js build step required — the frontend is Vue 3 via CDN
 
 ## Local Installation
 
 ```bash
-# Clone the repository
-git clone <repo-url>
 cd courtly
 
 # Install PHP dependencies
 composer install
 
-# Install frontend dependencies
-npm install
-
-# Copy environment file
+# Create the environment file
 cp .env.example .env
 
-# Generate application key
+# Generate the application key
 php artisan key:generate
 
-# Configure your .env file with local database settings
-# DB_HOST=127.0.0.1, DB_DATABASE=courtly, DB_USERNAME=root
+# Configure .env — required settings:
+#   DB_CONNECTION=mysql
+#   DB_HOST=127.0.0.1
+#   DB_DATABASE=courtly
+#   DB_USERNAME=root
+#   DB_PASSWORD=
+#   SESSION_DRIVER=file   # required — the app has its own `sessions` table
 
 # Run migrations
 php artisan migrate
 
-# Seed development data (24 players, sample session)
+# Optional: seed development data (organiser + 24 players + sample session)
 php artisan db:seed --class=DevelopmentSeeder
 
-# Build frontend assets
-npm run dev
-
-# Start the development server
+# Start the dev server
 php artisan serve
+# — or double-click start.bat (Windows) / run start.sh (macOS/Linux)
 ```
 
-Visit `http://localhost:8000`.
+Visit `http://localhost:8000`. If you ran the seeder, log in as `organiser@courtly.test` / `password`.
 
-## Running Queue Worker
+## Development
 
 ```bash
-php artisan queue:work redis --tries=3 --backoff=60
+php artisan serve --host=0.0.0.0 --port=8000   # or use start.bat / start.sh
 ```
 
-## Running Tests
+The start scripts also clear the stale route cache (`bootstrap/cache/routes-v7.php`) to prevent 405 errors.
 
-```bash
-php artisan test                          # All tests
-php artisan test --parallel               # Parallel
-php artisan test --coverage               # With coverage
-php artisan test --filter "RATE-001"      # By requirement ID
-```
-
-## Running the Simulator
-
-```bash
-php artisan courtly:simulate --players=14 --courts=3 --rounds=20
-```
+Code style (optional): `vendor/bin/pint`
 
 ## Project Structure
 
 ```
 courtly/
-├── README.md
-├── prompts/courtly-build.md      # Master build prompt
-├── specs/                        # 19 specification documents
-├── skills/                       # 16 technology skill files
-├── docs/
-│   ├── database/erd.md           # Entity Relationship Diagram
-│   └── decisions/                # 8 Architecture Decision Records
-├── app/                          # Laravel application (to be generated)
-├── database/                     # Migrations, factories, seeders
-├── resources/                    # Frontend source (React/TypeScript)
-├── routes/                       # API routes
-└── tests/                        # Pest tests
+├── app/
+│   ├── Enums/                 # Session/player/match status & role enums
+│   ├── Http/Controllers/      # Api + Auth controllers (ownership-authorised)
+│   ├── Models/                # Eloquent models
+│   ├── Services/              # Matchmaking, ratings, results, analytics, events
+│   └── Policies/              # Session/Match policies (reference only)
+├── config/courtly.php         # Matchmaking, rating, session, AI tuning
+├── database/
+│   ├── migrations/            # Schema (incl. multi-tenant migration)
+│   ├── factories/             # Player/Session/User factories
+│   └── seeders/               # DevelopmentSeeder
+├── public/css/courtly.css     # Single CSS file (themes via CSS variables)
+├── resources/views/           # session-live.php Vue 3 SPA + auth pages
+├── routes/                    # api.php + web.php
+├── CLAUDE.md                  # Full architecture reference
+└── USER_GUIDE.md              # End-user guide
 ```
 
 ## How Matchmaking Works
 
-Courtly uses a **two-stage deterministic algorithm**:
+**Stage 1 — Who plays?** Waiting players are ranked by rotation priority (fewest games, longest wait, previous sit-out, forced sit-out, winner preference), then grouped by similar rating.
 
-**Stage 1: Group Selection** — Which four players share a court?
-Based on rotation fairness, skill similarity, and relationship history.
+**Stage 2 — How to split?** For each group of four, the three possible team splits are scored on team balance plus teammate/opponent history, picking the lowest-cost split. Hard constraints block exact repeat groups and consecutive 2v2 matchups.
 
-**Stage 2: Team Balancing** — How to split those four into two teams?
-Based on team balance, teammate/opponent variety, and hard constraints.
-
-Multi-court optimisation ensures all courts are filled simultaneously, not greedily.
+Multi-court optimisation fills all available courts simultaneously, and a court never sits idle while four or more players are waiting.
 
 ## Configuration
 
-### Matchmaking (`config/courtly.php`)
+All tuning lives in `config/courtly.php`:
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| skill_spread_weight | 5 | Penalty for rating spread within a group |
-| balance_weight | 10 | Penalty for team imbalance |
-| repeat_teammate_penalty | 20 | Penalty for consecutive same teammate |
-| consecutive_matchup_penalty | 10000 | Hard block on identical consecutive match |
-| provisional_k | 8 | K-factor for provisional players |
-| established_k | 3 | K-factor for established players |
-
-### AI
-
-```env
-AI_ENABLED=false   # Off by default. All features work without AI.
-```
+- `matchmaking.*` — skill spread weight, balance weight, repeat/recent penalties, rotation fairness, hard-constraint toggles
+- `rating.*` — default/min/max rating, Elo scale, K-factors, provisional threshold, confidence growth
+- `session.*` — max/min courts, match points
+- `feedback.*` — feedback sampling rate
+- `ai.*` — optional AI feature flag and provider settings (`AI_ENABLED=false` by default)
 
 ## Production Deployment
 
-See `specs/190-deployment.md` and `skills/deployment.md` for:
-- Nginx configuration (with SSE buffering disabled)
-- PHP-FPM pool sizing
-- Supervisor queue worker setup
-- SSL via Certbot
-- Optional Laravel Octane/FrankenPHP
+See `CLAUDE.md` → "Deployment" for the full checklist. Key points:
+
+- Upload via FTP to `public_html/courtly/` (server: `ftp.bytedemon.com`)
+- Never upload `bootstrap/cache/routes-v7.php` — a stale route cache causes 405 errors
+- Keep `css/courtly.css` at the root of `courtly/` on the server (not inside `public/`)
+- Set the Vue `BASE_URL` to `/courtly` on the server (empty locally)
+- Use `SESSION_DRIVER=file` — the app has its own `sessions` table
 
 ## License
 

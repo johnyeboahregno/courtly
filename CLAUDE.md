@@ -25,7 +25,7 @@ PHP 8.4+ / Laravel 11 / Vue 3 / MySQL
 
 ## Project Overview
 
-Courtly is a real-time badminton session management system designed to run on a shared tablet/kiosk at a badminton venue. It handles:
+Courtly is a real-time badminton session management system. It is **multi-tenant per-user**: every user owns their own sessions and player roster, and all data is strictly scoped to the authenticated user. It handles:
 
 - **Session lifecycle**: Create → Start → Pause/Resume → Finish
 - **Player management**: Add players (by name or from existing), pause/resume/remove
@@ -84,6 +84,12 @@ Courtly is a real-time badminton session management system designed to run on a 
 └─────────────────────────────────────────────────────────┘
 ```
 
+### Multi-tenancy boundary
+- All API routes except `register`/`login`/password-reset are behind `auth:sanctum`.
+- Controllers authorize resource ownership via the `AuthorizesOwnership` trait, backed by `Session::belongsToUser()` and `Player::belongsToUser()`.
+- `players.user_id` and `sessions.created_by` are non-nullable owner columns; player names are unique per user.
+- The dashboard `/` and live view `/sessions/{id}/live` require web auth and scope queries to `Auth::id()`.
+
 ### Key Invariant: "A court must never sit idle"
 - `MatchResultService::recordResult()` calls `allocateMatches()` inside the DB transaction after freeing a court
 - `SessionController::show()` calls `allocateMatches()` on every poll to ensure no court is idle
@@ -112,8 +118,8 @@ Courtly is a real-time badminton session management system designed to run on a 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | bigint PK | |
-| user_id | FK → users | nullable, SET NULL on delete |
-| name | varchar(255) | unique |
+| user_id | FK → users | NOT NULL, CASCADE on delete |
+| name | varchar(255) | unique per user |
 | rating | decimal(5,2) | default: 50.00 |
 | rating_status | varchar(255) | PROVISIONAL / ESTABLISHED |
 | rating_confidence | decimal(3,2) | default: 0.10 |
@@ -124,7 +130,7 @@ Courtly is a real-time badminton session management system designed to run on a 
 | consecutive_wins | int | default: 0 |
 | created_at, updated_at | timestamp | |
 
-Indexes: `user_id`, `rating`
+Indexes: `user_id`, `rating`. Unique: `[user_id, name]`
 
 ### `sessions`
 | Column | Type | Notes |
@@ -135,7 +141,7 @@ Indexes: `user_id`, `rating`
 | start_time | time | nullable |
 | number_of_courts | int | default: 1 |
 | status | varchar(255) | UPCOMING / ACTIVE / PAUSED / FINISHED |
-| created_by | FK → users | nullable |
+| created_by | FK → users | NOT NULL (owner) |
 | started_at | timestamp | nullable |
 | finished_at | timestamp | nullable |
 | created_at, updated_at | timestamp | |
@@ -300,7 +306,7 @@ Index: `[session_id, created_at]`
   - `sessionPlayers(): HasMany` → `SessionPlayer`
   - `matchPlayers(): HasMany` → `MatchPlayer`
   - `ratingHistory(): HasMany` → `RatingHistory`
-- **Methods**: `isProvisional()`, `winPercentage()`
+- **Methods**: `isProvisional()`, `winPercentage()`, `belongsToUser()`
 
 ### `Session` (`App\Models\Session`)
 - Table: `sessions`
@@ -311,7 +317,7 @@ Index: `[session_id, created_at]`
   - `sessionPlayers(): HasMany` → `SessionPlayer`
   - `matches(): HasMany` → `GameMatch`
   - `matchmakingLogs(): HasMany` → `MatchmakingLog`
-- **Methods**: `isActive()`, `maxGamesPlayed()`
+- **Methods**: `isActive()`, `maxGamesPlayed()`, `belongsToUser()`
 - **Dynamic properties** (set at runtime for matchmaking optimization):
   - `cachedRecentMatches` — preloaded recent match data
   - `cachedLastMatch` — preloaded last match
@@ -424,13 +430,27 @@ Player: WAITING ⇄ PLAYING ⇄ PAUSED → LEFT (one-way)
 
 ## API Routes
 
-All API routes are **public** (no auth middleware) except the `auth:sanctum` group. This is intentional — the tablet is a shared kiosk.
+All API routes are **🔒 auth-protected** (`auth:sanctum`) except `register`, `login`, and the password-reset stubs. Every resource is scoped to the authenticated user — a user can only see and mutate their own sessions, players, and matches. The shared-kiosk anonymous mode no longer exists.
 
-### Sessions
+### Auth (public)
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/register` | Register (creates User + Player in transaction) |
+| `POST` | `/api/login` | Login (session-based web guard) |
+| `POST` | `/api/forgot-password` | Stub — returns success message |
+| `POST` | `/api/reset-password` | Stub — returns success message |
+
+### Auth (🔒)
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/logout` | Logout |
+| `GET` | `/api/me` | Current user with player relation |
+
+### Sessions (🔒)
 | Method | Path | Controller::method | Purpose |
 |--------|------|--------------------|---------|
-| `GET` | `/api/sessions` | `SessionController::index` | 🔒 List user's sessions (paginated, 20/page) |
-| `POST` | `/api/sessions` | `SessionController::store` | Create session with N courts |
+| `GET` | `/api/sessions` | `SessionController::index` | List the user's sessions (paginated, 20/page) |
+| `POST` | `/api/sessions` | `SessionController::store` | Create session with N courts (owner = current user) |
 | `GET` | `/api/sessions/{session}` | `SessionController::show` | Get session detail (triggers matchmaking if ACTIVE) |
 | `POST` | `/api/sessions/{session}/start` | `SessionController::start` | Start session (UPCOMING → ACTIVE, run matchmaking) |
 | `POST` | `/api/sessions/{session}/pause` | `SessionController::pause` | Pause session (ACTIVE → PAUSED) |
@@ -439,40 +459,29 @@ All API routes are **public** (no auth middleware) except the `auth:sanctum` gro
 | `GET` | `/api/sessions/{session}/summary` | `SessionController::summary` | Post-session analytics |
 | `GET` | `/api/sessions/{session}/events` | `SessionEventsController` | Polling (?since=) or SSE (?stream=1) |
 | `GET` | `/api/sessions/{session}/players` | `SessionPlayerController::index` | List session players |
-| `POST` | `/api/sessions/{session}/players` | `SessionPlayerController::store` | Add players (by name or ID) |
+| `POST` | `/api/sessions/{session}/players` | `SessionPlayerController::store` | Add players (by name or ID; scoped to the user's roster) |
+| `DELETE` | `/api/sessions/{session}` | `SessionController::destroy` | Delete session and all its data |
 
-### Session Players
+### Session Players (🔒)
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/session-players/{sessionPlayer}/pause` | Pause player (WAITING → PAUSED) |
 | `POST` | `/api/session-players/{sessionPlayer}/resume` | Resume player (PAUSED → WAITING) |
 | `POST` | `/api/session-players/{sessionPlayer}/leave` | Player leaves (→ LEFT) |
 
-### Matches
+### Matches (🔒)
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/matches/{match}/result` | Record match result (winning_team: 1 or 2). Returns `next_matches` for immediate court population. |
 | `POST` | `/api/matches/{match}/correct` | Correct a previously recorded match result |
 
-### Players
+### Players (🔒)
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/players` | List all players (id, name, rating, total_games) |
+| `GET` | `/api/players` | List the user's players (id, name, rating, total_games) |
 | `GET` | `/api/players/{player}` | Player profile with recent matches |
 | `GET` | `/api/players/{player}/history` | Rating history (paginated, 30/page) |
-| `DELETE` | `/api/players/{player}` | ⚠️ Permanently delete player and all data |
-
-### Auth (public)
-| Method | Path | Purpose |
-|--------|------|---------|
-| `POST` | `/api/register` | Register (creates User + Player in transaction) |
-| `POST` | `/api/login` | Login (session-based web guard) |
-
-### Auth (🔒 `auth:sanctum`)
-| Method | Path | Purpose |
-|--------|------|---------|
-| `POST` | `/api/logout` | Logout |
-| `GET` | `/api/me` | Current user with player relation |
+| `DELETE` | `/api/players/{player}` | Permanently delete player and all data (owner only) |
 
 ---
 
@@ -480,26 +489,28 @@ All API routes are **public** (no auth middleware) except the `auth:sanctum` gro
 
 | Method | Path | Handler | Purpose |
 |--------|------|---------|---------|
-| `GET` | `/` | Closure (inline) | Dashboard — inline HTML: lists 20 most recent sessions, "New Session" form (JS fetch to `/api/sessions`), theme toggle, logout |
+| `GET` | `/` | Closure (inline) | 🔒 Dashboard — inline HTML: lists the authenticated user's sessions, "New Session" form (JS fetch to `/api/sessions`), theme toggle, logout |
 | `GET` | `/login` | `AuthController::showLogin` | Inline HTML login form + Google/Facebook buttons |
 | `POST` | `/login` | `AuthController::login` | Process login |
 | `GET` | `/register` | `AuthController::showRegister` | Inline HTML registration form |
-| `POST` | `/register` | `AuthController::register` | Process registration (⚠️ creates User only, NOT Player) |
+| `POST` | `/register` | `AuthController::register` | Process registration (creates User **and** Player) |
 | `POST` | `/logout` | `AuthController::logout` | Logout |
 | `GET` | `/auth/google/redirect` | `AuthController::redirectToGoogle` | Google OAuth redirect |
-| `GET` | `/auth/google/callback` | `AuthController::handleGoogleCallback` | Google OAuth callback |
+| `GET` | `/auth/google/callback` | `AuthController::handleGoogleCallback` | Google OAuth callback (ensures Player exists) |
 | `GET` | `/auth/facebook/redirect` | `AuthController::redirectToFacebook` | Facebook OAuth redirect |
-| `GET` | `/auth/facebook/callback` | `AuthController::handleFacebookCallback` | Facebook OAuth callback |
-| `GET` | `/sessions/{id}/live` | Closure | Loads `resources/views/session-live.php` Vue 3 SPA |
+| `GET` | `/auth/facebook/callback` | `AuthController::handleFacebookCallback` | Facebook OAuth callback (ensures Player exists) |
+| `GET` | `/sessions/{id}/live` | Closure | 🔒 Loads `resources/views/session-live.php` Vue 3 SPA (owner only) |
 
 ---
 
 ## Controllers
 
+All API controllers use the `AuthorizesOwnership` trait (`app/Http/Controllers/Api/Concerns/AuthorizesOwnership.php`) to enforce per-user ownership before any read or mutation — non-owners receive 403.
+
 ### `Api\SessionController`
 - **Dependencies**: `MatchmakingService`, `RealtimeEventService`, `SessionAnalyticsService`
-- `index(Request)` — 🔒 Lists sessions for authenticated user (owned or participating), paginated 20/page
-- `store(Request)` — Creates session with N courts (1-8), status=UPCOMING
+- `index(Request)` — 🔒 Lists sessions owned by the user, paginated 20/page
+- `store(Request)` — Creates session with N courts (1-8), status=UPCOMING, owner=current user
 - `show(Session)` — Gets session detail; if ACTIVE, calls `allocateMatches()` to fill idle courts
 - `start(Session)` — UPCOMING→ACTIVE, sets waiting_since on all WAITING players, runs matchmaking
 - `pause(Session)` — ACTIVE→PAUSED
@@ -510,7 +521,7 @@ All API routes are **public** (no auth middleware) except the `auth:sanctum` gro
 ### `Api\SessionPlayerController`
 - **Dependencies**: `RealtimeEventService`, `MatchmakingService`
 - `index(Session)` — Lists all session players with their player data
-- `store(Request, Session)` — Adds players by `player_ids` (array) or `name` (creates new Player); triggers matchmaking
+- `store(Request, Session)` — Adds the user's players by `player_ids` (array) or `name` (creates new Player owned by the user); triggers matchmaking
 - `pause(SessionPlayer)` — Sets player to PAUSED
 - `resume(SessionPlayer)` — Sets player to WAITING, triggers matchmaking
 - `leave(SessionPlayer)` — Sets player to LEFT
@@ -524,7 +535,7 @@ All API routes are **public** (no auth middleware) except the `auth:sanctum` gro
 - `index()` — All players sorted by name
 - `show(Player)` — Full profile with recent matches and rating changes
 - `history(Player)` — Rating history paginated 30/page
-- `destroy(Player)` — ⚠️ Permanently deletes player + all related records (no auth check)
+- `destroy(Player)` — Permanently deletes player + all related records (owner only)
 
 ### `Api\SessionEventsController` (invokable)
 - **Dependencies**: `RealtimeEventService`
@@ -541,10 +552,10 @@ All API routes are **public** (no auth middleware) except the `auth:sanctum` gro
 - `showLogin()` — Inline HTML login page
 - `showRegister()` — Inline HTML registration page
 - `login(Request)` — Web session login, redirects to /
-- `register(Request)` — Creates User (⚠️ no Player), auto-login, redirects to /
+- `register(Request)` — Creates User **and** Player, auto-login, redirects to /
 - `logout(Request)` — Web session logout, redirects to /login
-- `redirectToGoogle()` / `handleGoogleCallback()` — Google OAuth with custom Guzzle client for Windows SSL
-- `redirectToFacebook()` / `handleFacebookCallback()` — Facebook OAuth
+- `redirectToGoogle()` / `handleGoogleCallback()` — Google OAuth with custom Guzzle client for Windows SSL (ensures Player exists)
+- `redirectToFacebook()` / `handleFacebookCallback()` — Facebook OAuth (ensures Player exists)
 
 ---
 
@@ -621,13 +632,13 @@ DB-backed event system (no Redis/WebSockets required).
 ## Policies
 
 ### `SessionPolicy`
-- `view(User, Session): bool` — Always `true` (shared kiosk)
+- `view(User, Session): bool` — Always `true` (legacy; ownership is enforced via the trait, not this policy)
 - `manage(User, Session): bool` — User is creator OR admin
 
 ### `MatchPolicy`
 - `recordResult(User, GameMatch): bool` — User is session creator OR admin
 
-Note: Policies exist but `$this->authorize()` is **never called** in any controller — all API routes are effectively public.
+Note: Authorization is enforced directly in the controllers via the `AuthorizesOwnership` trait (`Session::belongsToUser()` / `Player::belongsToUser()`), returning 403 for non-owners. The policy classes above still exist but are not invoked by `$this->authorize()`.
 
 ---
 
@@ -832,7 +843,14 @@ File: `public/css/courtly.css` (single file, versioned via `?v=N`)
 | **CSS not loading** | Wrong path on server | Ensure `css/courtly.css` is at root of `courtly/` |
 | **API 404** | Wrong BASE_URL | Vue uses `BASE_URL + '/api/...'` — must be `/courtly` on server |
 | **Sessions table conflict** | App has its own `sessions` table | `SESSION_DRIVER=file` (not `database`) in `.env` |
-| **Web register() doesn't create Player** | Different code paths | API `AuthController::register()` creates both; web `AuthController::register()` only creates User |
-| **Duplicate route** | `DELETE /api/players/{player}` appears twice in `api.php` | Remove one |
-| **No authorization on player delete** | `PlayerController::destroy` has no auth check | Any unauthenticated user can permanently delete players |
 | **SSL issues on Windows dev** | Missing CA cert | AuthController uses custom Guzzle client with `cacert.pem` |
+| **401/403 on API after migration** | Routes now require `auth:sanctum` | The frontend already sends cookies (`credentials: 'include'`); log in via the web form first |
+| **Player name uniqueness conflict** | Old global unique index on `players.name` | The multi-tenant migration drops it and adds `[user_id, name]` |
+
+### Migration to multi-tenancy
+Run `php artisan migrate` after pulling these changes. The migration `2026_08_22_000000_make_app_multi_tenant.php`:
+1. Drops the global `players.name` unique index and adds a per-user `[user_id, name]` unique index.
+2. Makes `players.user_id` non-null (backfilling any orphans onto the first user) and changes its FK to `CASCADE` on delete.
+3. Makes `sessions.created_by` non-null (backfilling orphans onto the first user).
+
+Existing users created before this change may not yet have a `Player` record — OAuth login or the next web registration creates one automatically (`AuthController::ensurePlayer()`), or players can be added manually in the UI.
