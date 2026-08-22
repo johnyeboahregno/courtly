@@ -64,23 +64,29 @@ class MatchmakingService
             )->values();
         }
 
-        // ROTATION: when exactly one court is free and other courts are still
-        // playing, don't immediately put the players who just came off that court
-        // back onto it. They join the "next up" queue and wait for another court
-        // to free so the pool can be mixed (winners then re-enter on split sides).
-        if ($availableCourts->count() === 1) {
-            $playingCourts = $session->courts()
-                ->where('status', CourtStatus::PLAYING->value)
-                ->count();
+        // ROTATION: while any court is still playing, don't put the players who
+        // just came off an available court straight back on. They join the
+        // "next up" queue and wait until the remaining courts free so the whole
+        // pool can be mixed (winners then re-enter on split sides). Players who
+        // were already waiting (not just off a court) still fill immediately.
+        $playingCourts = $session->courts()
+            ->where('status', CourtStatus::PLAYING->value)
+            ->count();
 
-            if ($playingCourts > 0) {
-                $justCameOffIds = $this->lastMatchPlayerIds($session, (int) $availableCourts->first()->id);
+        if ($playingCourts > 0) {
+            $justCameOffIds = [];
+            foreach ($availableCourts as $court) {
+                $justCameOffIds = array_merge(
+                    $justCameOffIds,
+                    $this->lastMatchPlayerIds($session, (int) $court->id)
+                );
+            }
+            $justCameOffIds = array_values(array_unique($justCameOffIds));
 
-                if (! empty($justCameOffIds)) {
-                    $waitingPlayers = $waitingPlayers->reject(
-                        fn (SessionPlayer $sp) => in_array((int) $sp->player_id, $justCameOffIds, true)
-                    )->values();
-                }
+            if (! empty($justCameOffIds)) {
+                $waitingPlayers = $waitingPlayers->reject(
+                    fn (SessionPlayer $sp) => in_array((int) $sp->player_id, $justCameOffIds, true)
+                )->values();
             }
         }
 
@@ -193,13 +199,16 @@ class MatchmakingService
         $skillSpread = $this->calculateSkillSpread($players);
         $cost += $skillSpread * $config['skill_spread_weight'];
 
-        // Rotation fairness penalty
-        $maxGames = $session->maxGamesPlayed();
+        // Rotation fairness penalty. Session players are preloaded once by
+        // findBestCourtAssignments, so this reuses the in-memory collection
+        // instead of hitting the DB for every candidate group.
+        $allPlayers = $session->sessionPlayers;
+        $maxGames = (int) $allPlayers->max('games_played');
         $priorities = array_map(
             fn (Player $p) => $this->calculateRotationPriority($p->sessionPlayer, $maxGames),
             $players
         );
-        $maxPriority = $session->sessionPlayers
+        $maxPriority = $allPlayers
             ->map(fn (SessionPlayer $sp) => $this->calculateRotationPriority($sp, $maxGames))
             ->max();
         $avgPriority = array_sum($priorities) / 4;
@@ -362,7 +371,10 @@ class MatchmakingService
         Collection $availableCourts
     ): array
     {
-        $maxGames = $session->maxGamesPlayed();
+        // Load session players once — calculateGroupCost() reuses this collection
+        // instead of re-querying the (remote, slow) DB for every candidate group.
+        $session->load('sessionPlayers');
+        $maxGames = (int) $session->sessionPlayers->max('games_played');
         $config = config('courtly.matchmaking');
 
         // Load match-history data ONCE so the pairing-cost helpers reuse it instead

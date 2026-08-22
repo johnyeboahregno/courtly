@@ -591,7 +591,7 @@ The core algorithm that allocates 4-player matches to available courts.
 - Exact same 4-player group as any court's last round is blocked (100k cost); repeat guards check each court's own last round, not just the globally-latest match (config: `matchmaking.per_court_repeat_guards`)
 - Consecutive matchup (same 2v2) is blocked (10k cost)
 - Winners are rotated off the court they just won on: groups are penalised for returning winners to their previous court and courts are assigned greedily to minimise it (config: `matchmaking.winner_return_penalty`)
-- When a single court frees while other courts are still playing, the players who just came off that court are excluded, so they join the "next up" queue and wait for another court to free before being mixed back in
+- While any court is still playing, the players who just came off an available court are excluded, so they join the "next up" queue and wait for the remaining courts to free before the whole pool is mixed back in
 - Fewer than 4 WAITING players → no allocation
 
 ### `MatchResultService`

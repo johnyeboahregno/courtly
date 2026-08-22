@@ -105,6 +105,7 @@
     </div>
 
     <footer class="session-controls">
+        <button v-if="session.status === 'UPCOMING'" class="btn btn--primary" @click="startSession">▶ START SESSION</button>
         <button v-if="session.status === 'ACTIVE'" class="btn btn--warning" @click="pauseSession">⏸ PAUSE</button>
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" @click="resumeSession">▶ RESUME</button>
         <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
@@ -206,19 +207,10 @@ createApp({
         // out until the court reaches a full four — the server then forms the
         // real match and the court switches to full colour. Sorted by name so
         // the distribution stays stable across polls.
-        const pendingCourtPlayers = computed(() => {
-            const result = {};
-            const emptyCourts = courts.value.filter(c => !c.match);
-            const waiting = [...waitingPlayers.value].sort((a, b) =>
-                String(a.player?.name || '').localeCompare(String(b.player?.name || ''))
-            );
-            let idx = 0;
-            emptyCourts.forEach(court => {
-                result[court.id] = waiting.slice(idx, idx + 4);
-                idx += 4;
-            });
-            return result;
-        });
+        // Court "previews" are disabled: players stay in the NEXT UP list until
+        // the server actually forms a match (which then shows as PLAYING). Empty
+        // courts show "Waiting for players" rather than a misleading preview.
+        const pendingCourtPlayers = computed(() => ({}));
 
         // Player ids currently shown on a court preview — hidden from NEXT UP
         // so a player never appears in two places at once.
@@ -484,45 +476,63 @@ createApp({
                 court.match = null;
             }
 
-            // Send to server
-            const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN},credentials:'include',body:JSON.stringify({winning_team:team})});
-            submitting[matchId + '_' + team] = false;
+            // Send to server. Use a generous timeout (the remote DB can be slow),
+            // and always clear the spinner in `finally` so a slow or failed
+            // request never leaves the WIN button spinning forever.
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 90000);
+            try {
+                const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN},
+                    credentials:'include',
+                    signal: controller.signal,
+                    body:JSON.stringify({winning_team:team})
+                });
 
-            if (res.ok) {
-                const json = await res.json();
-                const nextMatches = json?.data?.next_matches || [];
+                if (res.ok) {
+                    const json = await res.json();
+                    const nextMatches = json?.data?.next_matches || [];
 
-                // Populate courts immediately from the POST response — no extra GET roundtrip
-                for (const nm of nextMatches) {
-                    const targetCourt = courts.value.find(c => c.id === nm.court_id);
-                    if (targetCourt && nm.match_players && nm.match_players.length === 4) {
-                        const t1 = nm.match_players.filter(p => p.team === 1);
-                        const t2 = nm.match_players.filter(p => p.team === 2);
-                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: 0 });
-                        targetCourt.match = {
-                            id: nm.id,
-                            t1: [build(t1[0]), build(t1[1])],
-                            t2: [build(t2[0]), build(t2[1])]
-                        };
+                    // Populate courts immediately from the POST response — no extra GET roundtrip
+                    for (const nm of nextMatches) {
+                        const targetCourt = courts.value.find(c => c.id === nm.court_id);
+                        if (targetCourt && nm.match_players && nm.match_players.length === 4) {
+                            const t1 = nm.match_players.filter(p => p.team === 1);
+                            const t2 = nm.match_players.filter(p => p.team === 2);
+                            const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: 0 });
+                            targetCourt.match = {
+                                id: nm.id,
+                                t1: [build(t1[0]), build(t1[1])],
+                                t2: [build(t2[0]), build(t2[1])]
+                            };
+                        }
+                    }
+
+                    // Update player statuses for newly assigned players
+                    const newPlayingIds = nextMatches.flatMap(nm =>
+                        (nm.match_players || []).map(mp => mp.player_id)
+                    );
+                    if (newPlayingIds.length > 0) {
+                        players.value = players.value.map(sp => {
+                            if (newPlayingIds.includes(sp.player_id)) {
+                                return { ...sp, status: 'PLAYING' };
+                            }
+                            return sp;
+                        });
                     }
                 }
-
-                // Update player statuses for newly assigned players
-                const newPlayingIds = nextMatches.flatMap(nm =>
-                    (nm.match_players || []).map(mp => mp.player_id)
-                );
-                if (newPlayingIds.length > 0) {
-                    players.value = players.value.map(sp => {
-                        if (newPlayingIds.includes(sp.player_id)) {
-                            return { ...sp, status: 'PLAYING' };
-                        }
-                        return sp;
-                    });
-                }
-
-                // Background refresh for ratings/stats reconciliation
-                fetchSession();
+            } catch (err) {
+                // Network error / timeout — the server may not have recorded the
+                // result. Reconcile below so the UI reflects the true server state.
+            } finally {
+                clearTimeout(timer);
+                submitting[matchId + '_' + team] = false;
             }
+
+            // Always reconcile with the server (success or failure) so ratings,
+            // statuses and courts reflect the authoritative state.
+            fetchSession();
         }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
@@ -539,6 +549,11 @@ createApp({
             const json = await res.json();
             if (!res.ok || !json.data || !json.data.id) return;
             window.location.href = BASE_URL + '/sessions/' + json.data.id + '/live';
+        }
+        async function startSession() {
+            await flushSyncQueue(); // push any pending player additions first
+            await postApi('/api/sessions/' + SESSION_ID + '/start');
+            fetchSession();
         }
         async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
         async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
@@ -678,7 +693,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
     }
 }).mount('#courtly-app');
 </script>
