@@ -95,8 +95,17 @@ class SessionController extends Controller
             $this->matchmaking->allocateMatches($session);
         }
 
+        // The live view only needs the matches currently in play — loading every
+        // match in the session (potentially hundreds) on each poll is wasteful
+        // against the high-latency remote DB.
         return response()->json([
-            'data' => $session->fresh()->load(['courts', 'sessionPlayers.player', 'matches.matchPlayers.player']),
+            'data' => $session->fresh()->load([
+                'courts',
+                'sessionPlayers.player',
+                'matches' => fn ($q) => $q
+                    ->where('status', MatchStatus::PLAYING->value)
+                    ->with('matchPlayers.player'),
+            ]),
         ]);
     }
 
@@ -237,6 +246,24 @@ class SessionController extends Controller
 
         return response()->json([
             'data' => $this->analytics->calculateSummary($session),
+        ]);
+    }
+
+    /**
+     * Switch this session's matchmaking strategy.
+     */
+    public function setMatchmakingMode(Request $request, Session $session): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        $validated = $request->validate([
+            'mode' => ['required', 'string', 'in:peg,smart'],
+        ]);
+
+        $session->update(['matchmaking_mode' => $validated['mode']]);
+
+        return response()->json([
+            'data' => $session->fresh(),
         ]);
     }
 

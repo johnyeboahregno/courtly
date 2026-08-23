@@ -20,6 +20,7 @@ class Session extends Model
         'start_time',
         'number_of_courts',
         'status',
+        'matchmaking_mode',
         'created_by',
         'started_at',
         'finished_at',
@@ -65,6 +66,15 @@ class Session extends Model
     public function isActive(): bool
     {
         return $this->status === SessionStatus::ACTIVE;
+    }
+
+    /**
+     * Whether this session runs the traditional peg-board matchmaking.
+     * Defaults to 'smart' when the column has not been migrated yet.
+     */
+    public function usesPegMode(): bool
+    {
+        return $this->matchmaking_mode === 'peg';
     }
 
     public function maxGamesPlayed(): int

@@ -6,11 +6,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Courtly Application Version
+    |--------------------------------------------------------------------------
+    */
+    'app' => [
+        // Displayed in the session header. Bump on user-visible releases
+        // (MAJOR.MINOR.PATCH).
+        'version' => 'v2.0.0',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Courtly Matchmaking Configuration
     |--------------------------------------------------------------------------
     */
     'matchmaking' => [
-        'algorithm_version' => 'courtly-v1.1',
+        'algorithm_version' => 'courtly-v2.0',
+        'peg_algorithm_version' => 'courtly-peg-v1.0',
         'skill_spread_weight' => 8,
         'balance_weight' => 15,
         'repeat_teammate_penalty' => 20,
@@ -20,7 +32,35 @@ return [
         'candidate_pool_buffer' => 3,
         'recent_match_window' => 5,
         'max_calculation_time_ms' => 500,
-        'winner_priority_bonus' => 500,
+        // Winner status is only a soft tie-break — it must never override a
+        // player who has been waiting substantially longer.
+        'winner_priority_bonus' => 10,
+
+        // Mandatory priority once a WAITING player has waited this long (minutes).
+        'max_wait_minutes' => 12,
+
+        // A WAITING player may be skipped this many times for a better skill
+        // grouping before becoming DUE (mandatory priority).
+        'max_skips' => 1,
+
+        // How many previous matches a player should avoid repeating companions.
+        'relationship_cooldown_matches' => 1,
+
+        // ── Traditional peg-board settings ─────────────────────────────
+        // Number of queue positions behind the anchor that are considered for
+        // the other three slots.
+        'pick_zone_size' => 8,
+
+        // Small penalty per queue position of displacement from the anchor.
+        'queue_displacement_weight' => 3,
+
+        // Strong preference against reusing a companion from the anchor's
+        // immediately previous match.
+        'previous_match_companion_penalty' => 5000,
+
+        // Pause warning thresholds.
+        'paused_player_warning_rounds' => 2,
+        'paused_player_flash_enabled' => true,
 
         // Cost per player who would return to the court they just won on.
         // Strong enough to rotate winners onto a different court, but far below
@@ -56,7 +96,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'rating' => [
-        'default_rating' => 0.00,
+        'default_rating' => 50.00,
         'min_rating' => 0.00,
         'max_rating' => 100.00,
         'elo_scale' => 20,
@@ -87,9 +127,9 @@ return [
     */
     'sync' => [
         // How often (ms) pending local changes are flushed to the server.
-        'auto_sync_interval_ms' => (int) env('COURTLY_SYNC_INTERVAL_MS', 30000),
+        'auto_sync_interval_ms' => (int) env('COURTLY_SYNC_INTERVAL_MS', 120000),
         // How often (ms) the live view re-fetches session state from the server.
-        'reconcile_interval_ms' => (int) env('COURTLY_RECONCILE_INTERVAL_MS', 30000),
+        'reconcile_interval_ms' => (int) env('COURTLY_RECONCILE_INTERVAL_MS', 120000),
         // Flush pending changes when the tab is hidden / the page is closing.
         'sync_on_idle' => (bool) env('COURTLY_SYNC_ON_IDLE', true),
         // Show a manual "Sync" button in the session view.

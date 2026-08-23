@@ -31,7 +31,7 @@ Route::get('/', function () {
 
     $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
 
-    $sessions = \App\Models\Session::select('id', 'name', 'date', 'number_of_courts', 'status')
+    $sessions = \App\Models\Session::select('id', 'name', 'date', 'number_of_courts', 'status', 'matchmaking_mode')
         ->where('created_by', \Illuminate\Support\Facades\Auth::id())
         ->orderByDesc('date')->get();
 
@@ -46,10 +46,13 @@ Route::get('/', function () {
             ? 'PASSED'
             : $session->status->value;
 
+        $mode = ($session->matchmaking_mode ?? 'smart') === 'peg' ? 'PEG' : 'SMART';
+        $modeTag = '<span class="tag tag--mode tag--mode--'.strtolower($mode).'">'.$mode.'</span>';
+
         $row = '<div class="session-row">'
             .'<a class="session-link" href="'.$base.'/sessions/'.$session->id.'/live">'
                 .'<span class="session-link__name">'.e($session->name).'</span>'
-                .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span></span>'
+                .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span> '.$modeTag.'</span>'
             .'</a>'
             .'<button type="button" class="session-delete" data-id="'.$session->id.'" title="Delete session">✕</button>'
             .'</div>';
@@ -77,6 +80,8 @@ Route::get('/', function () {
         .wrap{max-width:560px;margin:0 auto}
         h1{font-size:2rem;margin:0 0 4px}
         .sub{color:var(--text-muted,#8888a8);margin:0 0 24px}
+        .manage-link{font-family:inherit;font-size:inherit;color:var(--text-muted,#8888a8);background:none;border:none;cursor:pointer;padding:0;font-weight:inherit}
+        .manage-link:hover{color:var(--accent,#ff2d55);text-decoration:underline}
         .session-link{display:block;background:var(--surface,#1e1e32);border:1px solid var(--stroke,#2e2e4a);border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;color:var(--text,#e4e4f0);box-shadow:var(--shadow-card,0 4px 20px rgba(0,0,0,.3));transition:border-color .15s}
         .session-link:hover{border-color:var(--accent,#ff2d55)}
         .session-link__name{font-weight:700;font-size:1.05rem;display:block;margin-bottom:4px}
@@ -86,6 +91,9 @@ Route::get('/', function () {
         .empty{color:var(--text-muted,#8888a8)}
         .user-name{font-size:.85rem;font-weight:700;color:var(--text,#e4e4f0);padding:6px 12px;border:1px solid var(--stroke,#2e2e4a);border-radius:999px;background:var(--surface,#1e1e32)}
         .tag--passed{background:#3a2024;color:#d47a8a}
+        .tag--mode{font-size:.65rem;padding:1px 8px;border-radius:999px;font-weight:700;display:inline-block}
+        .tag--mode--peg{background:#3a2c10;color:#e0a91a}
+        .tag--mode--smart{background:#10243a;color:#5b9bd5}
         .session-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;transition:opacity .3s ease,transform .3s ease,margin-bottom .3s ease}
         .session-row.session-row--removing{opacity:0;transform:translateX(16px);margin-bottom:0;pointer-events:none}
         .session-row .session-link{flex:1;margin-bottom:0}
@@ -118,6 +126,15 @@ Route::get('/', function () {
         .create-btn{width:100%;padding:12px;border:none;border-radius:6px;background:var(--accent,#ff2d55);color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;transition:filter .15s}
         .create-btn:hover{filter:brightness(1.1)}
         .err{color:var(--accent,#ff2d55);font-size:.85rem;margin-top:8px;display:none}
+        .manage-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        .manage-name{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--stroke,#2e2e4a);border-radius:6px;background:var(--bg,#12121f);color:var(--text,#e4e4f0);font-size:.9rem}
+        .manage-name:disabled{opacity:.5}
+        .manage-rating{font-size:.8rem;color:var(--text-muted,#8888a8);min-width:34px;text-align:center}
+        .manage-lock{font-size:.9rem}
+        .manage-btn{border:1px solid var(--stroke,#2e2e4a);background:transparent;color:var(--text-muted,#8888a8);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:.85rem;font-weight:700}
+        .manage-btn:hover{border-color:var(--accent,#ff2d55);color:var(--text,#e4e4f0)}
+        .manage-btn:disabled{opacity:.4;cursor:not-allowed}
+        .manage-del:hover{color:var(--accent,#ff2d55)}
         h2.list-title{margin-top:28px;margin-bottom:12px}
     </style>
     </head><body><div class="wrap">
@@ -125,18 +142,16 @@ Route::get('/', function () {
             <h1 style="margin:0;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly_light.png" style="height:5vh;display:block;"></h1>
             <div style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
-                <div class="theme-toggle" id="themeToggle">
-                    <button onclick="setTheme(\'light\')" title="Light">☀</button>
-                    <button onclick="setTheme(\'dark\')" title="Dark">☾</button>
-                    <button onclick="setTheme(\'system\')" title="System">◐</button>
-                </div>
                 <form method="POST" action="/logout" style="margin:0">
                     <input type="hidden" name="_token" value="'.csrf_token().'">
                     <button type="submit" style="background:transparent;border:1px solid var(--stroke,#2e2e4a);padding:8px 18px;border-radius:6px;font-size:.85rem;font-weight:700;cursor:pointer;color:var(--text-muted,#8888a8)">Logout</button>
                 </form>
             </div>
         </div>
-        <p class="sub">Badminton session management</p>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px">
+            <p class="sub" style="margin:0">Badminton session management</p>
+            <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
+        </div>
         <div class="card">
             <h2>New Session</h2>
             <form id="createForm">
@@ -157,6 +172,16 @@ Route::get('/', function () {
             <h3 class="dialog__title" id="appDialogTitle"></h3>
             <p class="dialog__message" id="appDialogMessage"></p>
             <div class="dialog__actions" id="appDialogActions"></div>
+        </div>
+    </div>
+    <div class="dialog-overlay" id="manageDialog" style="display:none">
+        <div class="dialog" style="max-width:480px">
+            <h3 class="dialog__title">Manage Players</h3>
+            <p class="dialog__message">Edit names or delete players. Players on court are locked.</p>
+            <div id="manageList" style="max-height:60vh;overflow:auto;margin-bottom:16px"></div>
+            <div class="dialog__actions">
+                <button type="button" class="dialog__btn dialog__btn--cancel" onclick="closeManage()">Close</button>
+            </div>
         </div>
     </div>
     <script>
@@ -181,22 +206,6 @@ Route::get('/', function () {
             err.style.display = "block";
         }
     });
-    </script>
-    <script>
-    (function(){
-        var t = localStorage.getItem("courtly-theme") || "system";
-        function apply(s) {
-            if (s === "system") document.documentElement.removeAttribute("data-theme");
-            else document.documentElement.setAttribute("data-theme", s);
-            var btns = document.querySelectorAll("#themeToggle button");
-            btns.forEach(function(b,i){
-                var modes = ["light","dark","system"];
-                b.className = modes[i] === s ? "active" : "";
-            });
-        }
-        window.setTheme = function(s) { localStorage.setItem("courtly-theme", s); apply(s); };
-        apply(t);
-    })();
     </script>
     <script>
     var appDialog = document.getElementById("appDialog");
@@ -259,6 +268,94 @@ Route::get('/', function () {
         });
     });
     </script>
+    <script>
+    function openManage() {
+        document.getElementById("manageDialog").style.display = "flex";
+        var list = document.getElementById("manageList");
+        list.replaceChildren();
+        var loading = document.createElement("p");
+        loading.className = "empty";
+        loading.textContent = "Loading…";
+        list.appendChild(loading);
+        fetch("/api/players", { headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" } })
+            .then(function(res){ return res.json(); })
+            .then(function(json){ renderManage(json.data || []); })
+            .catch(function(){
+                list.replaceChildren();
+                var e = document.createElement("p");
+                e.className = "empty";
+                e.textContent = "Failed to load players.";
+                list.appendChild(e);
+            });
+    }
+    function closeManage() { document.getElementById("manageDialog").style.display = "none"; }
+    function renderManage(players) {
+        var list = document.getElementById("manageList");
+        list.replaceChildren();
+        if (!players.length) {
+            var e = document.createElement("p");
+            e.className = "empty";
+            e.textContent = "No players yet.";
+            list.appendChild(e);
+            return;
+        }
+        players.forEach(function(p){
+            var row = document.createElement("div");
+            row.className = "manage-row";
+            var input = document.createElement("input");
+            input.className = "manage-name";
+            input.value = p.name;
+            input.disabled = !!p.is_playing;
+            var rating = document.createElement("span");
+            rating.className = "manage-rating";
+            rating.textContent = Math.round(p.rating);
+            row.appendChild(input);
+            row.appendChild(rating);
+            if (p.is_playing) {
+                var lock = document.createElement("span");
+                lock.className = "manage-lock";
+                lock.title = "On court — locked";
+                lock.textContent = "🔒";
+                row.appendChild(lock);
+            }
+            var save = document.createElement("button");
+            save.className = "manage-btn";
+            save.textContent = "Save";
+            save.disabled = !!p.is_playing;
+            save.addEventListener("click", function(){ saveName(input, p.id); });
+            var del = document.createElement("button");
+            del.className = "manage-btn manage-del";
+            del.textContent = "✕";
+            del.disabled = !!p.is_playing;
+            del.addEventListener("click", function(){ deletePlayer(p.id); });
+            row.appendChild(save);
+            row.appendChild(del);
+            list.appendChild(row);
+        });
+    }
+    function saveName(input, id) {
+        var name = input.value.trim();
+        if (!name) return;
+        fetch("/api/players/" + id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" },
+            body: JSON.stringify({ name: name })
+        })
+        .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
+        .then(function(r){ if (r.ok) { openManage(); } else { alert(r.message || "Could not save"); } })
+        .catch(function(){ alert("Network error"); });
+    }
+    function deletePlayer(id) {
+        if (!confirm("Delete this player permanently?")) return;
+        fetch("/api/players/" + id, {
+            method: "DELETE",
+            headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
+        })
+        .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
+        .then(function(r){ if (r.ok) { openManage(); } else { alert(r.message || "Could not delete"); } })
+        .catch(function(){ alert("Network error"); });
+    }
+    </script>
     </body></html>';
 })->middleware('auth')->name('dashboard');
 
@@ -285,6 +382,7 @@ Route::get('/sessions/{session}/live', function ($session) {
         'sessionName' => $sessionName,
         'sessionStatus' => $sessionStatus,
         'base' => rtrim(request()->getBasePath(), '/'),
+        'appVersion' => config('courtly.app.version', 'v2.0.0'),
         'syncConfig' => config('courtly.sync'),
     ];
 

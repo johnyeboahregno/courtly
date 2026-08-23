@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/{session}/pause', [SessionController::class, 'pause']);
     Route::post('/sessions/{session}/resume', [SessionController::class, 'resume']);
     Route::post('/sessions/{session}/finish', [SessionController::class, 'finish']);
+    Route::post('/sessions/{session}/matchmaking-mode', [SessionController::class, 'setMatchmakingMode']);
     Route::get('/sessions/{session}/summary', [SessionController::class, 'summary']);
     Route::get('/sessions/{session}/events', SessionEventsController::class);
 
@@ -56,6 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Players
     Route::get('/players', [PlayerController::class, 'index']);
     Route::get('/players/{player}', [PlayerController::class, 'show']);
+    Route::patch('/players/{player}', [PlayerController::class, 'update']);
     Route::get('/players/{player}/history', [PlayerController::class, 'history']);
     Route::delete('/players/{player}', [PlayerController::class, 'destroy']);
 });
