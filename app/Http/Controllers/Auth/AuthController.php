@@ -19,8 +19,12 @@ class AuthController extends Controller
     /** Get the Socialite driver with SSL workaround for local dev. */
     private function googleDriver()
     {
+        // Derive the redirect from the current request host so it always matches
+        // how the app is being accessed (127.0.0.1, localhost, a LAN IP, or the
+        // production domain). Each host/port still needs to be registered as an
+        // authorized redirect URI in Google Cloud Console.
         $driver = Socialite::driver('google')
-            ->redirectUrl(config('services.google.redirect'))
+            ->redirectUrl(url('/auth/google/callback'))
             ->stateless();
 
         // Windows fix: provide CA cert bundle
