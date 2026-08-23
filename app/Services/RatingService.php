@@ -156,6 +156,7 @@ class RatingService
             // Collect player bulk-update row
             $playerRows[] = [
                 'id' => $player->id,
+                'user_id' => $player->user_id,
                 'name' => $player->name,
                 'rating' => $change['rating_after'],
                 'rated_games_count' => $newRatedGames,
