@@ -28,11 +28,8 @@
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
-            <div class="theme-toggle">
-                <button :class="{ active: theme === 'light' }" @click="setTheme('light')" title="Light">☀</button>
-                <button :class="{ active: theme === 'dark' }" @click="setTheme('dark')" title="Dark">☾</button>
-                <button :class="{ active: theme === 'system' }" @click="setTheme('system')" title="System">◐</button>
-            </div>
+            <button class="mode-switch" :class="'mode-switch--' + matchmakingMode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
+            <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
     </header>
 
@@ -58,28 +55,26 @@
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
                 <div class="court-card__court">
-                    <div class="court-card__side court-card__side--team-1">
+                    <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1">
                             <i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i></span>
+                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1">
                             <i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i></span>
+                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[1].streak }}</i></span>
                         </div>
-                        <button class="btn-win btn-win--team-1" :class="{ 'is-submitting': submitting[court.match.id + '_1'] }" :disabled="submitting[court.match.id + '_2']" @click="recordResult(court.match.id, 1)">WIN</button>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
-                    <div class="court-card__side court-card__side--team-2">
+                    <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2">
                             <i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i></span>
+                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2">
                             <i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i></span>
+                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[1].streak }}</i></span>
                         </div>
-                        <button class="btn-win btn-win--team-2" :class="{ 'is-submitting': submitting[court.match.id + '_2'] }" :disabled="submitting[court.match.id + '_1']" @click="recordResult(court.match.id, 2)">WIN</button>
                     </div>
                 </div>
             </div>
@@ -87,7 +82,10 @@
     </div>
 
     <div class="waiting-list">
-        <h3 class="waiting-list__title">NEXT UP</h3>
+        <div class="waiting-list__head">
+            <h3 class="waiting-list__title">NEXT UP</h3>
+            <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
+        </div>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
                 <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }">
@@ -111,7 +109,6 @@
         <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
         <button class="btn btn--secondary" @click="openPlayers">+ PLAYERS</button>
-        <button class="btn btn--secondary" @click="openPlayers">👥 MANAGE</button>
         <button v-if="syncEnabled" class="btn btn--secondary" @click="syncNow" :disabled="syncing">⟳ SYNC<span v-if="pendingCount"> ({{ pendingCount }})</span></button>
     </footer>
 
@@ -199,6 +196,8 @@ createApp({
     setup() {
         const session = reactive({ status: START_STATUS });
         const sessionName = ref(START_NAME);
+        const matchmakingMode = ref('smart');
+        const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
         const courts = ref([]);
         const players = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
@@ -271,7 +270,6 @@ createApp({
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
-        const theme = ref(localStorage.getItem('courtly-theme') || 'system');
         let syncTimer = null;
         let reconcileTimer = null;
         const syncing = ref(false);
@@ -368,15 +366,8 @@ createApp({
             }
         }
 
-        function setTheme(t) {
-            theme.value = t;
-            localStorage.setItem('courtly-theme', t);
-            if (t === 'system') document.documentElement.removeAttribute('data-theme');
-            else document.documentElement.setAttribute('data-theme', t);
-        }
-        // Apply on load
-        if (theme.value !== 'system') document.documentElement.setAttribute('data-theme', theme.value);
-
+        // Theme always follows the OS (system). No data-theme attribute is ever
+        // set, so the CSS @media (prefers-color-scheme) rules apply.
         const COURT_COLORS = { 1:'#3B82F6', 2:'#EF4444', 3:'#F59E0B', 4:'#10B981', 5:'#8B5CF6', 6:'#EC4899', 7:'#06B6D4', 8:'#F97316' };
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
 
@@ -416,6 +407,7 @@ createApp({
                 const d = json.data;
                 if (!d) { connectionState.value = 'offline'; return; }
                 session.status = d.status;
+                matchmakingMode.value = d.matchmaking_mode || 'smart';
 
                 // Lookup of per-player session stats (wins/losses) by player id
                 const stats = {};
@@ -427,7 +419,7 @@ createApp({
                     if (match && match.match_players && match.match_players.length === 4) {
                         const t1 = match.match_players.filter(p => p.team === 1);
                         const t2 = match.match_players.filter(p => p.team === 2);
-                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0 });
+                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
                         md = { id: match.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
                     }
                     return { ...c, match: md };
@@ -454,16 +446,16 @@ createApp({
 
         async function postApi(url) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include' }); return res.json(); }
         async function recordResult(matchId, team) {
+            if (submitting[matchId + '_' + team]) return;
             submitting[matchId + '_' + team] = true;
 
-            // Optimistic UI: move losing players to waiting list immediately
+            // Optimistic UI: move players to waiting and clear the court.
             const losingTeam = team === 1 ? 2 : 1;
             const court = courts.value.find(c => c.match && c.match.id === matchId);
             if (court && court.match) {
                 const losers = losingTeam === 1 ? court.match.t1 : court.match.t2;
                 const winnerNames = (team === 1 ? court.match.t1 : court.match.t2).map(p => p.name);
 
-                // Update player statuses locally
                 players.value = players.value.map(sp => {
                     const isLoser = losers.some(l => l.name === sp.player.name);
                     const isWinner = winnerNames.includes(sp.player.name);
@@ -472,67 +464,16 @@ createApp({
                     return sp;
                 });
 
-                // Clear the court
                 court.match = null;
             }
+            submitting[matchId + '_' + team] = false;
 
-            // Send to server. Use a generous timeout (the remote DB can be slow),
-            // and always clear the spinner in `finally` so a slow or failed
-            // request never leaves the WIN button spinning forever.
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 90000);
-            try {
-                const res = await fetch(BASE_URL + '/api/matches/'+matchId+'/result',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN},
-                    credentials:'include',
-                    signal: controller.signal,
-                    body:JSON.stringify({winning_team:team})
-                });
-
-                if (res.ok) {
-                    const json = await res.json();
-                    const nextMatches = json?.data?.next_matches || [];
-
-                    // Populate courts immediately from the POST response — no extra GET roundtrip
-                    for (const nm of nextMatches) {
-                        const targetCourt = courts.value.find(c => c.id === nm.court_id);
-                        if (targetCourt && nm.match_players && nm.match_players.length === 4) {
-                            const t1 = nm.match_players.filter(p => p.team === 1);
-                            const t2 = nm.match_players.filter(p => p.team === 2);
-                            const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: 0 });
-                            targetCourt.match = {
-                                id: nm.id,
-                                t1: [build(t1[0]), build(t1[1])],
-                                t2: [build(t2[0]), build(t2[1])]
-                            };
-                        }
-                    }
-
-                    // Update player statuses for newly assigned players
-                    const newPlayingIds = nextMatches.flatMap(nm =>
-                        (nm.match_players || []).map(mp => mp.player_id)
-                    );
-                    if (newPlayingIds.length > 0) {
-                        players.value = players.value.map(sp => {
-                            if (newPlayingIds.includes(sp.player_id)) {
-                                return { ...sp, status: 'PLAYING' };
-                            }
-                            return sp;
-                        });
-                    }
-                }
-            } catch (err) {
-                // Network error / timeout — the server may not have recorded the
-                // result. Reconcile below so the UI reflects the true server state.
-            } finally {
-                clearTimeout(timer);
-                submitting[matchId + '_' + team] = false;
-            }
-
-            // Always reconcile with the server (success or failure) so ratings,
-            // statuses and courts reflect the authoritative state.
-            fetchSession();
+            // Offline-first: store the result locally, then push immediately.
+            // If the server is slow or down, the result stays queued in local
+            // storage and is retried by the sync loop, the Sync button, or at
+            // session end.
+            enqueueSync('/api/matches/' + matchId + '/result', 'POST', { winning_team: team });
+            flushSyncQueue();
         }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
@@ -549,6 +490,23 @@ createApp({
             const json = await res.json();
             if (!res.ok || !json.data || !json.data.id) return;
             window.location.href = BASE_URL + '/sessions/' + json.data.id + '/live';
+        }
+        async function toggleMode() {
+            const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
+
+            // Flip instantly — the POST is slow (remote DB), so don't block the
+            // switch on it. The request runs in the background and the label
+            // updates immediately from local state.
+            matchmakingMode.value = next;
+
+            fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/matchmaking-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                credentials: 'include',
+                body: JSON.stringify({ mode: next })
+            })
+                .catch(() => {})
+                .finally(() => fetchSession());
         }
         async function startSession() {
             await flushSyncQueue(); // push any pending player additions first
@@ -693,7 +651,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
     }
 }).mount('#courtly-app');
 </script>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\RatingStatus;
+use App\Enums\MatchStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -73,6 +74,16 @@ class Player extends Model
         }
 
         return round(($this->wins / $this->total_games) * 100, 1);
+    }
+
+    /**
+     * Whether this player is currently on court in a PLAYING match.
+     */
+    public function isInActiveMatch(): bool
+    {
+        return $this->matchPlayers()
+            ->whereHas('match', fn ($q) => $q->where('status', MatchStatus::PLAYING->value))
+            ->exists();
     }
 
     /**

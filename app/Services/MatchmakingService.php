@@ -45,10 +45,21 @@ class MatchmakingService
             ->where('status', CourtStatus::AVAILABLE->value)
             ->get();
 
+        // Fast path: no free courts — nothing to do. Avoids the extra queries
+        // below on the high-latency remote DB while all courts are busy.
+        if ($availableCourts->isEmpty()) {
+            return [];
+        }
+
         $waitingPlayers = $session->sessionPlayers()
             ->where('status', SessionPlayerStatus::WAITING->value)
             ->with('player')
             ->get();
+
+        // Fast path: not enough players to form even a single match.
+        if ($waitingPlayers->count() < 4) {
+            return [];
+        }
 
         // HARD CONSTRAINT (MM-005): exclude any player already assigned to a PLAYING match.
         // A player can only be on one court at a time — even if their session_player status
@@ -64,33 +75,12 @@ class MatchmakingService
             )->values();
         }
 
-        // ROTATION: while any court is still playing, don't put the players who
-        // just came off an available court straight back on. They join the
-        // "next up" queue and wait until the remaining courts free so the whole
-        // pool can be mixed (winners then re-enter on split sides). Players who
-        // were already waiting (not just off a court) still fill immediately.
-        $playingCourts = $session->courts()
-            ->where('status', CourtStatus::PLAYING->value)
-            ->count();
-
-        if ($playingCourts > 0) {
-            $justCameOffIds = [];
-            foreach ($availableCourts as $court) {
-                $justCameOffIds = array_merge(
-                    $justCameOffIds,
-                    $this->lastMatchPlayerIds($session, (int) $court->id)
-                );
-            }
-            $justCameOffIds = array_values(array_unique($justCameOffIds));
-
-            if (! empty($justCameOffIds)) {
-                $waitingPlayers = $waitingPlayers->reject(
-                    fn (SessionPlayer $sp) => in_array((int) $sp->player_id, $justCameOffIds, true)
-                )->values();
-            }
-        }
-
-        if ($availableCourts->isEmpty() || $waitingPlayers->count() < 4) {
+        // A court may only be filled when at least a full four are available on
+        // the bench — otherwise leave the free court empty and wait for the
+        // ongoing games to finish and top the bench back up. Players who were
+        // already waiting are prioritised over players who just came off court
+        // via the fairness ranking in findBestCourtAssignments().
+        if ($waitingPlayers->count() < 4) {
             return [];
         }
 
@@ -100,7 +90,10 @@ class MatchmakingService
             return [];
         }
 
-        $assignments = $this->findBestCourtAssignments($session, $numCourts, $waitingPlayers, $availableCourts);
+        // Dispatch to the session's chosen matchmaking strategy.
+        $assignments = $session->usesPegMode()
+            ? $this->findPegAssignments($session, $availableCourts, $waitingPlayers)
+            : $this->findBestCourtAssignments($session, $numCourts, $waitingPlayers, $availableCourts);
 
         $matches = $this->createMatchesFromAssignments($session, $availableCourts, $assignments, $startTime);
 
@@ -131,6 +124,7 @@ class MatchmakingService
         $priority += $gamesDiff * 100;
 
         // 2. Waiting time
+        $waitMinutes = 0;
         if ($sp->waiting_since !== null) {
             $waitMinutes = now()->diffInMinutes($sp->waiting_since);
             $priority += $waitMinutes * 2;
@@ -147,9 +141,16 @@ class MatchmakingService
             $priority -= config('courtly.matchmaking.consecutive_games_penalty');
         }
 
-        // 5. Winner preference (soft)
+        // 5. Winner preference — small soft tie-break only. It must never
+        //    override a player who has been waiting substantially longer.
         if ($sp->last_result?->value === 'WIN') {
             $priority += config('courtly.matchmaking.winner_priority_bonus');
+        }
+
+        // 6. DUE — a WAITING player who has exceeded the maximum wait becomes
+        //    mandatory regardless of skill optimisation.
+        if ($waitMinutes >= (int) config('courtly.matchmaking.max_wait_minutes')) {
+            $priority += 10000;
         }
 
         return $priority;
@@ -465,6 +466,203 @@ class MatchmakingService
     }
 
     /**
+     * Traditional peg-board allocation — the queue decides who is due.
+     *
+     * 1. Sort WAITING players into a FIFO peg queue (waiting_since first, then
+     *    winners-before-losers within a return batch, then id for stability).
+     * 2. For each free court, the first eligible peg becomes the ANCHOR.
+     * 3. Choose three companions from the pick zone behind the anchor, weighing
+     *    skill cohesion, queue locality and previous-companion avoidance.
+     * 4. Balance the four into two teams with the existing split logic.
+     */
+    private function findPegAssignments(Session $session, Collection $availableCourts, Collection $waitingPlayers): array
+    {
+        $config = config('courtly.matchmaking');
+        $pickZoneSize = (int) ($config['pick_zone_size'] ?? 8);
+
+        // Preload match history for the relationship checks below.
+        $this->lastMatchPerCourt($session);
+        $session->cachedRecentMatches = $session->matches()
+            ->where('status', MatchStatus::COMPLETED->value)
+            ->latest()
+            ->take((int) ($config['recent_match_window'] ?? 5))
+            ->with('matchPlayers')
+            ->get();
+
+        // Build the peg queue.
+        $queue = $waitingPlayers->values()->all();
+        usort($queue, function (SessionPlayer $a, SessionPlayer $b) {
+            $at = $a->waiting_since?->timestamp ?? 0;
+            $bt = $b->waiting_since?->timestamp ?? 0;
+            if ($at !== $bt) {
+                return $at <=> $bt;
+            }
+
+            $aw = $a->last_result?->value === 'WIN' ? 0 : 1;
+            $bw = $b->last_result?->value === 'WIN' ? 0 : 1;
+            if ($aw !== $bw) {
+                return $aw <=> $bw;
+            }
+
+            return $a->id <=> $b->id;
+        });
+        $queue = collect($queue);
+
+        $numCourts = min($availableCourts->count(), intdiv($queue->count(), 4));
+        $assignments = [];
+        $usedIds = [];
+
+        for ($i = 0; $i < $numCourts; $i++) {
+            $eligible = $queue->reject(
+                fn (SessionPlayer $sp) => in_array($sp->id, $usedIds, true)
+            )->values();
+
+            if ($eligible->count() < 4) {
+                break;
+            }
+
+            $anchor = $eligible->first();
+            $zone = $eligible->take($pickZoneSize);
+            $candidates = $zone->reject(
+                fn (SessionPlayer $sp) => $sp->id === $anchor->id
+            )->values();
+
+            if ($candidates->count() < 3) {
+                break;
+            }
+
+            $bestPlayers = null;
+            $bestSps = null;
+            $bestCost = PHP_FLOAT_MAX;
+            $bestSpread = 0.0;
+
+            foreach ($this->combinations($candidates->all(), 3) as $combo) {
+                $groupSps = array_merge([$anchor], $combo);
+                $players = array_map(
+                    fn (SessionPlayer $sp) => $this->attachPlayer($sp),
+                    $groupSps
+                );
+
+                $skillSpread = $this->calculateSkillSpread($players);
+
+                // Queue locality: prefer companions near the anchor.
+                $displacement = 0;
+                foreach ($combo as $sp) {
+                    $idx = $eligible->search(fn (SessionPlayer $e) => $e->id === $sp->id);
+                    $displacement += ($idx === false ? 0 : (int) $idx);
+                }
+
+                // Relationship: avoid reusing a companion from the anchor's
+                // immediately previous match.
+                $companionPenalty = 0;
+                foreach ($combo as $sp) {
+                    if ($this->sharedRecentCourt((int) $anchor->player_id, (int) $sp->player_id, $session)) {
+                        $companionPenalty += (int) ($config['previous_match_companion_penalty'] ?? 5000);
+                    }
+                }
+
+                $cost = $skillSpread * (int) $config['skill_spread_weight']
+                    + $displacement * (int) ($config['queue_displacement_weight'] ?? 3)
+                    + $companionPenalty;
+
+                if ($cost < $bestCost) {
+                    $bestCost = $cost;
+                    $bestPlayers = $players;
+                    $bestSps = $groupSps;
+                    $bestSpread = $skillSpread;
+                }
+            }
+
+            if ($bestPlayers === null || $bestSps === null) {
+                break;
+            }
+
+            $bestSplit = $this->findBestSplit($bestPlayers, $session);
+
+            $assignments[] = [
+                'players' => $bestPlayers,
+                'best_split' => $bestSplit,
+                'rotation_score' => $this->calculateRotationScore($bestPlayers, $session),
+                'skill_spread' => $bestSpread,
+                'group_cost' => $bestCost,
+                'unfair' => $bestSplit['balance_difference'] > $config['max_balance_difference'],
+            ];
+
+            foreach ($bestSps as $sp) {
+                $usedIds[] = $sp->id;
+            }
+        }
+
+        return $assignments;
+    }
+
+    /**
+     * Attach the session-player row onto its Player model for the scoring code.
+     */
+    private function attachPlayer(SessionPlayer $sp): Player
+    {
+        $player = $sp->player;
+        $player->sessionPlayer = $sp;
+
+        return $player;
+    }
+
+    /**
+     * All combinations of size $k from $items (order preserved).
+     *
+     * @return array<int, array<int, mixed>>
+     */
+    private function combinations(array $items, int $k): array
+    {
+        $result = [];
+        $n = count($items);
+
+        if ($k > $n || $k < 0) {
+            return $result;
+        }
+
+        $indices = range(0, $k - 1);
+
+        while (true) {
+            $combo = [];
+            foreach ($indices as $i) {
+                $combo[] = $items[$i];
+            }
+            $result[] = $combo;
+
+            $i = $k - 1;
+            while ($i >= 0 && $indices[$i] === $i + $n - $k) {
+                $i--;
+            }
+            if ($i < 0) {
+                break;
+            }
+
+            $indices[$i]++;
+            for ($j = $i + 1; $j < $k; $j++) {
+                $indices[$j] = $indices[$j - 1] + 1;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Whether two players shared a court in any court's most recent match.
+     */
+    private function sharedRecentCourt(int $playerA, int $playerB, Session $session): bool
+    {
+        foreach ($this->lastMatchPerCourt($session) as $match) {
+            $ids = $match->matchPlayers->pluck('player_id')->map(fn ($id) => (int) $id)->all();
+            if (in_array($playerA, $ids, true) && in_array($playerB, $ids, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Score how rotation-fair a group is (0-100). 100 = every player has played
      * the same number of games; each excess game beyond the group minimum costs
      * 20 points.
@@ -581,15 +779,22 @@ class MatchmakingService
     ): array {
         $matches = [];
         $nextGameNumber = ($session->matches()->max('game_number') ?? 0) + 1;
-        $algoVersion = config('courtly.matchmaking.algorithm_version');
+        $algoVersion = $session->usesPegMode()
+            ? config('courtly.matchmaking.peg_algorithm_version', 'courtly-peg-v1.0')
+            : config('courtly.matchmaking.algorithm_version', 'courtly-v2.0');
 
         $assignments = $this->assignCourtsGreedily($assignments, $availableCourts, $session);
+
+        $matchPlayerRows = [];
+        $courtIds = [];
+        $allPlayerIds = [];
+        $logRows = [];
+        $now = now();
 
         foreach ($assignments as $assignment) {
             $court = $assignment['court'];
             $players = $assignment['players'];
             $split = $assignment['best_split'];
-            $now = now();
 
             $match = GameMatch::create([
                 'session_id' => $session->id,
@@ -610,8 +815,6 @@ class MatchmakingService
                 'started_at' => $now,
             ]);
 
-            // Create MatchPlayer records (batched single insert per match)
-            $matchPlayerRows = [];
             foreach ($split['team1'] as $pos => $player) {
                 $matchPlayerRows[] = [
                     'match_id' => $match->id,
@@ -632,21 +835,13 @@ class MatchmakingService
                     'rating_confidence_before' => $player->rating_confidence,
                 ];
             }
-            DB::table('match_players')->insert($matchPlayerRows);
 
-            // Update court status
-            $court->update(['status' => CourtStatus::PLAYING]);
+            $courtIds[] = $court->id;
+            foreach ($players as $player) {
+                $allPlayerIds[] = $player->id;
+            }
 
-            // Update session players status
-            SessionPlayer::where('session_id', $session->id)
-                ->whereIn('player_id', array_map(fn (Player $p) => $p->id, $players))
-                ->update([
-                    'status' => SessionPlayerStatus::PLAYING,
-                    'waiting_since' => null,
-                ]);
-
-            // Record matchmaking log
-            MatchmakingLog::create([
+            $logRows[] = [
                 'session_id' => $session->id,
                 'match_id' => $match->id,
                 'algorithm_version' => $algoVersion,
@@ -658,10 +853,31 @@ class MatchmakingService
                 'pairing_cost' => $split['pairing_cost'],
                 'total_cost' => $assignment['group_cost'] + $split['pairing_cost'],
                 'calculation_time_ms' => (int) ((microtime(true) - $startTime) * 1000),
-                'created_at' => $now,
-            ]);
+                'created_at' => $now->toDateTimeString(),
+            ];
 
             $matches[] = $match;
+        }
+
+        // Batch the remaining writes so N matches don't cost ~5N round-trips
+        // against the high-latency remote DB.
+        if (! empty($matchPlayerRows)) {
+            DB::table('match_players')->insert($matchPlayerRows);
+        }
+        if (! empty($courtIds)) {
+            Court::whereIn('id', array_values(array_unique($courtIds)))
+                ->update(['status' => CourtStatus::PLAYING]);
+        }
+        if (! empty($allPlayerIds)) {
+            SessionPlayer::where('session_id', $session->id)
+                ->whereIn('player_id', array_values(array_unique($allPlayerIds)))
+                ->update([
+                    'status' => SessionPlayerStatus::PLAYING,
+                    'waiting_since' => null,
+                ]);
+        }
+        if (! empty($logRows)) {
+            DB::table('matchmaking_logs')->insert($logRows);
         }
 
         $durationMs = (int) ((microtime(true) - $startTime) * 1000);

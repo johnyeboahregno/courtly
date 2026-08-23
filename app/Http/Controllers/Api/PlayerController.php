@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\Player;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PlayerController extends Controller
 {
@@ -28,6 +30,7 @@ class PlayerController extends Controller
                 'name' => $p->name,
                 'rating' => (float) $p->rating,
                 'total_games' => $p->total_games,
+                'is_playing' => $p->isInActiveMatch(),
             ]);
 
         return response()->json(['data' => $players]);
@@ -89,6 +92,40 @@ class PlayerController extends Controller
     }
 
     /**
+     * Rename a player. Blocked while the player is on court.
+     */
+    public function update(Request $request, Player $player): JsonResponse
+    {
+        $this->authorizePlayer($player);
+
+        if ($player->isInActiveMatch()) {
+            return response()->json([
+                'message' => 'This player is currently on court and cannot be edited.',
+            ], 409);
+        }
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('players', 'name')
+                    ->where('user_id', $this->currentUser()->id)
+                    ->ignore($player->id),
+            ],
+        ]);
+
+        $player->update(['name' => $validated['name']]);
+
+        return response()->json([
+            'data' => [
+                'id' => $player->id,
+                'name' => $player->name,
+            ],
+        ]);
+    }
+
+    /**
      * Delete a player permanently from the system — removes them from all
      * sessions, matches, and the player record itself so they can never be
      * added to any future session.
@@ -96,6 +133,12 @@ class PlayerController extends Controller
     public function destroy(Player $player): JsonResponse
     {
         $this->authorizePlayer($player);
+
+        if ($player->isInActiveMatch()) {
+            return response()->json([
+                'message' => 'This player is currently on court and cannot be deleted.',
+            ], 409);
+        }
 
         $name = $player->name;
 
