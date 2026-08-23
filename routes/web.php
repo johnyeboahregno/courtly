@@ -125,7 +125,7 @@ Route::get('/', function () {
         .create-btn:hover{filter:brightness(1.1)}
         .err{color:var(--accent,#ff2d55);font-size:.85rem;margin-top:8px;display:none}
         .manage-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-        .manage-name{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--stroke,#2e2e4a);border-radius:6px;background:var(--bg,#12121f);color:var(--text,#e4e4f0);font-size:.9rem}
+        .manage-name{flex:1;min-width:0;padding:8px 10px;border:none;border-radius:6px;background:var(--bg,#12121f);color:var(--text,#e4e4f0);font-size:.9rem}
         .manage-name:disabled{opacity:.5}
         .manage-rating{font-size:.8rem;color:var(--text-muted,#8888a8);min-width:34px;text-align:center}
         .manage-lock{font-size:.9rem}
