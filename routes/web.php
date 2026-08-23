@@ -22,8 +22,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Social login
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
-Route::get('/auth/facebook/redirect', [AuthController::class, 'redirectToFacebook']);
-Route::get('/auth/facebook/callback', [AuthController::class, 'handleFacebookCallback']);
 
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
