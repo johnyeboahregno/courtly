@@ -333,6 +333,35 @@ createApp({
                 }
             } catch { /* server unreachable — keep cached players */ }
         }
+        // Apply freshly-formed matches from a recorded result so the next game
+        // appears on its court immediately, without waiting for a full refetch
+        // (an extra slow round-trip against the remote DB).
+        function applyNextMatches(nextMatches) {
+            if (!Array.isArray(nextMatches) || nextMatches.length === 0) return;
+
+            const stats = {};
+            players.value.forEach(sp => { stats[sp.player_id] = { wins: sp.wins, losses: sp.losses }; });
+
+            const byCourt = {};
+            nextMatches.forEach(m => {
+                const t1 = (m.match_players || []).filter(p => p.team === 1);
+                const t2 = (m.match_players || []).filter(p => p.team === 2);
+                if (t1.length !== 2 || t2.length !== 2) return;
+                const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
+                byCourt[m.court_id] = { id: m.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
+            });
+
+            courts.value = courts.value.map(c => byCourt[c.id] ? { ...c, match: byCourt[c.id] } : c);
+
+            // Players in the new match leave the waiting queue.
+            const onCourt = new Set();
+            nextMatches.forEach(m => (m.match_players || []).forEach(p => onCourt.add(p.player_id)));
+            if (onCourt.size > 0) {
+                players.value = players.value.map(sp =>
+                    onCourt.has(sp.player_id) ? { ...sp, status: 'PLAYING', waiting_since: null } : sp
+                );
+            }
+        }
         // Push pending ops to the server. Failures are silent — kept in queue,
         // retried 30s later by the sync loop.
         async function flushSyncQueue() {
@@ -349,7 +378,18 @@ createApp({
                             credentials: 'include',
                             body: op.body ? JSON.stringify(op.body) : undefined
                         });
-                        if (res.ok) { progressed = true; }
+                        if (res.ok) {
+                            progressed = true;
+                            // A recorded result already includes the freshly-formed
+                            // matches — render them straight away instead of waiting
+                            // for the full session re-fetch.
+                            if (op.path.includes('/result')) {
+                                try {
+                                    const json = await res.json();
+                                    applyNextMatches((json.data && json.data.next_matches) || []);
+                                } catch { /* fall through — fetchSession() reconciles */ }
+                            }
+                        }
                         else { op.attempts++; remaining.push(op); }
                     } catch { op.attempts++; remaining.push(op); }
                 }
