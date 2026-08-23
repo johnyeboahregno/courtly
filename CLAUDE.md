@@ -816,23 +816,26 @@ File: `public/css/courtly.css` (single file, versioned via `?v=N`)
 ## Deployment
 
 ### Server
-- **FTP**: `ftp.bytedemon.com:666`
-- **User**: `regnocloud`
-- **Server path**: `public_html/courtly/`
-- **URL**: `https://regnocloud.com/courtly/`
+- **Platform**: Laravel Cloud
+- **URL**: `https://courtly.laravel.cloud`
 
 ### Workflow
 1. Make changes locally
 2. `php -l <file>` to check PHP syntax on every changed file
-3. `rm -f bootstrap/cache/routes-v7.php` — stale route cache causes 405 errors
-4. Upload changed files via FTP to `public_html/courtly/`
-5. **NEVER upload `bootstrap/cache/routes-v7.php`** — it will cause 405 on the server
-6. Visit `https://regnocloud.com/courtly/` to verify
+3. Commit and push — Laravel Cloud auto-deploys
+4. Apply any pending migrations on the Laravel Cloud environment (`php artisan migrate --force`)
+5. Visit `https://courtly.laravel.cloud` to verify
+
+### Production env (set in the Laravel Cloud dashboard)
+- `APP_URL=https://courtly.laravel.cloud`
+- `SANCTUM_STATEFUL_DOMAINS=…,courtly.laravel.cloud`
+- `GOOGLE_REDIRECT_URI=https://courtly.laravel.cloud/auth/google/callback`
+  (and add that exact URI in Google Cloud Console → OAuth client → Authorized redirect URIs)
 
 ### Key Conventions
-- **No Blade on server**: `storage/framework/views` is not writable. Views are inline HTML or plain `.php` files.
-- **CSS path on server**: `css/courtly.css` must be at the root of `courtly/` (not inside `public/`)
-- **API base URL**: Vue uses `BASE_URL` JS variable (empty locally, `/courtly` on server)
+- **No Blade on server**: `storage/framework/views` may not be writable. Views are inline HTML or plain `.php` files.
+- **CSS**: served from `public/css/courtly.css` (keep `css/courtly.css` in sync for the legacy FTP copy).
+- **API base URL**: Vue uses the `BASE_URL` JS variable (empty — app runs at the domain root).
 - **Names**: Last names always abbreviated to single letter + period via `formatName()`
 
 ---
