@@ -21,6 +21,8 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
@@ -50,16 +52,10 @@ class AuthController extends Controller
             return $user;
         });
 
-        try {
-            $user->sendEmailVerificationNotification();
-        } catch (\Throwable $e) {
-            report($e); // mail may be unavailable — user can resend later
-        }
-
         return response()->json([
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'role', 'email_verified_at']),
-                'message' => 'Registration successful. Please check your email to verify your account.',
+                'message' => 'Registration successful.',
             ],
         ], 201);
     }
@@ -69,6 +65,8 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
+
         $validated = $request->validate([
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
