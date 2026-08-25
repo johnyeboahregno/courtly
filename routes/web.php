@@ -23,6 +23,54 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
+// ── Email verification ───────────────────────────────────────────────
+Route::get('/email/verify', function () {
+    $base = rtrim(request()->getBasePath(), '/');
+    $message = session('message');
+    $failed = session('email_send_failed');
+
+    $html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify Email — Courtly</title><link rel="icon" href="'.$base.'/assets/favicon.png?v=2"><link rel="stylesheet" href="'.$base.'/css/courtly.css?v=4"><style>
+    .auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#12121f;font-family:"JetBrains Mono","SF Mono","Fira Code",monospace}
+    .auth-card{width:100%;max-width:540px;background:#1e1e32;border-radius:8px;padding:48px 44px;box-shadow:0 4px 20px rgba(0,0,0,.3);border:1px solid #2e2e4a;text-align:center}
+    .auth-card h2{font-size:1.6rem;font-weight:800;margin-bottom:12px;color:#e4e4f0}
+    .auth-card .sub{color:#8888a8;margin-bottom:24px;font-size:1rem;line-height:1.6}
+    .auth-card .flash{color:#3cae67;margin-bottom:16px;font-size:.9rem}
+    .auth-card .flash--error{color:#ff6b6b}
+    .auth-btn{display:inline-block;width:100%;padding:14px;border:none;border-radius:6px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:12px;font-family:inherit;box-sizing:border-box;text-decoration:none}
+    .auth-btn--primary{background:#ff2d55;color:#fff}
+    .auth-btn--ghost{background:transparent;border:1px solid #2e2e4a;color:#8888a8}
+    .auth-btn--ghost:hover{border-color:#ff2d55;color:#e4e4f0}
+    </style></head><body><div class="auth-page"><div class="auth-card">'
+        .'<h2>Verify your email address</h2>'
+        .($message ? '<p class="flash'.($failed ? ' flash--error' : '').'">'.e($message).'</p>' : '')
+        .'<p class="sub">Before continuing, please check your email for a verification link. If you didn\'t receive it, you can request another.</p>'
+        .'<form method="POST" action="'.$base.'/email/verification-notification"><input type="hidden" name="_token" value="'.csrf_token().'"><button type="submit" class="auth-btn auth-btn--primary">Resend verification email</button></form>'
+        .'<form method="POST" action="'.$base.'/logout"><input type="hidden" name="_token" value="'.csrf_token().'"><button type="submit" class="auth-btn auth-btn--ghost">Logout</button></form>'
+        .'</div></div></body></html>';
+
+    return response($html);
+})->middleware('auth')->name('verification.notice');
+
+Route::get('/email/verify/{id}/{hash}', function (\Illuminate\Foundation\Auth\EmailVerificationRequest $request) {
+    $request->fulfill();
+
+    return redirect('/')->with('status', 'Your email address has been verified.');
+})->middleware(['auth', 'signed'])->name('verification.verify');
+
+Route::post('/email/verification-notification', function (\Illuminate\Http\Request $request) {
+    try {
+        $request->user()->sendEmailVerificationNotification();
+
+        return back()->with('message', 'A fresh verification link has been sent to your email address.');
+    } catch (\Throwable $e) {
+        report($e);
+
+        return back()
+            ->with('email_send_failed', true)
+            ->with('message', 'We couldn\'t send the verification email — the email service is currently unavailable. Please try again in a moment.');
+    }
+})->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
     $base = rtrim(request()->getBasePath(), '/');
@@ -72,7 +120,7 @@ Route::get('/', function () {
 
     return '<!DOCTYPE html><html><head><title>Courtly</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="'.csrf_token().'">
     <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=2">
-    <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=3">
+    <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=4">
     <style>
         body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;background:var(--bg,#12121f);color:var(--text,#e4e4f0);margin:0;padding:40px 20px}
         .wrap{max-width:560px;margin:0 auto}
@@ -267,24 +315,55 @@ Route::get('/', function () {
     });
     </script>
     <script>
+    // Roster cache: the player list is loaded once on startup and kept in
+    // localStorage so "Manage Players" renders instantly instead of waiting
+    // on a network round-trip each time it opens.
+    var playersCache = null;
+    var PLAYERS_CACHE_KEY = "courtly.playersCache.v1";
+
+    function loadPlayersCache() {
+        try {
+            var raw = localStorage.getItem(PLAYERS_CACHE_KEY);
+            if (raw) playersCache = JSON.parse(raw);
+        } catch (e) { playersCache = null; }
+    }
+    function savePlayersCache(players) {
+        playersCache = players;
+        try { localStorage.setItem(PLAYERS_CACHE_KEY, JSON.stringify(players)); } catch (e) {}
+    }
+    function fetchPlayers() {
+        return fetch("/api/players", { headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" } })
+            .then(function(res){ return res.json(); })
+            .then(function(json){
+                var players = json.data || [];
+                savePlayersCache(players);
+                return players;
+            });
+    }
     function openManage() {
         document.getElementById("manageDialog").style.display = "flex";
         var list = document.getElementById("manageList");
-        list.replaceChildren();
-        var loading = document.createElement("p");
-        loading.className = "empty";
-        loading.textContent = "Loading…";
-        list.appendChild(loading);
-        fetch("/api/players", { headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" } })
-            .then(function(res){ return res.json(); })
-            .then(function(json){ renderManage(json.data || []); })
-            .catch(function(){
+        if (playersCache !== null) {
+            renderManage(playersCache);
+        } else {
+            list.replaceChildren();
+            var loading = document.createElement("p");
+            loading.className = "empty";
+            loading.textContent = "Loading…";
+            list.appendChild(loading);
+        }
+        // Always refresh in the background so the list stays current.
+        fetchPlayers().then(function(players){
+            renderManage(players);
+        }).catch(function(){
+            if (playersCache === null) {
                 list.replaceChildren();
                 var e = document.createElement("p");
                 e.className = "empty";
                 e.textContent = "Failed to load players.";
                 list.appendChild(e);
-            });
+            }
+        });
     }
     function closeManage() { document.getElementById("manageDialog").style.display = "none"; }
     function renderManage(players) {
@@ -340,7 +419,19 @@ Route::get('/', function () {
             body: JSON.stringify({ name: name })
         })
         .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
-        .then(function(r){ if (r.ok) { openManage(); } else { alert(r.message || "Could not save"); } })
+        .then(function(r){
+            if (r.ok) {
+                // Update the local cache immediately, then sync from the server.
+                if (playersCache) {
+                    for (var i = 0; i < playersCache.length; i++) {
+                        if (playersCache[i].id === id) playersCache[i].name = name;
+                    }
+                    savePlayersCache(playersCache);
+                    renderManage(playersCache);
+                }
+                fetchPlayers().then(renderManage);
+            } else { alert(r.message || "Could not save"); }
+        })
         .catch(function(){ alert("Network error"); });
     }
     function deletePlayer(id) {
@@ -350,12 +441,29 @@ Route::get('/', function () {
             headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
         })
         .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
-        .then(function(r){ if (r.ok) { openManage(); } else { alert(r.message || "Could not delete"); } })
+        .then(function(r){
+            if (r.ok) {
+                // Remove from the local cache immediately, then sync from the server.
+                if (playersCache) {
+                    var kept = [];
+                    for (var i = 0; i < playersCache.length; i++) {
+                        if (playersCache[i].id !== id) kept.push(playersCache[i]);
+                    }
+                    savePlayersCache(kept);
+                    renderManage(kept);
+                }
+                fetchPlayers().then(renderManage);
+            } else { alert(r.message || "Could not delete"); }
+        })
         .catch(function(){ alert("Network error"); });
     }
+
+    // Preload the roster into local memory on startup.
+    loadPlayersCache();
+    fetchPlayers();
     </script>
     </body></html>';
-})->middleware('auth')->name('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 // Session live view — the tablet UI (owner only)
 Route::get('/sessions/{session}/live', function ($session) {

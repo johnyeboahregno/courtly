@@ -38,7 +38,7 @@
     <div class="auth-card">
         <div class="auth-logo"><a href="/"><img src="/assets/courtly_light.png" alt="Courtly"></a></div>
         <h2>Welcome back</h2>
-        <p class="sub">Sign in to manage your badminton sessions</p>
+        <p class="sub">Sign in to manage sessions</p>
 
         @if ($errors->any())
             <div class="auth-error">{{ $errors->first() }}</div>

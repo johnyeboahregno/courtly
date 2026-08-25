@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\RatingStatus;
 use App\Enums\MatchStatus;
+use App\Enums\SessionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -82,7 +83,12 @@ class Player extends Model
     public function isInActiveMatch(): bool
     {
         return $this->matchPlayers()
-            ->whereHas('match', fn ($q) => $q->where('status', MatchStatus::PLAYING->value))
+            ->whereHas('match', fn ($q) => $q
+                ->where('status', MatchStatus::PLAYING->value)
+                ->whereHas('session', fn ($sq) => $sq
+                    ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
+                )
+            )
             ->exists();
     }
 
