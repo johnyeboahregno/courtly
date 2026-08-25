@@ -184,9 +184,9 @@
 
 <script>
 const SESSION_ID = <?= (int) ($sessionId ?? 0) ?>;
-const START_STATUS = "<?= htmlspecialchars($sessionStatus ?? 'UNKNOWN', ENT_QUOTES) ?>";
-const START_NAME = "<?= htmlspecialchars($sessionName ?? 'Session', ENT_QUOTES) ?>";
-const BASE_URL = "<?= htmlspecialchars(($base ?? '') . '', ENT_QUOTES) ?>";
+const START_STATUS = <?= json_encode($sessionStatus ?? 'UNKNOWN', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+const START_NAME = <?= json_encode($sessionName ?? 'Session', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+const BASE_URL = <?= json_encode(($base ?? '') . '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
 const SYNC_CONFIG = <?= json_encode($syncConfig ?? []) ?>;
 
@@ -370,7 +370,41 @@ createApp({
             try {
                 const remaining = [];
                 let progressed = false;
-                for (const op of syncQueue.value) {
+
+                // Coalesce all queued player check-ins into a single request.
+                // The remote DB is very slow (~15-30s/request) and every add
+                // re-runs matchmaking, so flushing N players as N round-trips
+                // stalls Start Session for minutes. One batch = one round-trip
+                // and one matchmaking pass.
+                const addPath = '/api/sessions/' + SESSION_ID + '/players';
+                const addOps = syncQueue.value.filter(op => op.path === addPath);
+                if (addOps.length > 0) {
+                    const playerIds = [];
+                    const names = [];
+                    addOps.forEach(op => {
+                        const b = op.body || {};
+                        if (Array.isArray(b.player_ids)) playerIds.push(...b.player_ids);
+                        if (b.player_id !== undefined && b.player_id !== null) playerIds.push(b.player_id);
+                        if (typeof b.name === 'string' && b.name.trim()) names.push(b.name.trim());
+                    });
+                    try {
+                        const res = await fetch(BASE_URL + addPath, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                            credentials: 'include',
+                            body: JSON.stringify({ player_ids: playerIds, names })
+                        });
+                        if (res.ok) {
+                            progressed = true;
+                        } else {
+                            addOps.forEach(op => { op.attempts++; remaining.push(op); });
+                        }
+                    } catch {
+                        addOps.forEach(op => { op.attempts++; remaining.push(op); });
+                    }
+                }
+
+                for (const op of syncQueue.value.filter(op => op.path !== addPath)) {
                     try {
                         const res = await fetch(BASE_URL + op.path, {
                             method: op.method,
@@ -393,6 +427,7 @@ createApp({
                         else { op.attempts++; remaining.push(op); }
                     } catch { op.attempts++; remaining.push(op); }
                 }
+
                 syncQueue.value = remaining;
                 persistQueue();
                 // On any success, reconcile local state with the server in the background
