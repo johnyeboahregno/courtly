@@ -45,7 +45,7 @@ when ranking candidate groups.
 | 7 | Unfair-group block | cost `100000` | `unfair_group_penalty` | Team-average rating difference > `max_balance_difference` (25). |
 | 8 | Same-side repeat block | split skip | `same_side_consecutive_block` | Two players who were teammates last round may not be teamed again. |
 | 9 | Consecutive-matchup block | cost `10000` | `consecutive_matchup_penalty` | Identical 2v2 pairing as any court's last round. |
-| 10 | Winner court rotation | cost `2000`/player | `winner_return_penalty` | Winners are pushed off the court they just won on (soft). |
+| 10 | Court rotation | cost `800`/player (+`2000` for winners) | `court_return_penalty`, `winner_return_penalty` | Players are pushed off the court they just played on; winners cost extra (soft). |
 | 11 | Relationship penalties | cost | see config | Recent teammate (50), consecutive teammate (20), recent opponent (5). |
 | 12 | Balance & cohesion | cost | see config | Team balance (15 × diff), skill spread (8 × spread), rotation fairness (2 × priority gap). |
 | 13 | Selection & fallbacks | selection | — | Lowest total cost, non-overlapping groups; adjacent-window fallback; keep-playing escape hatch. |
@@ -125,15 +125,16 @@ teammates in **any court's last round** is skipped entirely.
 A split whose two teams are identical (same 2v2, order-independent) to a court's
 last round is penalised `consecutive_matchup_penalty` (default `10000`).
 
-### Rule 10 — Winner court rotation
+### Rule 10 — Court rotation
 
-Winners do not return to the court they just won on.
+Players avoid returning to the court they just played on.
 
-- A group is penalised `winner_return_penalty` (default `2000`) × the **fewest**
-  winners it would return to any available court.
+- During group selection, a group is penalised `winner_return_penalty` (default
+  `2000`) × the **fewest** winners it would return to any available court.
 - After groups are chosen, courts are assigned greedily: each group takes the
-  remaining court that returns the fewest of its winners (tie-break: lowest court
-  number).
+  remaining court that returns the fewest of its players — `court_return_penalty`
+  (default `800`) per returning player, plus `winner_return_penalty` per
+  returning winner (tie-break: lowest court number).
 
 ### Rule 11 — Relationship penalties
 
@@ -211,6 +212,11 @@ The relative weights make the precedence in §1: hard blocks (`100000`, `10000`)
 dominate soft relationship/balance penalties, which dominate raw skill/rotation
 scores.
 
+After groups are selected, courts are assigned greedily. That assignment adds
+`court_return_penalty` (default `800`) per player returning to their previous
+court, plus `winner_return_penalty` per returning winner — so a losing pair can't
+camp on the same court round after round.
+
 ---
 
 ## 5. Worked example — 12 players, 3 courts
@@ -249,6 +255,7 @@ See `config/courtly.php` → `matchmaking`. Key tunables:
 | `recent_match_window` | `5` | Matches considered "recent". |
 | `winner_priority_bonus` | `10` | Rotation-priority boost for winners (soft tie-break). |
 | `winner_return_penalty` | `2000` | Cost per winner returning to their court. |
+| `court_return_penalty` | `800` | Cost per player returning to the court they just played on. |
 | `same_side_consecutive_block` | `true` | Never re-team a pair from the last round. |
 | `per_court_repeat_guards` | `true` | Check each court's own last round, not just the latest match. |
 | `max_balance_difference` | `25.0` | Above this a match is "completely unfair". |
