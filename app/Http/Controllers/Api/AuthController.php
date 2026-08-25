@@ -50,8 +50,11 @@ class AuthController extends Controller
             return $user;
         });
 
-        // Queue verification email (non-blocking)
-        $user->sendEmailVerificationNotification();
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            report($e); // mail may be unavailable — user can resend later
+        }
 
         return response()->json([
             'data' => [

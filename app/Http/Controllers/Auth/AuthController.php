@@ -42,7 +42,7 @@ class AuthController extends Controller
         $csrf = csrf_token();
         $base = rtrim(request()->getBasePath(), '/');
 
-        $html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login — Courtly</title><link rel="icon" href="'.$base.'/assets/favicon.png?v=2"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="'.$base.'/css/courtly.css?v=3"><style>.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#12121f;font-family:"JetBrains Mono","SF Mono","Fira Code",monospace}.auth-card{width:100%;max-width:540px;background:#1e1e32;border-radius:8px;padding:48px 44px;box-shadow:0 4px 20px rgba(0,0,0,.3);border:1px solid #2e2e4a}.auth-logo{text-align:center;margin-bottom:32px}.auth-logo img{height:5vh}.auth-card h2{font-size:1.8rem;font-weight:800;margin-bottom:8px;text-align:center;color:#e4e4f0}.auth-card .sub{color:#8888a8;text-align:center;margin-bottom:32px;font-size:1.1rem}.auth-field{margin-bottom:20px}.auth-field label{display:block;font-size:1rem;font-weight:700;color:#8888a8;margin-bottom:6px}.auth-field input{width:100%;padding:14px 16px;border:1px solid #2e2e4a;border-radius:6px;font-size:1.15rem;box-sizing:border-box;font-family:inherit;background:#12121f;color:#e4e4f0}.auth-field input:focus{outline:none;border-color:#ff2d55}.auth-btn{width:100%;padding:16px;border:none;border-radius:6px;font-size:1.15rem;font-weight:700;cursor:pointer;margin-bottom:16px;font-family:inherit}.auth-btn--primary{background:#ff2d55;color:#fff}.auth-divider{display:flex;align-items:center;gap:14px;margin:24px 0;color:#8888a8;font-size:1rem}.auth-divider::before,.auth-divider::after{content:\'\';flex:1;height:1px;background:#2e2e4a}.social-btn{width:100%;padding:14px;border:1px solid #2e2e4a;border-radius:6px;font-size:1.1rem;font-weight:700;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:10px;background:#252540;color:#e4e4f0;text-decoration:none;font-family:inherit}.auth-footer{text-align:center;font-size:1.05rem;color:#8888a8;margin-top:12px}.auth-footer a{color:#ff2d55;font-weight:700;text-decoration:none}.auth-error{background:#3a1020;color:#ff2d55;padding:14px 18px;border-radius:6px;font-size:1rem;margin-bottom:20px;border:1px solid #4a1525}</style></head><body><div class="auth-page"><div class="auth-card"><div class="auth-logo"><a href="'.$base.'/"><img src="'.$base.'/assets/courtly_light.png" alt="Courtly"></a></div><h2>Welcome back</h2><p class="sub">Sign in to manage your badminton sessions</p>';
+        $html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login — Courtly</title><link rel="icon" href="'.$base.'/assets/favicon.png?v=2"><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="'.$base.'/css/courtly.css?v=3"><style>.auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#12121f;font-family:"JetBrains Mono","SF Mono","Fira Code",monospace}.auth-card{width:100%;max-width:540px;background:#1e1e32;border-radius:8px;padding:48px 44px;box-shadow:0 4px 20px rgba(0,0,0,.3);border:1px solid #2e2e4a}.auth-logo{text-align:center;margin-bottom:32px}.auth-logo img{height:5vh}.auth-card h2{font-size:1.8rem;font-weight:800;margin-bottom:8px;text-align:center;color:#e4e4f0}.auth-card .sub{color:#8888a8;text-align:center;margin-bottom:32px;font-size:1.1rem}.auth-field{margin-bottom:20px}.auth-field label{display:block;font-size:1rem;font-weight:700;color:#8888a8;margin-bottom:6px}.auth-field input{width:100%;padding:14px 16px;border:1px solid #2e2e4a;border-radius:6px;font-size:1.15rem;box-sizing:border-box;font-family:inherit;background:#12121f;color:#e4e4f0}.auth-field input:focus{outline:none;border-color:#ff2d55}.auth-btn{width:100%;padding:16px;border:none;border-radius:6px;font-size:1.15rem;font-weight:700;cursor:pointer;margin-bottom:16px;font-family:inherit}.auth-btn--primary{background:#ff2d55;color:#fff}.auth-divider{display:flex;align-items:center;gap:14px;margin:24px 0;color:#8888a8;font-size:1rem}.auth-divider::before,.auth-divider::after{content:\'\';flex:1;height:1px;background:#2e2e4a}.social-btn{width:100%;padding:14px;border:1px solid #2e2e4a;border-radius:6px;font-size:1.1rem;font-weight:700;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:10px;background:#252540;color:#e4e4f0;text-decoration:none;font-family:inherit}.auth-footer{text-align:center;font-size:1.05rem;color:#8888a8;margin-top:12px}.auth-footer a{color:#ff2d55;font-weight:700;text-decoration:none}.auth-error{background:#3a1020;color:#ff2d55;padding:14px 18px;border-radius:6px;font-size:1rem;margin-bottom:20px;border:1px solid #4a1525}</style></head><body><div class="auth-page"><div class="auth-card"><div class="auth-logo"><a href="'.$base.'/"><img src="'.$base.'/assets/courtly_light.png" alt="Courtly"></a></div><h2>Welcome back</h2><p class="sub">Sign in to manage sessions</p>';
 
         if ($error) {
             $html .= '<div class="auth-error">' . e($error) . '</div>';
@@ -107,6 +107,14 @@ class AuthController extends Controller
 
         $this->ensurePlayer($user);
 
+        try {
+            $user->sendEmailVerificationNotification();
+        } catch (\Throwable $e) {
+            report($e); // mail may be unavailable — user can resend from the notice page
+            session()->flash('email_send_failed', true);
+            session()->flash('message', 'We couldn\'t send your verification email — the email service is currently unavailable. You can resend it from this page.');
+        }
+
         Auth::login($user);
 
         return redirect('/');
@@ -141,6 +149,7 @@ class AuthController extends Controller
                 'name' => $googleUser->getName(),
                 'google_id' => $googleUser->getId(),
                 'password' => Hash::make(bin2hex(random_bytes(16))),
+                'email_verified_at' => now(),
             ]
         );
 
