@@ -1021,6 +1021,8 @@ class MatchmakingService
     private function assignCourtsGreedily(array $assignments, Collection $availableCourts, Session $session): array
     {
         $courtWinnerMap = $this->courtWinnerMap($session);
+        $winnerReturnPenalty = (int) config('courtly.matchmaking.winner_return_penalty', 2000);
+        $courtReturnPenalty = (int) config('courtly.matchmaking.court_return_penalty', 800);
         $available = $availableCourts->values();
         $usedCourtIds = [];
         $assigned = [];
@@ -1030,19 +1032,30 @@ class MatchmakingService
 
             $bestCourt = null;
             $bestCost = PHP_INT_MAX;
+            $bestReturningWinners = 0;
 
             foreach ($available as $court) {
                 if (in_array($court->id, $usedCourtIds, true)) {
                     continue;
                 }
 
+                // Rotate everyone who just came off this court — not only the
+                // winners — so the same pair doesn't camp on the same court.
+                $previous = $this->lastMatchPlayerIds($session, (int) $court->id);
+                $returning = count(array_intersect($playerIds, $previous));
+
+                // Winners returning to the court they just won on cost extra.
                 $winners = $courtWinnerMap[$court->id] ?? [];
-                $cost = count(array_intersect($playerIds, $winners));
+                $returningWinners = count(array_intersect($playerIds, $winners));
+
+                $cost = $returning * $courtReturnPenalty
+                    + $returningWinners * $winnerReturnPenalty;
 
                 if ($cost < $bestCost
                     || ($cost === $bestCost && $court->court_number < ($bestCourt?->court_number ?? PHP_INT_MAX))) {
                     $bestCost = $cost;
                     $bestCourt = $court;
+                    $bestReturningWinners = $returningWinners;
                 }
             }
 
@@ -1051,7 +1064,7 @@ class MatchmakingService
             }
 
             $assignment['court'] = $bestCourt;
-            $assignment['returning_winners'] = $bestCost;
+            $assignment['returning_winners'] = $bestReturningWinners;
             $assigned[] = $assignment;
             $usedCourtIds[] = $bestCourt->id;
         }

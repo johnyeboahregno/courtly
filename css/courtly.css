@@ -150,6 +150,18 @@ body {
     50% { opacity: 0.35; }
 }
 
+/* Error banner for permanent auth failures (e.g. session owned by another account) */
+.sync-error-banner {
+    margin: 12px 16px 0;
+    padding: 10px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
 /* Courts grid */
 .courts-grid {
     display: grid;

@@ -67,6 +67,11 @@ return [
         // the unfair-group / exact-repeat hard blocks so those still dominate.
         'winner_return_penalty' => 2000,
 
+        // Cost per player who would return to the court they just played on
+        // (winner or loser). Lower than winner_return_penalty so winners rotate
+        // hardest, but enough to stop a losing pair camping on the same court.
+        'court_return_penalty' => 800,
+
         // Never put the same two players on the same side in consecutive games.
         // Hard constraint; automatically falls back when numbers don't allow it.
         'same_side_consecutive_block' => true,

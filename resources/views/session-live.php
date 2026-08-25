@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=13">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=14">
 </head>
 <body>
 <div id="courtly-app">
@@ -32,6 +32,10 @@
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
     </header>
+
+    <div v-if="authError" class="sync-error-banner" role="alert">
+        ⚠️ Changes couldn't be saved — this account doesn't own the session. Return to the dashboard and sign in as the session owner.
+    </div>
 
     <div class="courts-grid" :class="'courts-' + courts.length">
         <div v-for="court in courts" :key="court.id" class="court-card">
@@ -238,6 +242,7 @@ createApp({
         );
         const submitting = reactive({});
         const connectionState = ref('connecting');
+        const authError = ref(false);
         const elapsed = ref('');
         const showPlayers = ref(false);
         const showSuggestions = ref(false);
@@ -396,6 +401,12 @@ createApp({
                         });
                         if (res.ok) {
                             progressed = true;
+                            authError.value = false;
+                        } else if (res.status === 401 || res.status === 403) {
+                            // Permanent auth failure — retrying will never succeed.
+                            authError.value = true;
+                        } else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+                            // Other permanent client errors — drop so they don't clog the queue.
                         } else {
                             addOps.forEach(op => { op.attempts++; remaining.push(op); });
                         }
@@ -414,6 +425,7 @@ createApp({
                         });
                         if (res.ok) {
                             progressed = true;
+                            authError.value = false;
                             // A recorded result already includes the freshly-formed
                             // matches — render them straight away instead of waiting
                             // for the full session re-fetch.
@@ -423,6 +435,17 @@ createApp({
                                     applyNextMatches((json.data && json.data.next_matches) || []);
                                 } catch { /* fall through — fetchSession() reconciles */ }
                             }
+                        }
+                        else if (res.status === 401 || res.status === 403) {
+                            // Permanent auth failure: the server says this login
+                            // doesn't own the session. Retrying will never succeed,
+                            // so drop the op and surface it instead of flooding the
+                            // queue and console forever.
+                            authError.value = true;
+                        }
+                        else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+                            // Other permanent client errors (404/405/410/419/422…):
+                            // retrying won't help — drop so they don't clog the queue.
                         }
                         else { op.attempts++; remaining.push(op); }
                     } catch { op.attempts++; remaining.push(op); }
@@ -726,7 +749,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
     }
 }).mount('#courtly-app');
 </script>
