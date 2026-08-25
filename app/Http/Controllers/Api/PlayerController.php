@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
+use App\Services\PlayerAnalyticsService;
 
 use App\Models\Player;
 use Illuminate\Http\JsonResponse;
@@ -73,6 +74,19 @@ class PlayerController extends Controller
                 'win_percentage' => $player->winPercentage(),
                 'recent_matches' => $recentMatches,
             ],
+        ]);
+    }
+
+    /**
+     * Get the full analytics payload for the stats screen: rating time
+     * series plus derived performance metrics.
+     */
+    public function stats(Player $player, PlayerAnalyticsService $service): JsonResponse
+    {
+        $this->authorizePlayer($player);
+
+        return response()->json([
+            'data' => $service->build($player),
         ]);
     }
 

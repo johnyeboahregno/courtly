@@ -56,8 +56,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Players
     Route::get('/players', [PlayerController::class, 'index']);
+    Route::get('/players/{player}/stats', [PlayerController::class, 'stats']);
+    Route::get('/players/{player}/history', [PlayerController::class, 'history']);
     Route::get('/players/{player}', [PlayerController::class, 'show']);
     Route::patch('/players/{player}', [PlayerController::class, 'update']);
-    Route::get('/players/{player}/history', [PlayerController::class, 'history']);
     Route::delete('/players/{player}', [PlayerController::class, 'destroy']);
 });
