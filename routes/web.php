@@ -147,9 +147,12 @@ Route::get('/', function () {
                 </form>
             </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
             <p class="sub" style="margin:0">Badminton session management</p>
-            <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
+            <div style="display:flex;gap:16px;align-items:center">
+                <a href="'.$base.'/stats" class="manage-link">Player Stats</a>
+                <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
+            </div>
         </div>
         <div class="card">
             <h2>New Session</h2>
@@ -418,6 +421,20 @@ Route::get('/', function () {
     </script>
     </body></html>';
 })->middleware('auth')->name('dashboard');
+
+// Player stats — select a player, see rating trend + performance metrics
+Route::get('/stats', function () {
+    $data = [
+        'base' => rtrim(request()->getBasePath(), '/'),
+    ];
+
+    $__path = resource_path('views/stats.php');
+    extract($data, EXTR_SKIP);
+    ob_start();
+    include $__path;
+
+    return response(ob_get_clean());
+})->middleware('auth')->name('stats');
 
 // Session live view — the tablet UI (owner only)
 Route::get('/sessions/{session}/live', function ($session) {
