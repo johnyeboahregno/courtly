@@ -104,6 +104,7 @@ Route::get('/', function () {
         .past-section[open] .past-toggle::before{transform:rotate(90deg)}
         .past-list{margin-top:12px}
         .dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999}
+        #appDialog{z-index:10001}
         .dialog{background:var(--surface,#1e1e32);border:1px solid var(--stroke,#2e2e4a);border-radius:12px;padding:24px;width:100%;max-width:360px;margin:0 16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
         .dialog__title{margin:0 0 8px;font-size:1.1rem;font-weight:800;color:var(--text,#e4e4f0)}
         .dialog__message{margin:0 0 20px;font-size:.9rem;color:var(--text-muted,#8888a8);line-height:1.5}
@@ -137,7 +138,7 @@ Route::get('/', function () {
     </style>
     </head><body><div class="wrap">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <h1 style="margin:0;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly_light.png" style="height:5vh;display:block;"></h1>
+            <h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly_light.png" style="height:5vh;display:block;"></h1>
             <div style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <form method="POST" action="/logout" style="margin:0">
@@ -387,7 +388,7 @@ Route::get('/', function () {
         .catch(function(){ alert("Network error"); });
     }
     function deletePlayer(id) {
-        if (!confirm("Delete this player permanently?")) return;
+        showConfirmDialog("Delete player", "Delete this player permanently? This cannot be undone.", function(){
         fetch("/api/players/" + id, {
             method: "DELETE",
             headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
@@ -408,6 +409,7 @@ Route::get('/', function () {
             } else { alert(r.message || "Could not delete"); }
         })
         .catch(function(){ alert("Network error"); });
+        });
     }
 
     // Preload the roster into local memory on startup.

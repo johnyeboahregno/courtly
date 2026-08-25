@@ -116,9 +116,29 @@ class SessionController extends Controller
     {
         $this->authorizeSession($session);
 
+        // Idempotent: a session auto-starts when the 4th player checks in while
+        // still UPCOMING. Succeed (and fill any idle courts) instead of 409, so
+        // the Start button never stalls on a redundant request after the batched
+        // player check-in has already kicked matchmaking off.
+        if ($session->status === SessionStatus::ACTIVE) {
+            $matches = $this->matchmaking->allocateMatches($session);
+
+            return response()->json([
+                'data' => [
+                    'session' => $session->fresh(['courts']),
+                    'matches' => $matches,
+                ],
+            ]);
+        }
+
         if ($session->status !== SessionStatus::UPCOMING) {
             return response()->json(['message' => 'Session can only be started from UPCOMING status.'], 409);
         }
+
+        // One live session at a time: closing out any other active/paused
+        // sessions keeps per-player stats and analytics scoped to a single
+        // session instead of leaking across two running sessions.
+        $this->finishOtherOpenSessions($session);
 
         $session->update([
             'status' => SessionStatus::ACTIVE,
@@ -207,6 +227,22 @@ class SessionController extends Controller
             return response()->json(['message' => 'Session cannot be finished from current status.'], 409);
         }
 
+        $this->finalizeSession($session);
+
+        return response()->json([
+            'data' => [
+                'session' => $session->fresh(),
+                'summary' => $this->analytics->calculateSummary($session),
+            ],
+        ]);
+    }
+
+    /**
+     * Finalize a session: mark it FINISHED, close out playing matches, free
+     * courts, and return on-court players to the waiting list.
+     */
+    private function finalizeSession(Session $session): void
+    {
         $session->update([
             'status' => SessionStatus::FINISHED,
             'finished_at' => now(),
@@ -228,13 +264,27 @@ class SessionController extends Controller
             'session_id' => $session->id,
             'status' => 'FINISHED',
         ]);
+    }
 
-        return response()->json([
-            'data' => [
-                'session' => $session->fresh(),
-                'summary' => $this->analytics->calculateSummary($session),
-            ],
-        ]);
+    /**
+     * Close out every other open session (ACTIVE or PAUSED) owned by the same
+     * user so only one session is ever live at a time. UPCOMING sessions are
+     * left untouched — they hold no stats yet and may be scheduled for later.
+     */
+    private function finishOtherOpenSessions(Session $current): void
+    {
+        $others = Session::query()
+            ->where('created_by', $current->created_by)
+            ->where('id', '!=', $current->id)
+            ->whereIn('status', [
+                SessionStatus::ACTIVE->value,
+                SessionStatus::PAUSED->value,
+            ])
+            ->get();
+
+        foreach ($others as $other) {
+            $this->finalizeSession($other);
+        }
     }
 
     /**

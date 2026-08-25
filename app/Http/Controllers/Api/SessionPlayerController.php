@@ -46,6 +46,7 @@ class SessionPlayerController extends Controller
         $this->authorizeSession($session);
 
         $playerIds = $request->input('player_ids', []);
+        $names = $request->input('names', []);
         $newName = $request->input('name');
 
         if ($request->has('player_id')) {
@@ -56,8 +57,22 @@ class SessionPlayerController extends Controller
             $playerIds = [$playerIds];
         }
 
-        if (empty($playerIds) && empty($newName)) {
-            return response()->json(['message' => 'Provide player_ids and/or a name.'], 422);
+        // `names` may arrive as a JSON array or a single string. The legacy
+        // `name` field is folded in for backwards compatibility.
+        if (is_string($names)) {
+            $names = [$names];
+        }
+        $names = array_values(array_filter(array_map('trim', (array) $names), fn ($n) => $n !== ''));
+
+        if (! empty($newName)) {
+            $newName = trim($newName);
+            if ($newName !== '' && ! in_array($newName, $names, true)) {
+                $names[] = $newName;
+            }
+        }
+
+        if (empty($playerIds) && empty($names)) {
+            return response()->json(['message' => 'Provide player_ids and/or names.'], 422);
         }
 
         $added = [];
@@ -80,9 +95,10 @@ class SessionPlayerController extends Controller
             }
         }
 
-        // 2. Create and add a brand-new player (or reuse the user's existing
-        //    player if the name matches within this user's roster)
-        if (! empty($newName)) {
+        // 2. Create and add brand-new players (or reuse the user's existing
+        //    players when a name matches within this user's roster). Batched so
+        //    one request can check in many players and run matchmaking once.
+        foreach ($names as $newName) {
             $player = Player::where('name', $newName)
                 ->where('user_id', $this->currentUser()->id)
                 ->first();
