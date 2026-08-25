@@ -41,7 +41,7 @@ when ranking candidate groups.
 | 3 | Active-player guard (MM-005) | exclusion | — | A player already in a `PLAYING` match is never re-allocated. |
 | 4 | Fairness ranking | ranking | — | Fewer games, longer wait, previous sit-out, then winner tie-break. |
 | 5 | Max-wait DUE | ranking boost | `max_wait_minutes` (12) | A `WAITING` player who waited too long becomes mandatory. |
-| 6 | Exact-repeat block | cost `100000` | — | Same 4 players as any court's own last round. |
+| 6 | Exact-repeat block | hard (tier) | — | Same 4 players as any court's own last round — supersedes soft rules; only a completely-unfair alternative allows a repeat. |
 | 7 | Unfair-group block | cost `100000` | `unfair_group_penalty` | Team-average rating difference > `max_balance_difference` (25). |
 | 8 | Same-side repeat block | split skip | `same_side_consecutive_block` | Two players who were teammates last round may not be teamed again. |
 | 9 | Consecutive-matchup block | cost `10000` | `consecutive_matchup_penalty` | Identical 2v2 pairing as any court's last round. |
@@ -94,15 +94,17 @@ A `WAITING` player who has waited at least `max_wait_minutes` (default `12`)
 receives a large priority boost and becomes mandatory for the next allocation,
 regardless of skill optimisation.
 
-### Rule 6 — Exact-repeat block
+### Rule 6 — Exact-repeat block (hard)
 
 A candidate group that contains exactly the same four players as **any court's
-own last round** is penalised `100000`.
+own last round** is demoted to a worse selection tier instead of merely adding a
+cost.
 
 - Guard is per-court (`matchmaking.per_court_repeat_guards = true`): each court
   compares against its own previous match, not just the globally-latest match.
-- The `100000` cost dominates all soft penalties, so a repeat is only chosen when
-  no alternative exists (numbers force it).
+- The no-repeat rule supersedes the soft rules: a repeat group is only chosen
+  when every non-repeat alternative would be completely unfair, or when the
+  numbers force it (see the tier ordering in Rule 13).
 
 ### Rule 7 — Unfair-group block
 
@@ -158,10 +160,23 @@ Soft penalties discourage repeated pairings across recent history
 
 1. Rank all waiting players by **rotation priority** (see §3).
 2. Take the top `N×4 + buffer` players, sort them by rating for skill cohesion.
-3. Generate every sliding-window group of four; score each group.
-4. Select the **non-overlapping** set with the **lowest total cost**.
-5. If sliding windows under-fill, fall back to adjacent rating windows so no
-   court is left idle.
+3. Generate candidate groups of four — adjacent rating windows **and** strided
+   windows (every 2nd rating position) so a non-repeat grouping is always in
+   contention.
+4. Assign each group a **tier** (lower is chosen first):
+
+   | Tier | Meaning |
+   |------|---------|
+   | 0 | fair, new group |
+   | 1 | fair, repeat |
+   | 2 | unfair, new group |
+   | 3 | unfair, repeat |
+
+5. Select the **non-overlapping** set that minimises (unfilled courts, then tier
+   sum, then total cost). Greedy completion is tried from several seeds so the
+   single cheapest group can't strand the remaining courts.
+6. If still under-filled, fall back to adjacent rating windows so no court is
+   left idle (the "numbers force it" escape hatch).
 
 ---
 

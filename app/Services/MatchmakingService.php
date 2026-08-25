@@ -418,6 +418,7 @@ class MatchmakingService
             $best = $this->findBestSplit($group, $session);
             $groupCost = $this->calculateGroupCost($group, $session);
             $unfair = $best['balance_difference'] > $config['max_balance_difference'];
+            $isRepeat = $this->isExactRepeat($group, $session);
 
             // Rotate winners off the court they just won on: penalise a group by
             // the fewest winners it would return to any of the available courts.
@@ -434,6 +435,8 @@ class MatchmakingService
                 'group_cost' => $groupCost,
                 'total_cost' => $totalCost,
                 'unfair' => $unfair,
+                'is_repeat' => $isRepeat,
+                'tier' => $this->matchTier($unfair, $isRepeat),
                 'returning_winners' => $returningWinners,
             ];
         }
@@ -698,6 +701,8 @@ class MatchmakingService
             $assignments[] = [
                 'players' => $players,
                 'best_split' => $best,
+                'rotation_score' => $this->calculateRotationScore($players, $session),
+                'skill_spread' => $this->calculateSkillSpread($players),
                 'group_cost' => $this->calculateGroupCost($players, $session),
                 'unfair' => $best['balance_difference'] > $config['max_balance_difference'],
             ];
@@ -737,28 +742,101 @@ class MatchmakingService
             $groups[] = $group;
         }
 
+        // Strided groups (every 2nd rating position) provide non-repeat
+        // alternatives when the adjacent windows would re-form the exact same
+        // foursomes. They mix the rating order so variety can beat cohesion.
+        for ($i = 0; $i <= $total - 7; $i++) {
+            $group = [
+                $sortedPlayers[$i]->player,
+                $sortedPlayers[$i + 2]->player,
+                $sortedPlayers[$i + 4]->player,
+                $sortedPlayers[$i + 6]->player,
+            ];
+
+            foreach ($group as $player) {
+                $player->sessionPlayer = $sortedPlayers->first(
+                    fn (SessionPlayer $sp) => $sp->player_id === $player->id
+                );
+            }
+
+            $groups[] = $group;
+        }
+
         return $groups;
     }
 
     /**
-     * Select best non-overlapping N groups from scored candidates.
+     * Selection precedence for a candidate group. Lower = chosen first.
+     * The no-repeat rule supersedes fairness, with one escape hatch: a fair
+     * repeat is still preferred over a brand-new but completely unfair group.
      */
+    private function matchTier(bool $unfair, bool $isRepeat): int
+    {
+        if (! $unfair && ! $isRepeat) {
+            return 0; // fair, new group
+        }
+        if (! $unfair && $isRepeat) {
+            return 1; // fair, repeat
+        }
+        if ($unfair && ! $isRepeat) {
+            return 2; // unfair, new group
+        }
+
+        return 3;     // unfair, repeat
+    }
+
     private function selectBestNonOverlapping(array $scored, int $numCourts): array
+    {
+        if (empty($scored) || $numCourts <= 0) {
+            return [];
+        }
+
+        // Rank by tier first (no-repeat > fairness), then total cost.
+        usort($scored, fn (array $a, array $b) =>
+            [$a['tier'] ?? 3, $a['total_cost'] ?? $a['group_cost'] ?? 0]
+            <=
+            [$b['tier'] ?? 3, $b['total_cost'] ?? $b['group_cost'] ?? 0]
+        );
+
+        // Greedily complete from several seeds and keep the best full set. This
+        // avoids the trap where the single cheapest group overlaps every other
+        // group and leaves the remaining courts unfillable.
+        $best = null;
+        $bestScore = PHP_FLOAT_MAX;
+        $seeds = min(count($scored), 16);
+
+        for ($seed = 0; $seed < $seeds; $seed++) {
+            $set = $this->greedyComplete($scored, $numCourts, $seed);
+            $score = $this->selectionScore($set, $numCourts);
+
+            if ($score < $bestScore) {
+                $bestScore = $score;
+                $best = $set;
+            }
+        }
+
+        return $best ?? [];
+    }
+
+    /**
+     * Greedily select non-overlapping groups, starting from the given seed.
+     */
+    private function greedyComplete(array $scored, int $numCourts, int $seed): array
     {
         $selected = [];
         $usedPlayerIds = [];
 
-        // Sort by total cost (lowest = best); fall back to group cost for callers
-        // that only computed group_cost.
-        usort($scored, fn (array $a, array $b) =>
-            ($a['total_cost'] ?? $a['group_cost']) <=> ($b['total_cost'] ?? $b['group_cost'])
+        $order = array_merge(
+            array_slice($scored, $seed),
+            array_slice($scored, 0, $seed)
         );
 
-        foreach ($scored as $candidate) {
+        foreach ($order as $candidate) {
             if (count($selected) >= $numCourts) {
                 break;
             }
-            $playerIds = array_map(fn (Player $p) => $p->id, $candidate['players']);
+
+            $playerIds = array_map(fn (Player $p) => (int) $p->id, $candidate['players']);
             if (count(array_intersect($playerIds, $usedPlayerIds)) === 0) {
                 $selected[] = $candidate;
                 $usedPlayerIds = array_merge($usedPlayerIds, $playerIds);
@@ -766,6 +844,24 @@ class MatchmakingService
         }
 
         return $selected;
+    }
+
+    /**
+     * Lower is better: unfilled courts dominate, then tier sum, then cost sum.
+     */
+    private function selectionScore(array $set, int $numCourts): float
+    {
+        $missing = $numCourts - count($set);
+        $tierSum = array_sum(array_map(
+            fn (array $c) => (int) ($c['tier'] ?? 3),
+            $set
+        ));
+        $costSum = array_sum(array_map(
+            fn (array $c) => (float) ($c['total_cost'] ?? $c['group_cost'] ?? 0),
+            $set
+        ));
+
+        return $missing * 1e12 + $tierSum * 1e6 + $costSum;
     }
 
     /**
