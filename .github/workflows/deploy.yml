@@ -29,7 +29,11 @@ jobs:
         env:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          lftp -p 666 -u "regnocloud,$FTP_PASSWORD" ftp.bytedemon.com <<'EOF'
+          timeout 12m lftp -p 666 -u "regnocloud,$FTP_PASSWORD" ftp.bytedemon.com <<'EOF'
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set net:persist-retries 0
           set ftp:ssl-allow no
           set ftp:passive-mode yes
           mkdir -p public_html/courtly2/storage/framework/cache
