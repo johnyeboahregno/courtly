@@ -36,11 +36,13 @@ jobs:
           set net:persist-retries 0
           set ftp:ssl-allow no
           set ftp:passive-mode yes
+          set cmd:fail-exit no
           mkdir -p public_html/courtly2/storage/framework/cache
           mkdir -p public_html/courtly2/storage/framework/sessions
           mkdir -p public_html/courtly2/storage/framework/views
           mkdir -p public_html/courtly2/storage/logs
           mkdir -p public_html/courtly2/storage/app
+          set cmd:fail-exit yes
           mirror --reverse --verbose --parallel=4 \
             --exclude-glob '.git/' \
             --exclude-glob '.gitignore' \
