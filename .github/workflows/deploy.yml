@@ -36,7 +36,7 @@ jobs:
           set net:persist-retries 0
           set ftp:ssl-allow no
           set ftp:passive-mode yes
-          mkdir -p public_html/courtly2
+          mkdir -p public_html/courtly
           mirror --reverse --verbose --parallel=4 \
             --exclude-glob '.git/' \
             --exclude-glob '.gitignore' \
@@ -59,6 +59,6 @@ jobs:
             --exclude-glob 'composer.lock' \
             --exclude-glob 'cacert.pem' \
             --exclude-glob 'peg-board.md' \
-            ./ public_html/courtly2/
+            ./ public_html/courtly/
           quit
           EOF
