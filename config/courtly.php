@@ -112,6 +112,8 @@ return [
         'provisional_threshold' => 3,
         'initial_confidence' => 0.10,
         'confidence_factor' => 0.15,
+        'close_game_favorite_multiplier' => 0.75,
+        'close_game_upset_multiplier' => 1.25,
     ],
 
     /*

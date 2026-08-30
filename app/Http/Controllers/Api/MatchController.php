@@ -29,9 +29,14 @@ class MatchController extends Controller
 
         $validated = $request->validate([
             'winning_team' => ['required', 'integer', 'in:1,2'],
+            'close_game' => ['sometimes', 'boolean'],
         ]);
 
-        $result = $this->resultService->recordResult($match, $validated['winning_team']);
+        $result = $this->resultService->recordResult(
+            $match,
+            $validated['winning_team'],
+            (bool) ($validated['close_game'] ?? false)
+        );
 
         return response()->json(['data' => $result]);
     }

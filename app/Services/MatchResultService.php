@@ -26,9 +26,9 @@ class MatchResultService
      *
      * @return array{match: Match, rating_changes: array, next_matches: array}
      */
-    public function recordResult(GameMatch $match, int $winningTeam): array
+    public function recordResult(GameMatch $match, int $winningTeam, bool $closeGame = false): array
     {
-        return DB::transaction(function () use ($match, $winningTeam) {
+        return DB::transaction(function () use ($match, $winningTeam, $closeGame) {
             // Lock the match row for concurrent safety
             $match = GameMatch::query()
                 ->where('id', $match->id)
@@ -52,6 +52,7 @@ class MatchResultService
             $match->update([
                 'status' => MatchStatus::COMPLETED,
                 'winning_team' => $winningTeam,
+                'close_game' => $closeGame,
                 'completed_at' => $now,
             ]);
 
@@ -122,6 +123,7 @@ class MatchResultService
                     'match_id' => $match->id,
                     'court_id' => $match->court_id,
                     'winning_team' => $winningTeam,
+                    'close_game' => $closeGame,
                 ]],
                 ['type' => 'court.updated', 'data' => [
                     'court_id' => $match->court_id,
@@ -146,6 +148,7 @@ class MatchResultService
             Log::info('match.result.processed', [
                 'match_id' => $match->id,
                 'winning_team' => $winningTeam,
+                'close_game' => $closeGame,
                 'next_matches' => count($nextMatches),
             ]);
 
@@ -240,6 +243,7 @@ class MatchResultService
                 'match_id' => $match->id,
                 'court_id' => $match->court_id,
                 'winning_team' => $newWinningTeam,
+                'close_game' => (bool) $match->close_game,
                 'corrected' => true,
             ]);
             $this->eventService->publish($session->id, 'rating.updated', []);

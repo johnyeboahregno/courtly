@@ -41,11 +41,11 @@ class RatingService
     /**
      * Calculate an individual player's rating adjustment.
      */
-    public function calculatePlayerAdjustment(Player $player, float $expected, bool $won): float
+    public function calculatePlayerAdjustment(Player $player, float $expected, bool $won, float $multiplier = 1.0): float
     {
         $k = $this->getKFactor($player);
         $actual = $won ? 1.0 : 0.0;
-        $change = $k * ($actual - $expected);
+        $change = $k * ($actual - $expected) * $multiplier;
 
         $minRating = config('courtly.rating.min_rating');
         $maxRating = config('courtly.rating.max_rating');
@@ -104,6 +104,12 @@ class RatingService
         // Calculate expected results
         $expected = $this->calculateExpectedResult($team1Rating, $team2Rating);
         $team1Won = $winningTeam === 1;
+        $closeGameMultiplier = $this->calculateCloseGameMultiplier(
+            $team1Rating,
+            $team2Rating,
+            $winningTeam,
+            (bool) ($match->close_game ?? false)
+        );
 
         // Calculate per-player changes
         $changes = [];
@@ -111,7 +117,12 @@ class RatingService
             $playerExpected = $mp->team === 1 ? $expected['team_a'] : $expected['team_b'];
             $playerWon = ($mp->team === 1 && $team1Won) || ($mp->team === 2 && !$team1Won);
 
-            $adjustment = $this->calculatePlayerAdjustment($mp->player, $playerExpected, $playerWon);
+            $adjustment = $this->calculatePlayerAdjustment(
+                $mp->player,
+                $playerExpected,
+                $playerWon,
+                $closeGameMultiplier
+            );
 
             $changes[] = [
                 'player' => $mp->player,
@@ -128,6 +139,23 @@ class RatingService
         }
 
         return $changes;
+    }
+
+    /**
+     * Close games shift ratings harder when the underdog wins and softer when the favorite wins.
+     */
+    private function calculateCloseGameMultiplier(float $team1Rating, float $team2Rating, int $winningTeam, bool $closeGame): float
+    {
+        if (! $closeGame) {
+            return 1.0;
+        }
+
+        $favoriteTeam = $team1Rating >= $team2Rating ? 1 : 2;
+        $favoriteWon = $winningTeam === $favoriteTeam;
+
+        return $favoriteWon
+            ? (float) config('courtly.rating.close_game_favorite_multiplier', 0.75)
+            : (float) config('courtly.rating.close_game_upset_multiplier', 1.25);
     }
 
     /**
