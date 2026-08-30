@@ -68,6 +68,7 @@
                             <i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[1].streak }}</i></span>
                         </div>
+                        <button class="btn-win btn-win--team-1 btn-win--close" :class="{ 'is-submitting': submitting[court.match.id + '_1'] }" :disabled="submitting[court.match.id + '_2']" @click.stop="recordResult(court.match.id, 1, true)" title="Mark as a close game (within 3 points)">CLOSE</button>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2)" title="Tap to record a win for this team">
@@ -79,6 +80,7 @@
                             <i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i>
                             <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[1].streak }}</i></span>
                         </div>
+                        <button class="btn-win btn-win--team-2 btn-win--close" :class="{ 'is-submitting': submitting[court.match.id + '_2'] }" :disabled="submitting[court.match.id + '_1']" @click.stop="recordResult(court.match.id, 2, true)" title="Mark as a close game (within 3 points)">CLOSE</button>
                     </div>
                 </div>
             </div>
@@ -543,9 +545,10 @@ createApp({
         }
 
         async function postApi(url) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include' }); return res.json(); }
-        async function recordResult(matchId, team) {
-            if (submitting[matchId + '_' + team]) return;
-            submitting[matchId + '_' + team] = true;
+        async function recordResult(matchId, team, closeGame = false) {
+            const submissionKey = matchId + '_' + team;
+            if (submitting[submissionKey]) return;
+            submitting[submissionKey] = true;
 
             // Optimistic UI: move players to waiting and clear the court.
             const losingTeam = team === 1 ? 2 : 1;
@@ -570,7 +573,7 @@ createApp({
             // If the server is slow or down, the result stays queued in local
             // storage and is retried by the sync loop, the Sync button, or at
             // session end.
-            enqueueSync('/api/matches/' + matchId + '/result', 'POST', { winning_team: team });
+            enqueueSync('/api/matches/' + matchId + '/result', 'POST', { winning_team: team, close_game: closeGame });
             flushSyncQueue();
         }
         async function startNewSession() {

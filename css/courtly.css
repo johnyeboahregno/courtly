@@ -461,6 +461,7 @@ body {
 
 .btn-win--team-1 { color: #0084ff; border-color: #0084ff; }
 .btn-win--team-2 { color: #00c764; border-color: #00c764; }
+.btn-win--close { color: #f59e0b; border-color: #f59e0b; }
 
 /* Solid matte while pressed */
 .btn-win:active {
@@ -468,6 +469,7 @@ body {
 }
 .btn-win--team-1:active { background: #0084ff; border-color: #0084ff; }
 .btn-win--team-2:active { background: #00c764; border-color: #00c764; }
+.btn-win--close:active { background: #f59e0b; border-color: #f59e0b; }
 
 /* Solid matte while a result is being submitted */
 .btn-win.is-submitting {
@@ -478,6 +480,7 @@ body {
 }
 .btn-win--team-1.is-submitting { background: #0084ff; border-color: #0084ff; }
 .btn-win--team-2.is-submitting { background: #00c764; border-color: #00c764; }
+.btn-win--close.is-submitting { background: #f59e0b; border-color: #f59e0b; }
 
 .btn-win.is-submitting::after {
     content: '';
