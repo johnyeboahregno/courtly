@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=14">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=15">
 </head>
 <body>
 <div id="courtly-app">
@@ -34,8 +34,8 @@
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button class="mode-switch" :class="'mode-switch--' + matchmakingMode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
-            <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" @click="startSession">START</button>
-            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" @click="finishSession">FINISH</button>
+            <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" :class="{ 'is-busy': sessionActionPending === 'start' }" :disabled="sessionActionPending === 'start'" @click="startSession">START</button>
+            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
@@ -132,8 +132,8 @@
     </details>
 
     <footer class="session-controls">
-        <button v-if="session.status === 'PAUSED'" class="btn btn--primary" @click="resumeSession">▶ RESUME</button>
-        <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
+        <button v-if="session.status === 'PAUSED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'resume' }" :disabled="sessionActionPending === 'resume'" @click="resumeSession">▶ RESUME</button>
+        <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession'" @click="startNewSession">▶ START NEW SESSION</button>
     </footer>
 
     <!-- Players dialog: add new/select existing + manage roster -->
@@ -223,6 +223,7 @@ createApp({
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
         const courts = ref([]);
         const updatingCourts = ref(false);
+        const sessionActionPending = ref(null);
         const players = ref([]);
         const history = ref([]);
         const historySearch = ref('');
@@ -485,16 +486,21 @@ createApp({
         }
         async function doStartNewSession() {
             confirmNewSession.value = { show: false };
+            sessionActionPending.value = 'newSession';
             const courtCount = courts.value.length || 3;
-            const res = await fetch(BASE_URL + '/api/sessions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                credentials: 'include',
-                body: JSON.stringify({ name: sessionName.value, number_of_courts: courtCount })
-            });
-            const json = await res.json();
-            if (!res.ok || !json.data || !json.data.id) return;
-            window.location.href = BASE_URL + '/sessions/' + json.data.id + '/live';
+            try {
+                const res = await fetch(BASE_URL + '/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                    credentials: 'include',
+                    body: JSON.stringify({ name: sessionName.value, number_of_courts: courtCount })
+                });
+                const json = await res.json();
+                if (!res.ok || !json.data || !json.data.id) { sessionActionPending.value = null; return; }
+                window.location.href = BASE_URL + '/sessions/' + json.data.id + '/live';
+            } catch (e) {
+                sessionActionPending.value = null;
+            }
         }
         async function toggleMode() {
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
@@ -519,12 +525,20 @@ createApp({
             }
         }
         async function startSession() {
-            postApi('/api/sessions/' + SESSION_ID + '/start');
+            if (sessionActionPending.value) return;
+            sessionActionPending.value = 'start';
+            try { await postApi('/api/sessions/' + SESSION_ID + '/start'); } finally { sessionActionPending.value = null; }
         }
         async function pauseSession() { postApi('/api/sessions/' + SESSION_ID + '/pause'); }
-        async function resumeSession() { postApi('/api/sessions/' + SESSION_ID + '/resume'); }
+        async function resumeSession() {
+            if (sessionActionPending.value) return;
+            sessionActionPending.value = 'resume';
+            try { await postApi('/api/sessions/' + SESSION_ID + '/resume'); } finally { sessionActionPending.value = null; }
+        }
         async function finishSession() {
-            postApi('/api/sessions/' + SESSION_ID + '/finish');
+            if (sessionActionPending.value) return;
+            sessionActionPending.value = 'finish';
+            try { await postApi('/api/sessions/' + SESSION_ID + '/finish'); } finally { sessionActionPending.value = null; }
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
@@ -641,7 +655,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, adjustCourts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
     }
 }).mount('#courtly-app');
 </script>

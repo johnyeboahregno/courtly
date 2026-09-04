@@ -1386,6 +1386,27 @@ textarea,
 .mode-switch--peg { background: #3a2c10; color: #e0a91a; border-color: #e0a91a; }
 .mode-switch--smart { background: #10243a; color: #5b9bd5; border-color: #5b9bd5; }
 
+/* Busy state shared by session lifecycle buttons (start/finish/resume/new session) */
+.mode-switch.is-busy,
+.btn.is-busy {
+    color: transparent !important;
+    position: relative;
+    pointer-events: none;
+}
+.mode-switch.is-busy::after,
+.btn.is-busy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+}
+
 /* NEXT UP header with the active mode on the right */
 .waiting-list__head {
     display: flex;
