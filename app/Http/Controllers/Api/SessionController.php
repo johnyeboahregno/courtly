@@ -83,17 +83,11 @@ class SessionController extends Controller
     }
 
     /**
-     * Get session details. Also ensures no court sits idle while
-     * enough players are waiting.
+     * Get session details.
      */
     public function show(Session $session): JsonResponse
     {
         $this->authorizeSession($session);
-
-        // Fill any empty courts — a court must never sit idle
-        if ($session->status === SessionStatus::ACTIVE) {
-            $this->matchmaking->allocateMatches($session);
-        }
 
         // The live view only needs the matches currently in play — loading every
         // match in the session (potentially hundreds) on each poll is wasteful
