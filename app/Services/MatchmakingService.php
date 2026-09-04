@@ -32,6 +32,22 @@ class MatchmakingService
      */
     public function allocateMatches(Session $session): array
     {
+        return DB::transaction(function () use ($session): array {
+            // Multiple live browsers can trigger matchmaking at the same time.
+            // Locking the session serializes allocation for its courts and players.
+            $lockedSession = Session::query()->lockForUpdate()->findOrFail($session->id);
+
+            return $this->allocateMatchesLocked($lockedSession);
+        });
+    }
+
+    /**
+     * Allocate matches while the parent session row is locked.
+     *
+     * @return array<int, Match>
+     */
+    private function allocateMatchesLocked(Session $session): array
+    {
         // Only an ACTIVE session ever forms matches. UPCOMING sessions keep
         // their players in the waiting list until the organiser presses
         // "Start Session" — otherwise players would silently disappear from
