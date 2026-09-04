@@ -127,6 +127,33 @@ textarea,
     color: var(--text);
 }
 
+.court-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.court-count__controls {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.court-count__button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--stroke);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    font: 800 1rem/1 inherit;
+}
+
+.court-count__button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
 .session-header__badge {
     padding: 5px 12px;
     border-radius: 999px;

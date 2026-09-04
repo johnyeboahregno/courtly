@@ -24,7 +24,12 @@
         </div>
         <div class="session-header__stats">
             <span>👥 {{ players.length }} Players</span>
-            <span>🏟 {{ courts.length }} Courts</span>
+            <span class="court-count">🏟 {{ courts.length }} Courts
+                <span v-if="session.status !== 'FINISHED'" class="court-count__controls">
+                    <button class="court-count__button" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove')" title="Remove a court">−</button>
+                    <button class="court-count__button" type="button" :disabled="courts.length >= 8 || updatingCourts" @click="adjustCourts('add')" title="Add a court">+</button>
+                </span>
+            </span>
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
@@ -217,6 +222,7 @@ createApp({
         const matchmakingMode = ref('smart');
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
         const courts = ref([]);
+        const updatingCourts = ref(false);
         const players = ref([]);
         const history = ref([]);
         const historySearch = ref('');
@@ -370,7 +376,7 @@ createApp({
                 const stats = {};
                 (d.session_players || []).forEach(sp => { stats[sp.player_id] = { wins: sp.wins, losses: sp.losses }; });
 
-                courts.value = (d.courts || []).map(c => {
+                courts.value = (d.courts || []).filter(c => c.status !== 'INACTIVE').map(c => {
                     const match = (d.matches || []).find(m =>
                         m.court_id === c.id
                         && m.status === 'PLAYING'
@@ -495,6 +501,23 @@ createApp({
 
             postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
         }
+        async function adjustCourts(action) {
+            if (updatingCourts.value) return;
+
+            updatingCourts.value = true;
+            try {
+                const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/courts', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                    credentials: 'include',
+                    body: JSON.stringify({ action }),
+                });
+                const payload = await response.json();
+                if (response.ok) applySessionData(payload.data);
+            } finally {
+                updatingCourts.value = false;
+            }
+        }
         async function startSession() {
             postApi('/api/sessions/' + SESSION_ID + '/start');
         }
@@ -618,7 +641,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, adjustCourts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
     }
 }).mount('#courtly-app');
 </script>
