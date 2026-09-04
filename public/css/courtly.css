@@ -227,6 +227,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    position: relative;
 }
 
 /* Court header: name + status */
