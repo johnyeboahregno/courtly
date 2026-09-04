@@ -116,13 +116,13 @@ class MatchResultService
             // 4. Mark court as AVAILABLE
             $match->court->update(['status' => CourtStatus::AVAILABLE]);
 
-            // 5. Allocate the next batch immediately — a court must never sit idle
-            //    while at least 4 players are waiting. allocateMatches() already
-            //    no-ops when there are no available courts or fewer than 4 WAITING
-            //    players, and enforces the active-player hard constraint.
-            $nextMatches = $this->matchmakingService->allocateMatches($session);
+            // 5. Match completion is intentionally a narrow cross-screen update.
+            // The next allocation happens on an explicit session/player action,
+            // preventing one display's result from rearranging another display.
+            $nextMatches = [];
 
-            // 6. Publish all SSE events in a single batched insert (fast on remote DB)
+            // 6. Publish only the completed court. Receiving displays clear that
+            // court directly rather than reloading their entire session state.
             $events = [
                 ['type' => 'match.completed', 'data' => [
                     'match_id' => $match->id,
@@ -130,23 +130,7 @@ class MatchResultService
                     'winning_team' => $winningTeam,
                     'close_game' => $closeGame,
                 ]],
-                ['type' => 'court.updated', 'data' => [
-                    'court_id' => $match->court_id,
-                    'status' => 'AVAILABLE',
-                ]],
             ];
-
-            foreach ($ratingChanges as $change) {
-                $events[] = ['type' => 'rating.updated', 'data' => [
-                    'player_id' => $change['player']->id,
-                    'old_rating' => $change['rating_before'],
-                    'new_rating' => $change['rating_after'],
-                ]];
-            }
-
-            if (! empty($nextMatches)) {
-                $events[] = ['type' => 'waiting_list.updated', 'data' => []];
-            }
 
             $this->eventService->publishBatch($session->id, $events);
 
@@ -238,7 +222,7 @@ class MatchResultService
                     $sessionPlayer->update([
                         'wins' => $sessionPlayer->wins + ($won ? 1 : 0),
                         'losses' => $sessionPlayer->losses + ($won ? 0 : 1),
-                        'last_result' => $won ? MatchResult::WIN : MatchResult::LOSS,
+                        'last_result' => $won ? MatchResult::WIN->value : MatchResult::LOSS->value,
                     ]);
                 }
             }
