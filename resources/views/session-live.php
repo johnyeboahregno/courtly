@@ -302,6 +302,11 @@ createApp({
         const syncQueue = ref(readLS(LS_QUEUE, []));
         const pendingCount = computed(() => syncQueue.value.length);
         function persistQueue() { writeLS(LS_QUEUE, syncQueue.value); }
+        function rescheduleSync(op) {
+            op.attempts = (op.attempts || 0) + 1;
+            op.nextAttemptAt = Date.now() + Math.min(900000, 30000 * (2 ** Math.min(op.attempts, 5)));
+            return op;
+        }
         function enqueueSync(path, method, body) {
             syncQueue.value.push({
                 id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
@@ -418,6 +423,11 @@ createApp({
                 }
 
                 for (const op of syncQueue.value.filter(op => op.path !== addPath)) {
+                    if (op.nextAttemptAt && op.nextAttemptAt > Date.now()) {
+                        remaining.push(op);
+                        continue;
+                    }
+
                     try {
                         const res = await fetch(BASE_URL + op.path, {
                             method: op.method,
@@ -449,8 +459,8 @@ createApp({
                             // Other permanent client errors (404/405/410/419/422…):
                             // retrying won't help — drop so they don't clog the queue.
                         }
-                        else { op.attempts++; remaining.push(op); }
-                    } catch { op.attempts++; remaining.push(op); }
+                        else { remaining.push(rescheduleSync(op)); }
+                    } catch { remaining.push(rescheduleSync(op)); }
                 }
 
                 syncQueue.value = remaining;
@@ -547,16 +557,27 @@ createApp({
             }, 100);
         }
 
+        function applyMatchCompleted(event) {
+            let data;
+            try { data = JSON.parse(event.data); } catch { return; }
+            if (!data || !data.court_id) return;
+
+            courts.value = courts.value.map(court =>
+                court.id === data.court_id ? { ...court, match: null } : court
+            );
+        }
+
         function startEventStream() {
             if (!window.EventSource) return;
 
             eventSource = new EventSource(BASE_URL + '/api/sessions/' + SESSION_ID + '/events?stream=1');
             const eventTypes = [
-                'session.updated', 'match.completed', 'court.updated', 'rating.updated',
+                'session.updated', 'court.updated', 'rating.updated',
                 'waiting_list.updated', 'player.checked_in', 'player.paused',
                 'player.resumed', 'player.left'
             ];
             eventTypes.forEach(type => eventSource.addEventListener(type, scheduleEventRefresh));
+            eventSource.addEventListener('match.completed', applyMatchCompleted);
             eventSource.onopen = () => { connectionState.value = 'connected'; };
         }
 
@@ -736,8 +757,6 @@ createApp({
             fetchSession();              // reconcile with the server once
             loadKnownPlayers();
             startSyncLoop();
-            startEventStream();
-
             // Background reconcile (safety net) instead of a 3s poll.
             if (RECONCILE_INTERVAL_MS > 0) {
                 reconcileTimer = setInterval(fetchSession, RECONCILE_INTERVAL_MS);
