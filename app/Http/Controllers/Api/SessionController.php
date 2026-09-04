@@ -306,6 +306,11 @@ class SessionController extends Controller
 
         $session->update(['matchmaking_mode' => $validated['mode']]);
 
+        $this->events->publish($session->id, 'session.updated', [
+            'session_id' => $session->id,
+            'matchmaking_mode' => $validated['mode'],
+        ]);
+
         return response()->json([
             'data' => $session->fresh(),
         ]);

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\Session;
+use App\Enums\MatchStatus;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,6 +64,10 @@ class SessionEventsController extends Controller
             ini_set('output_buffering', 'off');
             ini_set('zlib.output_compression', '0');
 
+            echo "event: session.snapshot\n";
+            echo 'data: '.json_encode(['data' => $this->sessionSnapshot($session)], JSON_THROW_ON_ERROR)."\n\n";
+            flush();
+
             while (connection_aborted() === 0) {
                 // Poll database for new events
                 $newEvents = $this->eventService->getEventsAfterId($session->id, $lastId);
@@ -72,6 +77,11 @@ class SessionEventsController extends Controller
                     echo "event: {$event['type']}\n";
                     echo "data: {$event['data']}\n\n";
                     $lastId = (int) $event['id'];
+                }
+
+                if ($newEvents !== []) {
+                    echo "event: session.snapshot\n";
+                    echo 'data: '.json_encode(['data' => $this->sessionSnapshot($session)], JSON_THROW_ON_ERROR)."\n\n";
                 }
 
                 // Heartbeat every cycle
@@ -92,5 +102,19 @@ class SessionEventsController extends Controller
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
+    }
+
+    /**
+     * Build the authoritative state sent to each live browser over SSE.
+     */
+    private function sessionSnapshot(Session $session): array
+    {
+        return $session->fresh()->load([
+            'courts',
+            'sessionPlayers.player',
+            'matches' => fn ($query) => $query
+                ->where('status', MatchStatus::PLAYING->value)
+                ->with('matchPlayers.player'),
+        ])->toArray();
     }
 }

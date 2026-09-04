@@ -274,7 +274,6 @@ createApp({
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
         let eventSource = null;
-        let eventRefreshTimer = null;
         // Fetch the full player list from the server.
         async function refreshPlayerCache() {
             try {
@@ -311,18 +310,8 @@ createApp({
             blurTimer = setTimeout(() => { showSuggestions.value = false; }, 150);
         }
 
-        async function fetchSession() {
-            // Abort after 45s so a hung server (e.g. DB down) is flagged as unreachable.
-            // (Remote DB can take ~30s per request, so 8s was too aggressive.)
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 45000);
-            try {
-                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID, { credentials: 'include', signal: controller.signal });
-                clearTimeout(timer);
-                if (!res.ok) { connectionState.value = 'offline'; return; }
-                const json = await res.json();
-                const d = json.data;
-                if (!d) { connectionState.value = 'offline'; return; }
+        function applySessionData(d) {
+            if (!d) return;
                 session.status = d.status;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';
 
@@ -344,32 +333,19 @@ createApp({
                 const serverPlayers = d.session_players || [];
                 players.value = serverPlayers;
                 connectionState.value = 'connected';
-            } catch (err) {
-                clearTimeout(timer);
-                connectionState.value = 'offline';
-            }
         }
 
-        function scheduleEventRefresh() {
-            if (eventRefreshTimer) return;
-            eventRefreshTimer = setTimeout(() => {
-                eventRefreshTimer = null;
-                fetchSession();
-            }, 100);
+        function applySseSnapshot(event) {
+            try { applySessionData(JSON.parse(event.data).data); } catch { connectionState.value = 'offline'; }
         }
 
         function startEventStream() {
             if (!window.EventSource) return;
 
             eventSource = new EventSource(BASE_URL + '/api/sessions/' + SESSION_ID + '/events?stream=1');
-            const eventTypes = [
-                'session.updated', 'court.updated', 'rating.updated',
-                'waiting_list.updated', 'player.checked_in', 'player.paused',
-                'player.resumed', 'player.left'
-            ];
-            eventTypes.push('match.completed');
-            eventTypes.forEach(type => eventSource.addEventListener(type, scheduleEventRefresh));
+            eventSource.addEventListener('session.snapshot', applySseSnapshot);
             eventSource.onopen = () => { connectionState.value = 'connected'; };
+            eventSource.onerror = () => { connectionState.value = 'offline'; };
         }
 
         async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return res.json(); }
@@ -380,7 +356,6 @@ createApp({
 
             try {
                 await postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame });
-                await fetchSession();
             } finally {
                 submitting[submissionKey] = false;
             }
@@ -405,17 +380,14 @@ createApp({
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
 
             await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
-            await fetchSession();
         }
         async function startSession() {
             await postApi('/api/sessions/' + SESSION_ID + '/start');
-            await fetchSession();
         }
-        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); await fetchSession(); }
-        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); await fetchSession(); }
+        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); }
+        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); }
         async function finishSession() {
             await postApi('/api/sessions/' + SESSION_ID + '/finish');
-            await fetchSession();
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
@@ -423,25 +395,21 @@ createApp({
 
             await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
             newPlayerName.value = '';
-            await fetchSession();
         }
 
         async function addExistingPlayer(id) {
             await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
             newPlayerName.value = '';
-            await fetchSession();
         }
 
         async function pausePlayer(spId) {
             if (typeof spId === 'number') {
                 await postApi('/api/session-players/' + spId + '/pause');
-                await fetchSession();
             }
         }
         async function resumePlayer(spId) {
             if (typeof spId === 'number') {
                 await postApi('/api/session-players/' + spId + '/resume');
-                await fetchSession();
             }
         }
 
@@ -454,7 +422,7 @@ createApp({
             const spId = confirmRemove.value.spId;
             confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false };
             if (typeof spId === 'number') {
-                postApi('/api/session-players/' + spId + '/leave').then(fetchSession);
+                postApi('/api/session-players/' + spId + '/leave');
             }
         }
 
@@ -469,16 +437,14 @@ createApp({
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } }).then(fetchSession);
+            fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
         }
 
         onMounted(() => {
-            fetchSession();
             loadKnownPlayers();
             startEventStream();
         });
         onUnmounted(() => {
-            if (eventRefreshTimer) clearTimeout(eventRefreshTimer);
             if (eventSource) eventSource.close();
         });
 
