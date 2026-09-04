@@ -487,6 +487,7 @@ body {
 /* Individual win tally — badge on the edge of the player box */
 .court-card__win {
     font-style: normal;
+    margin-left: auto;
     font-size: 0.68rem;
     font-weight: 800;
     padding: 1px 6px;
