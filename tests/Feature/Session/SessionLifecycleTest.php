@@ -63,6 +63,25 @@ it('starts an upcoming session and marks waiting players as eligible', function 
     expect(SessionPlayer::query()->where('session_id', $session->id)->whereNull('waiting_since')->exists())->toBeFalse();
 });
 
+it('publishes session updates for the live SSE feed', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->create();
+    Court::factory()->for($session)->create(['court_number' => 1]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/start")
+        ->assertOk();
+
+    $this->getJson("/api/sessions/{$session->id}/events")
+        ->assertOk()
+        ->assertJsonPath('data.events.0.type', 'session.updated')
+        ->assertJsonPath('data.events.0.data', json_encode([
+            'session_id' => $session->id,
+            'status' => SessionStatus::ACTIVE->value,
+        ]));
+});
+
 it('rejects pausing a session that is not active', function () {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create([
