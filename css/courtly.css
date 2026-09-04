@@ -47,6 +47,13 @@ body {
         radial-gradient(circle at 100% 0%, #e9f6f1, transparent 26%),
         var(--bg);
     color: var(--text);
+    caret-color: transparent;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+    caret-color: auto;
 }
 
 .session-header,

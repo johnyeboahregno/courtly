@@ -47,7 +47,14 @@ body {
     font-family: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", "Manrope", monospace;
     background: var(--bg);
     color: var(--text);
+    caret-color: transparent;
     min-height: 100dvh;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+    caret-color: auto;
 }
 
 .session-header,
