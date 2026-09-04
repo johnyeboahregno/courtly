@@ -269,6 +269,7 @@ createApp({
                 .map(p => p.player_id)
         );
         const submitting = reactive({});
+        const pendingResultMatchIds = new Set();
         const celebration = ref(null);
         const celebrationParticles = Array.from({ length: 28 }, (_, index) => index);
         let celebrationTimer = null;
@@ -312,7 +313,10 @@ createApp({
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
-        let eventSource = null;
+        let pollTimer = null;
+        let pollSince = null;
+        let pollDelay = 3000;
+        let pollingStopped = false;
         // Fetch the full player list from the server.
         async function refreshPlayerCache() {
             try {
@@ -353,14 +357,25 @@ createApp({
             if (!d) return;
                 session.status = d.status;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';
-                history.value = d.history || [];
+                if (d.history) history.value = d.history;
+
+                const playingMatchIds = new Set(
+                    (d.matches || []).filter(match => match.status === 'PLAYING').map(match => match.id)
+                );
+                pendingResultMatchIds.forEach(matchId => {
+                    if (!playingMatchIds.has(matchId)) pendingResultMatchIds.delete(matchId);
+                });
 
                 // Lookup of per-player session stats (wins/losses) by player id
                 const stats = {};
                 (d.session_players || []).forEach(sp => { stats[sp.player_id] = { wins: sp.wins, losses: sp.losses }; });
 
                 courts.value = (d.courts || []).map(c => {
-                    const match = (d.matches || []).find(m => m.court_id === c.id && m.status === 'PLAYING');
+                    const match = (d.matches || []).find(m =>
+                        m.court_id === c.id
+                        && m.status === 'PLAYING'
+                        && !pendingResultMatchIds.has(m.id)
+                    );
                     let md = null;
                     if (match && match.match_players && match.match_players.length === 4) {
                         const t1 = match.match_players.filter(p => p.team === 1);
@@ -380,24 +395,49 @@ createApp({
                 connectionState.value = 'connected';
         }
 
-        function applySseSnapshot(event) {
-            try { applySessionData(JSON.parse(event.data).data); } catch { connectionState.value = 'offline'; }
+        async function fetchSession() {
+            const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID, {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!response.ok) throw new Error('Session refresh failed');
+            applySessionData((await response.json()).data);
         }
 
-        function startEventStream() {
-            if (!window.EventSource) return;
+        async function pollEvents() {
+            try {
+                const query = pollSince
+                    ? '?since=' + encodeURIComponent(pollSince)
+                    : '?snapshot=1';
+                const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/events' + query, {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!response.ok) throw new Error('Event poll failed');
 
-            eventSource = new EventSource(BASE_URL + '/api/sessions/' + SESSION_ID + '/events?stream=1');
-            eventSource.addEventListener('session.snapshot', applySseSnapshot);
-            eventSource.onopen = () => { connectionState.value = 'connected'; };
-            eventSource.onerror = () => { connectionState.value = 'offline'; };
+                const payload = (await response.json()).data;
+                if (payload.snapshot) {
+                    applySessionData(payload.snapshot);
+                } else if ((payload.events || []).length > 0) {
+                    await fetchSession();
+                }
+                pollSince = payload.server_time;
+                pollDelay = 3000;
+                connectionState.value = 'connected';
+            } catch {
+                connectionState.value = 'offline';
+                pollDelay = Math.min(pollDelay * 2, 15000);
+            } finally {
+                if (!pollingStopped) pollTimer = setTimeout(pollEvents, pollDelay);
+            }
         }
 
         async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return { ok: res.ok, data: await res.json() }; }
         async function recordResult(matchId, team, closeGame = false, event = null) {
             const submissionKey = matchId + '_' + team;
-            if (submitting[submissionKey]) return;
+            if (pendingResultMatchIds.has(matchId)) return;
             submitting[submissionKey] = true;
+            pendingResultMatchIds.add(matchId);
 
             const court = courts.value.find(item => item.match && item.match.id === matchId);
             const previousMatch = court ? court.match : null;
@@ -414,16 +454,23 @@ createApp({
 
             postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame })
                 .then(result => {
-                    if (!result.ok && court && !court.match) {
-                        court.match = previousMatch;
+                    if (!result.ok) {
+                        pendingResultMatchIds.delete(matchId);
+                        if (court && !court.match) court.match = previousMatch;
                         celebration.value = null;
+                        return;
                     }
+
+                    const completedMatch = result.data?.data?.match;
+                    if (completedMatch && !history.value.some(match => match.id === completedMatch.id)) {
+                        history.value = [completedMatch, ...history.value];
+                    }
+                    fetchSession().catch(() => { connectionState.value = 'offline'; });
                 })
                 .catch(() => {
-                    if (court && !court.match) {
-                        court.match = previousMatch;
-                        celebration.value = null;
-                    }
+                    pendingResultMatchIds.delete(matchId);
+                    if (court && !court.match) court.match = previousMatch;
+                    celebration.value = null;
                 })
                 .finally(() => { submitting[submissionKey] = false; });
         }
@@ -537,10 +584,11 @@ createApp({
 
         onMounted(() => {
             loadKnownPlayers();
-            startEventStream();
+            pollEvents();
         });
         onUnmounted(() => {
-            if (eventSource) eventSource.close();
+            pollingStopped = true;
+            if (pollTimer) clearTimeout(pollTimer);
             if (celebrationTimer) clearTimeout(celebrationTimer);
         });
 

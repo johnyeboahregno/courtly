@@ -43,12 +43,16 @@ class SessionEventsController extends Controller
         $since = $request->query('since');
         $events = $this->eventService->getEvents($session->id, $since);
 
-        return response()->json([
-            'data' => [
-                'events' => $events,
-                'server_time' => now()->toIso8601String(),
-            ],
-        ]);
+        $data = [
+            'events' => $events,
+            'server_time' => now()->toIso8601String(),
+        ];
+
+        if ($request->boolean('snapshot')) {
+            $data['snapshot'] = $this->sessionSnapshot($session);
+        }
+
+        return response()->json(['data' => $data]);
     }
 
     /**
