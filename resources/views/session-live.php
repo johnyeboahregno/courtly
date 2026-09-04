@@ -110,6 +110,21 @@
         </div>
     </div>
 
+    <details class="match-history">
+        <summary class="match-history__summary">MATCH HISTORY <span>{{ history.length }}</span></summary>
+        <div v-if="history.length" class="match-history__list">
+            <div v-for="match in history" :key="match.id" class="match-history__item">
+                <span class="match-history__game">GAME {{ match.game_number }} · COURT {{ match.court ? match.court.court_number : '?' }}</span>
+                <span class="match-history__teams">
+                    <strong :class="{ 'match-history__winner': match.winning_team === 1 }">{{ historyTeam(match, 1) }}</strong>
+                    <b>vs</b>
+                    <strong :class="{ 'match-history__winner': match.winning_team === 2 }">{{ historyTeam(match, 2) }}</strong>
+                </span>
+            </div>
+        </div>
+        <p v-else class="match-history__empty">No completed matches yet.</p>
+    </details>
+
     <footer class="session-controls">
         <button v-if="session.status === 'UPCOMING'" class="btn btn--primary" @click="startSession">▶ START SESSION</button>
         <button v-if="session.status === 'ACTIVE'" class="btn btn--warning" @click="pauseSession">⏸ PAUSE</button>
@@ -206,6 +221,7 @@ createApp({
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
         const courts = ref([]);
         const players = ref([]);
+        const history = ref([]);
         const pendingAddedPlayers = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
@@ -245,7 +261,7 @@ createApp({
         );
         const submitting = reactive({});
         const celebration = ref(null);
-        const celebrationParticles = Array.from({ length: 18 }, (_, index) => index);
+        const celebrationParticles = Array.from({ length: 28 }, (_, index) => index);
         let celebrationTimer = null;
         const connectionState = ref('connecting');
         const authError = ref(false);
@@ -328,6 +344,7 @@ createApp({
             if (!d) return;
                 session.status = d.status;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';
+                history.value = d.history || [];
 
                 // Lookup of per-player session stats (wins/losses) by player id
                 const stats = {};
@@ -537,8 +554,14 @@ createApp({
         // How many games this player has sat out (relative to the session leader).
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
+        function historyTeam(match, team) {
+            return (match.match_players || [])
+                .filter(player => player.team === team)
+                .map(player => formatName(player.player.name))
+                .join(' + ');
+        }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, history, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
     }
 }).mount('#courtly-app');
 </script>

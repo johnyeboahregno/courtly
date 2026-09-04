@@ -109,12 +109,21 @@ class SessionEventsController extends Controller
      */
     private function sessionSnapshot(Session $session): array
     {
-        return $session->fresh()->load([
+        $snapshot = $session->fresh()->load([
             'courts',
             'sessionPlayers.player',
             'matches' => fn ($query) => $query
                 ->where('status', MatchStatus::PLAYING->value)
                 ->with('matchPlayers.player'),
         ])->toArray();
+
+        $snapshot['history'] = $session->matches()
+            ->where('status', MatchStatus::COMPLETED->value)
+            ->with(['matchPlayers.player', 'court'])
+            ->orderByDesc('game_number')
+            ->get()
+            ->toArray();
+
+        return $snapshot;
     }
 }
