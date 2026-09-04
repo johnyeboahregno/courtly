@@ -59,28 +59,32 @@
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
                 <div class="court-card__court">
-                    <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1)" title="Tap to record a win for this team">
-                        <div class="court-card__player-box court-card__player-box--team-1">
-                            <i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}<i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[0].streak }}</i></span>
+                    <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1, false, $event)" title="Tap to record a win for this team">
+                        <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
+                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[0].streak }}</i></span>
                         </div>
-                        <div class="court-card__player-box court-card__player-box--team-1">
-                            <i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}<i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[1].streak }}</i></span>
+                        <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
+                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
-                    <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2)" title="Tap to record a win for this team">
-                        <div class="court-card__player-box court-card__player-box--team-2">
-                            <i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}<i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[0].streak }}</i></span>
+                    <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2, false, $event)" title="Tap to record a win for this team">
+                        <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
+                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[0].streak }}</i></span>
                         </div>
-                        <div class="court-card__player-box court-card__player-box--team-2">
-                            <i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i>
-                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}<i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[1].streak }}</i></span>
+                        <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
+                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div v-if="celebration && celebration.courtId === court.id" class="court-card__celebration" :style="{ '--origin-x': celebration.x + '%', '--origin-y': celebration.y + '%' }" aria-hidden="true">
+                <span v-for="particle in celebrationParticles" :key="particle" class="court-card__confetti" :style="{ '--particle': particle }"></span>
+                <strong>WIN</strong>
             </div>
         </div>
     </div>
@@ -240,6 +244,9 @@ createApp({
                 .map(p => p.player_id)
         );
         const submitting = reactive({});
+        const celebration = ref(null);
+        const celebrationParticles = Array.from({ length: 18 }, (_, index) => index);
+        let celebrationTimer = null;
         const connectionState = ref('connecting');
         const authError = ref(false);
         const elapsed = ref('');
@@ -361,12 +368,37 @@ createApp({
         }
 
         async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return { ok: res.ok, data: await res.json() }; }
-        async function recordResult(matchId, team, closeGame = false) {
+        async function recordResult(matchId, team, closeGame = false, event = null) {
             const submissionKey = matchId + '_' + team;
             if (submitting[submissionKey]) return;
             submitting[submissionKey] = true;
 
+            const court = courts.value.find(item => item.match && item.match.id === matchId);
+            const previousMatch = court ? court.match : null;
+            if (court) {
+                court.match = null;
+                const card = event?.currentTarget?.closest('.court-card');
+                const bounds = card?.getBoundingClientRect();
+                const x = bounds ? Math.max(12, Math.min(88, ((event.clientX - bounds.left) / bounds.width) * 100)) : (team === 1 ? 25 : 75);
+                const y = bounds ? Math.max(18, Math.min(82, ((event.clientY - bounds.top) / bounds.height) * 100)) : 50;
+                celebration.value = { courtId: court.id, x, y };
+                clearTimeout(celebrationTimer);
+                celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
+            }
+
             postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame })
+                .then(result => {
+                    if (!result.ok && court && !court.match) {
+                        court.match = previousMatch;
+                        celebration.value = null;
+                    }
+                })
+                .catch(() => {
+                    if (court && !court.match) {
+                        court.match = previousMatch;
+                        celebration.value = null;
+                    }
+                })
                 .finally(() => { submitting[submissionKey] = false; });
         }
         async function startNewSession() {
@@ -483,6 +515,7 @@ createApp({
         });
         onUnmounted(() => {
             if (eventSource) eventSource.close();
+            if (celebrationTimer) clearTimeout(celebrationTimer);
         });
 
         // Lock body scroll when any modal is open
@@ -505,7 +538,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
     }
 }).mount('#courtly-app');
 </script>
