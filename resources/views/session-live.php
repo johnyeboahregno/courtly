@@ -29,6 +29,9 @@
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button class="mode-switch" :class="'mode-switch--' + matchmakingMode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
+            <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" @click="startSession">START</button>
+            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" @click="finishSession">FINISH</button>
+            <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
     </header>
@@ -115,23 +118,19 @@
         <div v-if="history.length" class="match-history__list">
             <div v-for="match in history" :key="match.id" class="match-history__item">
                 <span class="match-history__game">GAME {{ match.game_number }} · COURT {{ match.court ? match.court.court_number : '?' }}</span>
-                <span class="match-history__teams">
+                <div class="match-history__teams">
                     <strong :class="{ 'match-history__winner': match.winning_team === 1 }">{{ historyTeam(match, 1) }}</strong>
-                    <b>vs</b>
                     <strong :class="{ 'match-history__winner': match.winning_team === 2 }">{{ historyTeam(match, 2) }}</strong>
-                </span>
+                </div>
             </div>
         </div>
         <p v-else class="match-history__empty">No completed matches yet.</p>
     </details>
 
     <footer class="session-controls">
-        <button v-if="session.status === 'UPCOMING'" class="btn btn--primary" @click="startSession">▶ START SESSION</button>
         <button v-if="session.status === 'ACTIVE'" class="btn btn--warning" @click="pauseSession">⏸ PAUSE</button>
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" @click="resumeSession">▶ RESUME</button>
-        <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
-        <button class="btn btn--secondary" @click="openPlayers">+ PLAYERS</button>
     </footer>
 
     <!-- Players dialog: add new/select existing + manage roster -->
@@ -396,8 +395,8 @@ createApp({
                 court.match = null;
                 const card = event?.currentTarget?.closest('.court-card');
                 const bounds = card?.getBoundingClientRect();
-                const x = bounds ? Math.max(12, Math.min(88, ((event.clientX - bounds.left) / bounds.width) * 100)) : (team === 1 ? 25 : 75);
-                const y = bounds ? Math.max(18, Math.min(82, ((event.clientY - bounds.top) / bounds.height) * 100)) : 50;
+                const x = bounds ? ((event.clientX - bounds.left) / bounds.width) * 100 : (team === 1 ? 25 : 75);
+                const y = bounds ? ((event.clientY - bounds.top) / bounds.height) * 100 : 50;
                 celebration.value = { courtId: court.id, x, y };
                 clearTimeout(celebrationTimer);
                 celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
