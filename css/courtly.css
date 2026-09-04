@@ -1380,11 +1380,20 @@ textarea,
     transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.mode-switch--start,
 .mode-switch--players { color: #5ee49a; }
 .mode-switch--finish { color: #ff8f8f; }
 .mode-switch--peg { background: #3a2c10; color: #e0a91a; border-color: #e0a91a; }
 .mode-switch--smart { background: #10243a; color: #5b9bd5; border-color: #5b9bd5; }
+
+/* Filled solid pill so the primary "kick things off" action stands out from the outline pills */
+.mode-switch--start {
+    background: #1ecb6b;
+    border-color: #1ecb6b;
+    color: #06210f;
+    font-weight: 900;
+    padding: 6px 14px;
+}
+.mode-switch--start:hover { background: #23e07a; border-color: #23e07a; }
 
 /* Busy state shared by session lifecycle buttons (start/finish/resume/new session) */
 .mode-switch.is-busy,
