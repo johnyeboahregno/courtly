@@ -8,10 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Enums\SessionPlayerStatus;
+use App\Jobs\AllocateSessionMatches;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
-use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +22,6 @@ class SessionPlayerController extends Controller
 
     public function __construct(
         private readonly RealtimeEventService $events,
-        private readonly MatchmakingService $matchmaking,
     ) {}
 
     /**
@@ -121,16 +120,15 @@ class SessionPlayerController extends Controller
             $this->events->publish($session->id, 'player.checked_in', []);
             $this->events->publish($session->id, 'waiting_list.updated', []);
 
-            // Immediately fill any empty courts — a court must never sit idle
-            // while at least 4 players are waiting.
-            $this->matchmaking->allocateMatches($session);
+            // Fill available courts asynchronously; the completed allocation
+            // is announced to live browsers through SSE.
+            AllocateSessionMatches::dispatch($session->id);
         }
 
         return response()->json([
             'data' => [
                 'added' => $added,
                 'skipped' => $skipped,
-                'session_players' => $session->sessionPlayers()->with('player')->get(),
             ],
         ], 201);
     }
@@ -213,8 +211,8 @@ class SessionPlayerController extends Controller
 
         $this->events->publish($session->id, 'waiting_list.updated', []);
 
-        // Fill courts if we now have enough waiting players
-        $this->matchmaking->allocateMatches($session);
+        // Fill available courts asynchronously.
+        AllocateSessionMatches::dispatch($session->id);
 
         return response()->json(['data' => $sessionPlayer->fresh()]);
     }

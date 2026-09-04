@@ -354,11 +354,8 @@ createApp({
             if (submitting[submissionKey]) return;
             submitting[submissionKey] = true;
 
-            try {
-                await postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame });
-            } finally {
-                submitting[submissionKey] = false;
-            }
+            postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame })
+                .finally(() => { submitting[submissionKey] = false; });
         }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
@@ -379,37 +376,37 @@ createApp({
         async function toggleMode() {
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
 
-            await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+            postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
         }
         async function startSession() {
-            await postApi('/api/sessions/' + SESSION_ID + '/start');
+            postApi('/api/sessions/' + SESSION_ID + '/start');
         }
-        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); }
-        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); }
+        async function pauseSession() { postApi('/api/sessions/' + SESSION_ID + '/pause'); }
+        async function resumeSession() { postApi('/api/sessions/' + SESSION_ID + '/resume'); }
         async function finishSession() {
-            await postApi('/api/sessions/' + SESSION_ID + '/finish');
+            postApi('/api/sessions/' + SESSION_ID + '/finish');
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
             if (!name) return;
 
-            await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
+            postApi('/api/sessions/' + SESSION_ID + '/players', { name });
             newPlayerName.value = '';
         }
 
         async function addExistingPlayer(id) {
-            await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+            postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
             newPlayerName.value = '';
         }
 
         async function pausePlayer(spId) {
             if (typeof spId === 'number') {
-                await postApi('/api/session-players/' + spId + '/pause');
+                postApi('/api/session-players/' + spId + '/pause');
             }
         }
         async function resumePlayer(spId) {
             if (typeof spId === 'number') {
-                await postApi('/api/session-players/' + spId + '/resume');
+                postApi('/api/session-players/' + spId + '/resume');
             }
         }
 

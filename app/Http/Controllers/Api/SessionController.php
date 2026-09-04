@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
+use App\Jobs\AllocateSessionMatches;
 use App\Enums\CourtStatus;
 use App\Enums\MatchStatus;
 use App\Enums\SessionPlayerStatus;
@@ -17,7 +18,6 @@ use App\Models\Player;
 use App\Models\RatingHistory;
 use App\Models\Session;
 use App\Models\SessionPlayer;
-use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +29,6 @@ class SessionController extends Controller
     use AuthorizesOwnership;
 
     public function __construct(
-        private readonly MatchmakingService $matchmaking,
         private readonly RealtimeEventService $events,
         private readonly SessionAnalyticsService $analytics,
     ) {}
@@ -115,12 +114,11 @@ class SessionController extends Controller
         // session is somehow already ACTIVE, just fill any idle courts instead
         // of rejecting the request with a 409.
         if ($session->status === SessionStatus::ACTIVE) {
-            $matches = $this->matchmaking->allocateMatches($session);
+            AllocateSessionMatches::dispatch($session->id);
 
             return response()->json([
                 'data' => [
                     'session' => $session->fresh(['courts']),
-                    'matches' => $matches,
                 ],
             ]);
         }
@@ -144,18 +142,18 @@ class SessionController extends Controller
             ->where('status', SessionPlayerStatus::WAITING)
             ->update(['waiting_since' => now()]);
 
-        // Run initial matchmaking
-        $matches = $this->matchmaking->allocateMatches($session);
-
         $this->events->publish($session->id, 'session.updated', [
             'session_id' => $session->id,
             'status' => 'ACTIVE',
         ]);
 
+        // Run initial matchmaking asynchronously after the status change is
+        // visible to live browsers.
+        AllocateSessionMatches::dispatch($session->id);
+
         return response()->json([
             'data' => [
-                'session' => $session->fresh(['courts']),
-                'matches' => $matches,
+                    'session' => $session->fresh(['courts']),
             ],
         ]);
     }
@@ -194,18 +192,17 @@ class SessionController extends Controller
 
         $session->update(['status' => SessionStatus::ACTIVE]);
 
-        // Re-run matchmaking to fill available courts
-        $matches = $this->matchmaking->allocateMatches($session);
-
         $this->events->publish($session->id, 'session.updated', [
             'session_id' => $session->id,
             'status' => 'ACTIVE',
         ]);
 
+        // Re-run matchmaking asynchronously to fill available courts.
+        AllocateSessionMatches::dispatch($session->id);
+
         return response()->json([
             'data' => [
                 'session' => $session->fresh(),
-                'matches' => $matches,
             ],
         ]);
     }
