@@ -39,8 +39,9 @@ Route::get('/', function () {
     $pastCount = 0;
 
     foreach ($sessions as $session) {
-        $isPast = $session->date !== null && $session->date->lt($today);
-        $status = ($session->status->value === 'UPCOMING' && $isPast)
+        $isDateInPast = $session->date !== null && $session->date->lt($today);
+        $isPast = $isDateInPast || $session->status->value === 'FINISHED';
+        $status = ($session->status->value === 'UPCOMING' && $isDateInPast)
             ? 'PASSED'
             : $session->status->value;
 
