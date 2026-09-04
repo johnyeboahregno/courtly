@@ -82,6 +82,29 @@ it('publishes session updates for the live SSE feed', function () {
         ]));
 });
 
+it('allocates matches when an active session is refreshed', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    Court::factory()->for($session)->create(['court_number' => 1]);
+
+    Player::factory()->count(4)->for($user)->create()->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create([
+            'status' => SessionPlayerStatus::WAITING->value,
+            'waiting_since' => now(),
+        ]));
+
+    Sanctum::actingAs($user);
+
+    $this->getJson("/api/sessions/{$session->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data.matches')
+        ->assertJsonPath('data.matches.0.status', 'PLAYING');
+
+    expect($session->matches()->where('status', 'PLAYING')->count())->toBe(1);
+});
+
 it('rejects pausing a session that is not active', function () {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create([
