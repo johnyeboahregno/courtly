@@ -36,7 +36,7 @@ when ranking candidate groups.
 
 | # | Rule | Type | Default | Notes |
 |---|------|------|---------|-------|
-| 1 | Session-state guard | hard return | — | `PAUSED`/`FINISHED` ⇒ never matchmake. `UPCOMING` is allowed (auto-starts). |
+| 1 | Session-state guard | hard return | — | `PAUSED`/`FINISHED`/`UPCOMING` ⇒ never matchmake. Only an `ACTIVE` session matchmakes. |
 | 2 | Supply guard | hard return | — | No `AVAILABLE` court, **or** fewer than 4 `WAITING` players ⇒ do nothing. |
 | 3 | Active-player guard (MM-005) | exclusion | — | A player already in a `PLAYING` match is never re-allocated. |
 | 4 | Fairness ranking | ranking | — | Fewer games, longer wait, previous sit-out, then winner tie-break. |
