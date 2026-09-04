@@ -304,6 +304,33 @@ body {
     border-radius: 0;
 }
 
+.court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
+.court-card__celebration strong { position: absolute; left: var(--origin-x); top: var(--origin-y); transform: translate(-50%, -50%) scale(.7); color: #fff7bf; font-size: 1.25rem; letter-spacing: .08em; text-shadow: 0 0 8px #ffad00, 0 0 18px #ff4200; animation: celebration-label .85s ease-out both; }
+.court-card__confetti { position: absolute; left: var(--origin-x); top: var(--origin-y); width: 5px; height: 11px; border-radius: 2px; background: var(--confetti-color, #ffd166); animation: confetti-firework .8s cubic-bezier(.15,.75,.3,1) both; animation-delay: calc(var(--particle) * 12ms); }
+.court-card__confetti:nth-child(3n) { --confetti-color: #ff5d73; }
+.court-card__confetti:nth-child(3n + 1) { --confetti-color: #54e0ff; }
+.court-card__confetti:nth-child(3n + 2) { --confetti-color: #ffe66d; }
+.court-card__confetti:nth-child(1) { --dx: -92px; --dy: -42px; --rot: -130deg; }
+.court-card__confetti:nth-child(2) { --dx: -72px; --dy: -76px; --rot: -95deg; }
+.court-card__confetti:nth-child(3) { --dx: -42px; --dy: -102px; --rot: -65deg; }
+.court-card__confetti:nth-child(4) { --dx: -10px; --dy: -112px; --rot: -20deg; }
+.court-card__confetti:nth-child(5) { --dx: 28px; --dy: -108px; --rot: 25deg; }
+.court-card__confetti:nth-child(6) { --dx: 62px; --dy: -82px; --rot: 70deg; }
+.court-card__confetti:nth-child(7) { --dx: 92px; --dy: -45px; --rot: 115deg; }
+.court-card__confetti:nth-child(8) { --dx: -108px; --dy: 4px; --rot: -155deg; }
+.court-card__confetti:nth-child(9) { --dx: -74px; --dy: 36px; --rot: -105deg; }
+.court-card__confetti:nth-child(10) { --dx: -40px; --dy: 62px; --rot: -65deg; }
+.court-card__confetti:nth-child(11) { --dx: 38px; --dy: 62px; --rot: 65deg; }
+.court-card__confetti:nth-child(12) { --dx: 76px; --dy: 35px; --rot: 105deg; }
+.court-card__confetti:nth-child(13) { --dx: 108px; --dy: 4px; --rot: 155deg; }
+.court-card__confetti:nth-child(14) { --dx: -64px; --dy: -18px; --rot: -80deg; }
+.court-card__confetti:nth-child(15) { --dx: 66px; --dy: -20px; --rot: 80deg; }
+.court-card__confetti:nth-child(16) { --dx: -22px; --dy: 92px; --rot: -25deg; }
+.court-card__confetti:nth-child(17) { --dx: 22px; --dy: 94px; --rot: 25deg; }
+.court-card__confetti:nth-child(18) { --dx: 0; --dy: -125px; --rot: 0deg; }
+@keyframes confetti-firework { from { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } to { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.7) rotate(var(--rot)); } }
+@keyframes celebration-label { from { opacity: 0; transform: translate(-50%, -50%) scale(.7); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); } to { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+
 .court-empty-text {
     color: #8fa39b;
     font-size: 1rem;
@@ -322,6 +349,21 @@ body {
     text-align: center;
     min-height: 52px;
     position: relative;
+}
+
+.court-card__player-box--streak::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border: 2px solid #ff8a00;
+    border-radius: 9px;
+    pointer-events: none;
+    animation: court-streak-fire 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes court-streak-fire {
+    from { box-shadow: 0 0 4px #ffb000, 0 0 8px rgba(255, 88, 0, 0.65); }
+    to { box-shadow: 0 0 8px #ffe066, 0 0 16px rgba(255, 54, 0, 0.9); }
 }
 
 .court-card__player-box--team-1 {
@@ -378,12 +420,21 @@ body {
     line-height: 1.2;
 }
 
+.court-card__player-meta {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-height: 16px;
+}
+
 /* Individual win tally — badge on the edge of the player box */
 .court-card__win {
     font-style: normal;
-    position: absolute;
-    top: -7px;
-    right: -7px;
     font-size: 0.68rem;
     font-weight: 800;
     padding: 1px 6px;
@@ -397,7 +448,6 @@ body {
 /* Winning-streak flame (2+ consecutive wins) */
 .court-card__streak {
     font-style: normal;
-    margin-left: 5px;
     font-size: 0.72rem;
     font-weight: 800;
     white-space: nowrap;
@@ -406,9 +456,6 @@ body {
 /* Individual rating badge (1-100) — left edge of the player box */
 .court-card__rating {
     font-style: normal;
-    position: absolute;
-    top: -7px;
-    left: -7px;
     font-size: 0.68rem;
     font-weight: 800;
     padding: 1px 6px;
