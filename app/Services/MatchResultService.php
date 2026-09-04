@@ -29,6 +29,12 @@ class MatchResultService
     public function recordResult(GameMatch $match, int $winningTeam, bool $closeGame = false): array
     {
         return DB::transaction(function () use ($match, $winningTeam, $closeGame) {
+            // Matchmaking locks the session first. Do the same here so a result
+            // and a concurrent player action cannot acquire locks in opposite order.
+            $session = Session::query()
+                ->lockForUpdate()
+                ->findOrFail($match->session_id);
+
             // Lock the match row for concurrent safety
             $match = GameMatch::query()
                 ->where('id', $match->id)
@@ -60,7 +66,6 @@ class MatchResultService
             $ratingChanges = $this->ratingService->updateRatings($match, $winningTeam);
 
             // 3. Update session player stats and set them to WAITING
-            $session = $match->session;
             $match->load('matchPlayers');
 
             // Preload session players once and index by player id (avoids N+1 on remote DB)
