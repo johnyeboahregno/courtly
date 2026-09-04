@@ -80,6 +80,8 @@ The start scripts also clear the stale route cache (`bootstrap/cache/routes-v7.p
 
 Code style (optional): `vendor/bin/pint`
 
+Testing: see [TESTING.md](TESTING.md). Tests run through Pest directly with `php vendor/bin/pest`; no Composer test script is required.
+
 ## Project Structure
 
 ```
@@ -98,7 +100,9 @@ courtly/
 ├── public/css/courtly.css     # Single CSS file (themes via CSS variables)
 ├── resources/views/           # session-live.php Vue 3 SPA + auth pages
 ├── routes/                    # api.php + web.php
+├── tests/                     # Pest unit and feature tests
 ├── CLAUDE.md                  # Full architecture reference
+├── TESTING.md                 # Backend/browser testing guide
 └── USER_GUIDE.md              # End-user guide
 ```
 

@@ -12,7 +12,7 @@ return [
     'app' => [
         // Displayed in the session header. Bump on user-visible releases
         // (MAJOR.MINOR.PATCH).
-        'version' => 'v2.0.0',
+        'version' => 'v2.1.0',
     ],
 
     /*
