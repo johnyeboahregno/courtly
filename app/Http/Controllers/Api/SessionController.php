@@ -116,10 +116,10 @@ class SessionController extends Controller
     {
         $this->authorizeSession($session);
 
-        // Idempotent: a session auto-starts when the 4th player checks in while
-        // still UPCOMING. Succeed (and fill any idle courts) instead of 409, so
-        // the Start button never stalls on a redundant request after the batched
-        // player check-in has already kicked matchmaking off.
+        // Idempotent: the Start button may be pressed more than once (or a
+        // batched player check-in may have advanced the state already). If the
+        // session is somehow already ACTIVE, just fill any idle courts instead
+        // of rejecting the request with a 409.
         if ($session->status === SessionStatus::ACTIVE) {
             $matches = $this->matchmaking->allocateMatches($session);
 

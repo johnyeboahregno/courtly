@@ -29,7 +29,7 @@ jobs:
         env:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
-          timeout 12m lftp -p 777 -u "regnocloud,$FTP_PASSWORD" ftp.bytedemon.com <<'EOF'
+          timeout 12m lftp -p 666 -u "regnocloud,$FTP_PASSWORD" ftp.bytedemon.com <<'EOF'
           set cmd:fail-exit yes
           set net:timeout 20
           set net:max-retries 1
