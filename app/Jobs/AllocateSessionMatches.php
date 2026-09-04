@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Models\Session;
 use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
+use App\Services\TournamentService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,6 +26,7 @@ class AllocateSessionMatches implements ShouldQueue
 
     public function handle(
         MatchmakingService $matchmaking,
+        TournamentService $tournament,
         RealtimeEventService $events,
     ): void {
         $session = Session::find($this->sessionId);
@@ -41,7 +43,10 @@ class AllocateSessionMatches implements ShouldQueue
         // Repeating is intentional: a strategy may return a partial set when
         // its first candidate pass cannot find enough non-overlapping groups.
         for ($pass = 0; $pass < $maxPasses; $pass++) {
-            $created = $matchmaking->allocateMatches($session->fresh());
+            $created = $session->isTournament()
+                ? $tournament->fillAvailableCourts($session->fresh())
+                : $matchmaking->allocateMatches($session->fresh());
+
             if ($created === []) {
                 break;
             }

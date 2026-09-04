@@ -20,6 +20,7 @@ use App\Models\Session;
 use App\Models\SessionPlayer;
 use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
+use App\Services\TournamentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class SessionController extends Controller
     public function __construct(
         private readonly RealtimeEventService $events,
         private readonly SessionAnalyticsService $analytics,
+        private readonly TournamentService $tournament,
     ) {}
 
     /**
@@ -56,6 +58,7 @@ class SessionController extends Controller
             'date' => ['nullable', 'date'],
             'start_time' => ['nullable', 'date_format:H:i'],
             'number_of_courts' => ['required', 'integer', 'min:1', 'max:8'],
+            'type' => ['nullable', 'string', 'in:casual,tournament'],
         ]);
 
         $session = Session::create([
@@ -64,6 +67,7 @@ class SessionController extends Controller
             'start_time' => $validated['start_time'] ?? null,
             'number_of_courts' => $validated['number_of_courts'],
             'status' => SessionStatus::UPCOMING,
+            'type' => $validated['type'] ?? 'casual',
             'created_by' => $request->user()->id,
         ]);
 
@@ -91,15 +95,25 @@ class SessionController extends Controller
         // The live view only needs the matches currently in play — loading every
         // match in the session (potentially hundreds) on each poll is wasteful
         // against the high-latency remote DB.
-        return response()->json([
-            'data' => $session->fresh()->load([
-                'courts',
-                'sessionPlayers.player',
-                'matches' => fn ($q) => $q
-                    ->where('status', MatchStatus::PLAYING->value)
-                    ->with('matchPlayers.player'),
-            ]),
+        $session = $session->fresh()->load([
+            'courts',
+            'sessionPlayers.player',
+            'matches' => fn ($q) => $q
+                ->where('status', MatchStatus::PLAYING->value)
+                ->with('matchPlayers.player'),
         ]);
+
+        $data = $session->toArray();
+
+        if ($session->isTournament()) {
+            $data['tournament'] = [
+                // Each entry already carries the team's player names + W/L record.
+                'standings' => $this->tournament->standings($session),
+                'round_progress' => $this->tournament->roundProgress($session),
+            ];
+        }
+
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -141,6 +155,17 @@ class SessionController extends Controller
         $session->sessionPlayers()
             ->where('status', SessionPlayerStatus::WAITING)
             ->update(['waiting_since' => now()]);
+
+        if ($session->isTournament()) {
+            try {
+                $this->tournament->setupTournament($session);
+            } catch (\App\Exceptions\TournamentSetupException $e) {
+                // Roll the session back to UPCOMING so Start can be retried once fixed.
+                $session->update(['status' => SessionStatus::UPCOMING, 'started_at' => null]);
+
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        }
 
         $this->events->publish($session->id, 'session.updated', [
             'session_id' => $session->id,

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\SessionEventsController;
 use App\Http\Controllers\Api\SessionPlayerController;
+use App\Http\Controllers\Api\TournamentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,6 +44,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/sessions/{session}/courts', [SessionController::class, 'adjustCourts']);
     Route::get('/sessions/{session}/summary', [SessionController::class, 'summary']);
     Route::get('/sessions/{session}/events', SessionEventsController::class);
+
+    // Tournament mode: teams can be previewed/edited before Start
+    Route::get('/sessions/{session}/tournament/teams', [TournamentController::class, 'teams']);
+    Route::post('/sessions/{session}/tournament/teams/regenerate', [TournamentController::class, 'regenerate']);
+    Route::post('/sessions/{session}/tournament/teams/swap', [TournamentController::class, 'swap']);
 
     // Session players
     Route::get('/sessions/{session}/players', [SessionPlayerController::class, 'index']);
