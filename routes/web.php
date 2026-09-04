@@ -121,6 +121,8 @@ Route::get('/', function () {
         .field label{display:block;font-size:.8rem;font-weight:700;color:var(--text-muted,#8888a8);margin-bottom:4px}
         .field input{width:100%;padding:10px;border:1px solid var(--stroke,#2e2e4a);border-radius:6px;font-size:.95rem;box-sizing:border-box;background:var(--bg,#12121f);color:var(--text,#e4e4f0)}
         .field input:focus{outline:none;border-color:var(--accent,#ff2d55)}
+        .field select{width:100%;padding:10px;border:1px solid var(--stroke,#2e2e4a);border-radius:6px;font-size:.95rem;box-sizing:border-box;background:var(--bg,#12121f);color:var(--text,#e4e4f0);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\'><path d=\'M1 1l5 5 5-5\' stroke=\'%238888a8\' stroke-width=\'2\' fill=\'none\' fill-rule=\'evenodd\'/></svg>");background-repeat:no-repeat;background-position:right 12px center}
+        .field select:focus{outline:none;border-color:var(--accent,#ff2d55)}
         .row{display:flex;gap:12px}
         .row .field{flex:1}
         .create-btn{width:100%;padding:12px;border:none;border-radius:6px;background:var(--accent,#ff2d55);color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;transition:filter .15s}
