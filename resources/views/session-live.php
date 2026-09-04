@@ -119,11 +119,8 @@
             <input v-model="historySearch" class="match-history__search" type="search" placeholder="Search players..." @click.stop>
         </div>
         <div v-if="filteredHistory.length" class="match-history__list">
-            <div v-for="match in filteredHistory" :key="match.id" class="match-history__item">
-                <div class="match-history__teams">
-                    <strong :class="{ 'match-history__winner': match.winning_team === 1 }">{{ historyTeam(match, 1) }}</strong>
-                    <strong :class="{ 'match-history__winner': match.winning_team === 2 }">{{ historyTeam(match, 2) }}</strong>
-                </div>
+            <div v-for="row in filteredHistory" :key="row.id" class="match-history__item">
+                <strong :class="{ 'match-history__winner': row.winner }">{{ row.pair }}</strong>
             </div>
         </div>
         <p v-else class="match-history__empty">{{ history.length ? 'No matching players.' : 'No completed matches yet.' }}</p>
@@ -225,13 +222,13 @@ createApp({
         const historySearch = ref('');
         const filteredHistory = computed(() => {
             const query = historySearch.value.trim().toLowerCase();
-            if (!query) return history.value;
-
-            return history.value.filter(match =>
-                [historyTeam(match, 1), historyTeam(match, 2)]
-                    .join(' ')
-                    .toLowerCase()
-                    .includes(query)
+            return history.value.flatMap(match => [1, 2]
+                .map(team => ({
+                    id: match.id + '-' + team,
+                    pair: historyTeam(match, team),
+                    winner: match.winning_team === team,
+                }))
+                .filter(row => !query || row.pair.toLowerCase().includes(query))
             );
         });
         const pendingAddedPlayers = ref([]);
