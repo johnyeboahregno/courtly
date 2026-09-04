@@ -117,7 +117,6 @@
         <summary class="match-history__summary">MATCH HISTORY <span>{{ history.length }}</span></summary>
         <div v-if="history.length" class="match-history__list">
             <div v-for="match in history" :key="match.id" class="match-history__item">
-                <span class="match-history__game">GAME {{ match.game_number }} · COURT {{ match.court ? match.court.court_number : '?' }}</span>
                 <div class="match-history__teams">
                     <strong :class="{ 'match-history__winner': match.winning_team === 1 }">{{ historyTeam(match, 1) }}</strong>
                     <strong :class="{ 'match-history__winner': match.winning_team === 2 }">{{ historyTeam(match, 2) }}</strong>
