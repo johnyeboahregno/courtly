@@ -20,6 +20,7 @@ class MatchResultService
         private readonly RatingService $ratingService,
         private readonly MatchmakingService $matchmakingService,
         private readonly RealtimeEventService $eventService,
+        private readonly TournamentService $tournamentService,
     ) {}
 
     /**
@@ -27,9 +28,14 @@ class MatchResultService
      *
      * @return array{match: Match, rating_changes: array, next_matches: array}
      */
-    public function recordResult(GameMatch $match, int $winningTeam, bool $closeGame = false): array
-    {
-        $result = DB::transaction(function () use ($match, $winningTeam, $closeGame) {
+    public function recordResult(
+        GameMatch $match,
+        int $winningTeam,
+        bool $closeGame = false,
+        ?int $team1Score = null,
+        ?int $team2Score = null,
+    ): array {
+        $result = DB::transaction(function () use ($match, $winningTeam, $closeGame, $team1Score, $team2Score) {
             // Matchmaking locks the session first. Do the same here so a result
             // and a concurrent player action cannot acquire locks in opposite order.
             $session = Session::query()
@@ -60,11 +66,16 @@ class MatchResultService
                 'status' => MatchStatus::COMPLETED,
                 'winning_team' => $winningTeam,
                 'close_game' => $closeGame,
+                'team_1_score' => $team1Score,
+                'team_2_score' => $team2Score,
                 'completed_at' => $now,
             ]);
 
-            // 2. Calculate and apply rating changes
-            $ratingChanges = $this->ratingService->updateRatings($match, $winningTeam);
+            // 2. Calculate and apply rating changes — tournament matches never
+            // touch the Elo system, so skip straight to plain WIN/LOSS bookkeeping.
+            $ratingChanges = $session->isTournament()
+                ? $this->applyTournamentResult($match, $winningTeam)
+                : $this->ratingService->updateRatings($match, $winningTeam);
 
             // 3. Update session player stats and set them to WAITING
             $match->load('matchPlayers');
@@ -116,6 +127,10 @@ class MatchResultService
 
             // 4. Mark court as AVAILABLE
             $match->court->update(['status' => CourtStatus::AVAILABLE]);
+
+            if ($session->isTournament()) {
+                $this->tournamentService->markFixtureCompleted($match);
+            }
 
             // 5. Match completion is intentionally a narrow cross-screen update.
             // The next allocation happens on an explicit session/player action,
@@ -207,10 +222,16 @@ class MatchResultService
             $session = $match->session;
 
             // 1. Revert the previous result
-            $this->revertResult($match, $session);
+            if ($session->isTournament()) {
+                $this->revertTournamentResult($match, $session);
+            } else {
+                $this->revertResult($match, $session);
+            }
 
             // 2. Re-apply with the corrected winner
-            $ratingChanges = $this->ratingService->updateRatings($match, $newWinningTeam);
+            $ratingChanges = $session->isTournament()
+                ? $this->applyTournamentResult($match, $newWinningTeam)
+                : $this->ratingService->updateRatings($match, $newWinningTeam);
 
             $match->update([
                 'winning_team' => $newWinningTeam,
@@ -318,5 +339,59 @@ class MatchResultService
             'winning_team' => null,
             'completed_at' => null,
         ]);
+    }
+
+    /**
+     * Tournament matches never touch Elo — apply a plain WIN/LOSS result to
+     * match_players, leaving rating fields unchanged.
+     */
+    private function applyTournamentResult(GameMatch $match, int $winningTeam): array
+    {
+        $match->load('matchPlayers');
+
+        $rows = [];
+        foreach ($match->matchPlayers as $mp) {
+            $won = $mp->team === $winningTeam;
+            $rows[] = [
+                'id' => $mp->id,
+                'match_id' => $mp->match_id,
+                'player_id' => $mp->player_id,
+                'team' => $mp->team,
+                'position' => $mp->position,
+                'rating_before' => $mp->rating_before,
+                'rating_after' => $mp->rating_before,
+                'rating_confidence_before' => $mp->rating_confidence_before,
+                'rating_confidence_after' => $mp->rating_confidence_before,
+                'result' => $won ? MatchResult::WIN->value : MatchResult::LOSS->value,
+            ];
+        }
+
+        DB::table('match_players')->upsert($rows, ['id'], ['result', 'rating_after', 'rating_confidence_after']);
+
+        return [];
+    }
+
+    /**
+     * Undo a tournament match's WIN/LOSS bookkeeping (no ratings were ever touched).
+     */
+    private function revertTournamentResult(GameMatch $match, Session $session): void
+    {
+        $match->load('matchPlayers');
+
+        foreach ($match->matchPlayers as $mp) {
+            $wasWin = $mp->result === MatchResult::WIN;
+            $mp->update(['result' => null]);
+
+            $sessionPlayer = $session->sessionPlayers()->where('player_id', $mp->player_id)->first();
+            if ($sessionPlayer) {
+                $sessionPlayer->update([
+                    'wins' => max(0, $sessionPlayer->wins - ($wasWin ? 1 : 0)),
+                    'losses' => max(0, $sessionPlayer->losses - ($wasWin ? 0 : 1)),
+                    'last_result' => null,
+                ]);
+            }
+        }
+
+        $match->update(['winning_team' => null, 'completed_at' => null]);
     }
 }

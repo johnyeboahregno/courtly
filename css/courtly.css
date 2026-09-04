@@ -209,6 +209,10 @@ textarea,
 .session-header__badge--upcoming { background: #1a2a3a; color: #5b9bd5; }
 .session-header__badge--paused { background: #3a2a10; color: #d4a017; }
 .session-header__badge--finished { background: #2a2a3a; color: #8a8aaa; }
+.session-header__badge--tournament { background: #3a1a3a; color: #d565e0; }
+
+.standings-panel { margin-top: 16px; }
+.standings-panel__row { cursor: default; }
 
 /* Subtle connection status dot next to the status badge */
 .connection-dot {
@@ -1055,6 +1059,66 @@ textarea,
 }
 
 .existing-item:hover { border-color: var(--accent); background: var(--surface); }
+
+.existing-item--selected {
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--accent) inset;
+}
+
+.existing-item--dragging { opacity: 0.4; }
+
+.existing-item--drag-over {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent) inset;
+    background: var(--surface);
+}
+
+.teams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 10px 0;
+}
+
+.team-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px dashed var(--stroke, #2e2e4a);
+    border-radius: 10px;
+}
+
+.team-card__player { cursor: grab; }
+.team-card__player:active { cursor: grabbing; }
+
+.team-card__handle {
+    opacity: 0.4;
+    font-size: 0.85rem;
+    margin-right: 2px;
+}
+
+.court-card__scores {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.court-card__score-input {
+    width: 56px;
+    text-align: center;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--stroke, #2e2e4a);
+    background: var(--surface-2, transparent);
+    color: inherit;
+    font-weight: 700;
+}
+
+.court-card__score-sep { opacity: 0.6; font-weight: 700; }
 
 .existing-item--added {
     opacity: 0.55;

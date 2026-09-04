@@ -159,6 +159,7 @@ Route::get('/', function () {
             <form id="createForm">
                 <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
                 <div class="field"><label>Number of courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>
+                <div class="field"><label>Session type</label><select id="fType"><option value="casual" selected>Casual</option><option value="tournament">Tournament (round-robin ladder)</option></select></div>
                 <button type="submit" class="create-btn">Create Session</button>
                 <div id="err" class="err"></div>
             </form>
@@ -197,7 +198,8 @@ Route::get('/', function () {
                 headers: {"Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'"},
                 body: JSON.stringify({
                     name: document.getElementById("fName").value.trim(),
-                    number_of_courts: parseInt(document.getElementById("fCourts").value, 10)
+                    number_of_courts: parseInt(document.getElementById("fCourts").value, 10),
+                    type: document.getElementById("fType").value
                 })
             });
             var json = await res.json();

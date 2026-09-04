@@ -30,12 +30,16 @@ class MatchController extends Controller
         $validated = $request->validate([
             'winning_team' => ['required', 'integer', 'in:1,2'],
             'close_game' => ['sometimes', 'boolean'],
+            'team_1_score' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:999'],
+            'team_2_score' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:999'],
         ]);
 
         $result = $this->resultService->recordResult(
             $match,
             $validated['winning_team'],
-            (bool) ($validated['close_game'] ?? false)
+            (bool) ($validated['close_game'] ?? false),
+            $validated['team_1_score'] ?? null,
+            $validated['team_2_score'] ?? null,
         );
 
         return response()->json(['data' => $result]);

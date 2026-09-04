@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=18">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=21">
 </head>
 <body>
 <div id="courtly-app">
@@ -31,11 +31,13 @@
                 </span>
             </span>
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
+            <span v-if="session.type === 'tournament' && tournament && tournament.round_progress" class="session-header__badge session-header__badge--tournament">Round {{ tournament.round_progress.current_round }}/{{ tournament.round_progress.total_rounds }}</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button class="mode-switch" :class="'mode-switch--' + matchmakingMode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
             <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" :class="{ 'is-busy': sessionActionPending === 'start' }" :disabled="sessionActionPending === 'start'" @click="startSession">START</button>
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
+            <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
@@ -89,6 +91,11 @@
                         </div>
                     </div>
                 </div>
+                <div v-if="session.type === 'tournament'" class="court-card__scores" @click.stop>
+                    <input type="number" min="0" max="999" placeholder="Score" v-model="matchScores[court.match.id].t1" class="court-card__score-input">
+                    <span class="court-card__score-sep">–</span>
+                    <input type="number" min="0" max="999" placeholder="Score" v-model="matchScores[court.match.id].t2" class="court-card__score-input">
+                </div>
             </div>
             <div v-if="celebration && celebration.courtId === court.id" class="court-card__celebration" :style="{ '--origin-x': celebration.x + '%', '--origin-y': celebration.y + '%' }" aria-hidden="true">
                 <span v-for="particle in celebrationParticles" :key="particle" class="court-card__confetti" :style="{ '--particle': particle }"></span>
@@ -115,6 +122,21 @@
                 </div>
             </TransitionGroup>
             <p v-if="queuePlayers.length === 0" class="waiting-list__empty">No players waiting</p>
+        </div>
+    </div>
+
+    <div v-if="session.type === 'tournament' && tournament && tournament.standings && tournament.standings.length" class="waiting-list standings-panel">
+        <div class="waiting-list__head">
+            <h3 class="waiting-list__title">STANDINGS</h3>
+            <span v-if="session.status === 'FINISHED' || tournament.round_progress === null" class="waiting-list__mode">FINAL</span>
+        </div>
+        <div class="waiting-list__cards">
+            <div v-for="(team, i) in tournament.standings" :key="team.team_id" class="player-card standings-panel__row">
+                <div class="player-card__col">
+                    <span class="player-card__name">#{{ i + 1 }} {{ team.players.join(' / ') }}</span>
+                    <span class="player-card__rating">{{ team.wins }}W - {{ team.losses }}L ({{ team.played }} played)<template v-if="team.points_for || team.points_against"> · {{ team.point_diff > 0 ? '+' : '' }}{{ team.point_diff }} pts</template></span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -161,6 +183,41 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tournament teams: preview/edit before Start (drag a player onto another to swap) -->
+    <div v-if="showTeams" class="modal-overlay" @click.self="closeTeams">
+        <div class="modal modal--wide">
+            <div class="modal__head">
+                <h3>Teams</h3>
+                <button class="modal__close" @click="closeTeams">✕</button>
+            </div>
+            <p v-if="teamsError" class="err" style="display:block">{{ teamsError }}</p>
+            <p v-else class="add-section__label">Drag a player onto another player to swap them between teams. (Tap-tap works too.)</p>
+            <div class="teams-grid">
+                <div v-for="team in teamsList" :key="team.team_id" class="team-card">
+                    <div v-for="p in team.players" :key="p.player_id"
+                        class="existing-item team-card__player"
+                        :class="{ 'existing-item--selected': selectedPlayerId === p.player_id, 'existing-item--drag-over': dragOverPlayerId === p.player_id, 'existing-item--dragging': draggedPlayerId === p.player_id }"
+                        draggable="true"
+                        @click="selectPlayerForSwap(p.player_id)"
+                        @dragstart="onPlayerDragStart(p.player_id, $event)"
+                        @dragend="onPlayerDragEnd"
+                        @dragover.prevent
+                        @dragenter.prevent="dragOverPlayerId = p.player_id"
+                        @dragleave="dragOverPlayerId === p.player_id && (dragOverPlayerId = null)"
+                        @drop="onPlayerDrop(p.player_id, $event)">
+                        <span class="team-card__handle">⠿</span>
+                        <span class="existing-item__name">{{ formatName(p.name) }}</span>
+                        <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__actions">
+                <button class="btn btn--secondary" :disabled="teamsLoading" @click="regenerateTeams">🔀 Shuffle</button>
+                <button class="btn btn--primary" @click="closeTeams">Done</button>
             </div>
         </div>
     </div>
@@ -217,7 +274,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, nextT
 
 createApp({
     setup() {
-        const session = reactive({ status: START_STATUS });
+        const session = reactive({ status: START_STATUS, type: 'casual' });
         const sessionName = ref(START_NAME);
         const matchmakingMode = ref('smart');
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
@@ -225,6 +282,7 @@ createApp({
         const updatingCourts = ref(false);
         const sessionActionPending = ref(null);
         const players = ref([]);
+        const tournament = ref(null);
         const history = ref([]);
         const historySearch = ref('');
         const filteredHistory = computed(() => {
@@ -276,6 +334,7 @@ createApp({
                 .map(p => p.player_id)
         );
         const submitting = reactive({});
+        const matchScores = reactive({});
         const pendingResultMatchIds = new Set();
         const celebration = ref(null);
         const celebrationParticles = Array.from({ length: 28 }, (_, index) => index);
@@ -320,6 +379,110 @@ createApp({
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
+        const showTeams = ref(false);
+        const teamsList = ref([]);
+        const teamsError = ref('');
+        const teamsLoading = ref(false);
+        const selectedPlayerId = ref(null);
+        const draggedPlayerId = ref(null);
+        const dragOverPlayerId = ref(null);
+
+        async function loadTeams() {
+            teamsLoading.value = true;
+            teamsError.value = '';
+            try {
+                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/tournament/teams', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || 'Failed to load teams');
+                teamsList.value = json.data;
+            } catch (ex) {
+                teamsError.value = ex.message;
+            } finally {
+                teamsLoading.value = false;
+            }
+        }
+        function openTeams() {
+            selectedPlayerId.value = null;
+            draggedPlayerId.value = null;
+            dragOverPlayerId.value = null;
+            showTeams.value = true;
+            loadTeams();
+        }
+        function closeTeams() {
+            showTeams.value = false;
+            selectedPlayerId.value = null;
+            draggedPlayerId.value = null;
+            dragOverPlayerId.value = null;
+        }
+        async function performSwap(playerIdA, playerIdB) {
+            teamsError.value = '';
+            try {
+                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/tournament/teams/swap', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                    body: JSON.stringify({ player_id_a: playerIdA, player_id_b: playerIdB }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || 'Failed to swap players');
+                teamsList.value = json.data;
+            } catch (ex) {
+                teamsError.value = ex.message;
+            }
+        }
+        // Tap-to-swap fallback for touch devices where native drag isn't available.
+        function selectPlayerForSwap(playerId) {
+            if (selectedPlayerId.value === null) {
+                selectedPlayerId.value = playerId;
+                return;
+            }
+            if (selectedPlayerId.value === playerId) {
+                selectedPlayerId.value = null;
+                return;
+            }
+            const a = selectedPlayerId.value;
+            selectedPlayerId.value = null;
+            performSwap(a, playerId);
+        }
+        function onPlayerDragStart(playerId, event) {
+            draggedPlayerId.value = playerId;
+            selectedPlayerId.value = null;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(playerId));
+        }
+        function onPlayerDragEnd() {
+            draggedPlayerId.value = null;
+            dragOverPlayerId.value = null;
+        }
+        function onPlayerDrop(playerId, event) {
+            event.preventDefault();
+            dragOverPlayerId.value = null;
+            const source = draggedPlayerId.value;
+            draggedPlayerId.value = null;
+            if (!source || source === playerId) return;
+            performSwap(source, playerId);
+        }
+        async function regenerateTeams() {
+            teamsLoading.value = true;
+            teamsError.value = '';
+            try {
+                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/tournament/teams/regenerate', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || 'Failed to shuffle teams');
+                teamsList.value = json.data;
+            } catch (ex) {
+                teamsError.value = ex.message;
+            } finally {
+                teamsLoading.value = false;
+            }
+        }
         let pollTimer = null;
         let pollSince = null;
         let pollDelay = 3000;
@@ -363,6 +526,8 @@ createApp({
         function applySessionData(d) {
             if (!d) return;
                 session.status = d.status;
+                session.type = d.type || 'casual';
+                tournament.value = d.tournament || null;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';
                 if (d.history) history.value = d.history;
 
@@ -389,6 +554,7 @@ createApp({
                         const t2 = match.match_players.filter(p => p.team === 2);
                         const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
                         md = { id: match.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
+                        if (!matchScores[match.id]) matchScores[match.id] = { t1: '', t2: '' };
                     }
                     return { ...c, match: md };
                 });
@@ -446,6 +612,9 @@ createApp({
             submitting[submissionKey] = true;
             pendingResultMatchIds.add(matchId);
 
+            const scores = matchScores[matchId];
+            const hasScores = scores && scores.t1 !== '' && scores.t2 !== '';
+
             const court = courts.value.find(item => item.match && item.match.id === matchId);
             const previousMatch = court ? court.match : null;
             if (court) {
@@ -459,7 +628,9 @@ createApp({
                 celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
             }
 
-            postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame })
+            postApi('/api/matches/' + matchId + '/result', hasScores
+                ? { winning_team: team, close_game: closeGame, team_1_score: parseInt(scores.t1, 10), team_2_score: parseInt(scores.t2, 10) }
+                : { winning_team: team, close_game: closeGame })
                 .then(result => {
                     if (!result.ok) {
                         pendingResultMatchIds.delete(matchId);
@@ -655,7 +826,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, matchScores, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>

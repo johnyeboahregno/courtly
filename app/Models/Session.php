@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SessionStatus;
+use App\Enums\SessionType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,9 +22,11 @@ class Session extends Model
         'number_of_courts',
         'status',
         'matchmaking_mode',
+        'type',
         'created_by',
         'started_at',
         'finished_at',
+        'tournament_finished_at',
     ];
 
     protected function casts(): array
@@ -33,8 +36,10 @@ class Session extends Model
             'start_time' => 'datetime',
             'number_of_courts' => 'integer',
             'status' => SessionStatus::class,
+            'type' => SessionType::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'tournament_finished_at' => 'datetime',
         ];
     }
 
@@ -63,9 +68,24 @@ class Session extends Model
         return $this->hasMany(MatchmakingLog::class);
     }
 
+    public function tournamentTeams(): HasMany
+    {
+        return $this->hasMany(TournamentTeam::class);
+    }
+
+    public function tournamentRounds(): HasMany
+    {
+        return $this->hasMany(TournamentRound::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === SessionStatus::ACTIVE;
+    }
+
+    public function isTournament(): bool
+    {
+        return $this->type === SessionType::TOURNAMENT;
     }
 
     /**

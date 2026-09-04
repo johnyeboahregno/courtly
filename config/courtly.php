@@ -23,6 +23,7 @@ return [
     'matchmaking' => [
         'algorithm_version' => 'courtly-v2.0',
         'peg_algorithm_version' => 'courtly-peg-v1.0',
+        'tournament_algorithm_version' => 'courtly-tournament-v1.0',
         'skill_spread_weight' => 8,
         'balance_weight' => 15,
         'repeat_teammate_penalty' => 20,
