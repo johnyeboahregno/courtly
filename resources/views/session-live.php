@@ -202,6 +202,7 @@ createApp({
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
         const courts = ref([]);
         const players = ref([]);
+        const pendingAddedPlayers = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
         // Preview of players heading to each empty court. They render grayed
@@ -227,7 +228,7 @@ createApp({
         const queuePlayers = computed(() => {
             const order = { WAITING: 0, PAUSED: 1 };
             const previewed = previewedPlayerIds.value;
-            return players.value
+            return [...players.value, ...pendingAddedPlayers.value]
                 .filter(p => (p.status === 'WAITING' || p.status === 'PAUSED') && !previewed.has(p.player_id))
                 .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
         });
@@ -247,9 +248,13 @@ createApp({
         const newPlayerName = ref('');
         const playerNameInput = ref(null);
         const allKnownPlayers = ref([]);
+        const pendingExistingPlayerIds = ref(new Set());
         let blurTimer = null;
         const availablePlayers = computed(() =>
-            allKnownPlayers.value.filter(p => !activePlayers.value.some(sp => sp.player_id === p.id))
+            allKnownPlayers.value.filter(p =>
+                !activePlayers.value.some(sp => sp.player_id === p.id)
+                && !pendingExistingPlayerIds.value.has(p.id)
+            )
         );
         // Autocomplete: exclude players already in the session. Show the top 10
         // (by rating) when the box is empty/focused, and matching names when the
@@ -257,7 +262,9 @@ createApp({
         const playerSuggestions = computed(() => {
             const q = newPlayerName.value.trim().toLowerCase();
             const inSession = new Set(activePlayers.value.map(sp => sp.player_id));
-            const pool = allKnownPlayers.value.filter(p => !inSession.has(p.id));
+            const pool = allKnownPlayers.value.filter(p =>
+                !inSession.has(p.id) && !pendingExistingPlayerIds.value.has(p.id)
+            );
 
             if (!q) {
                 return [...pool].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 10);
@@ -332,6 +339,11 @@ createApp({
                 });
                 const serverPlayers = d.session_players || [];
                 players.value = serverPlayers;
+                const confirmedIds = new Set(serverPlayers.map(sp => sp.player_id));
+                pendingAddedPlayers.value = pendingAddedPlayers.value.filter(sp => !confirmedIds.has(sp.player_id));
+                pendingExistingPlayerIds.value = new Set(
+                    [...pendingExistingPlayerIds.value].filter(id => !confirmedIds.has(id))
+                );
                 connectionState.value = 'connected';
         }
 
@@ -348,7 +360,7 @@ createApp({
             eventSource.onerror = () => { connectionState.value = 'offline'; };
         }
 
-        async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return res.json(); }
+        async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return { ok: res.ok, data: await res.json() }; }
         async function recordResult(matchId, team, closeGame = false) {
             const submissionKey = matchId + '_' + team;
             if (submitting[submissionKey]) return;
@@ -395,8 +407,36 @@ createApp({
         }
 
         async function addExistingPlayer(id) {
-            postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+            if (pendingExistingPlayerIds.value.has(id) || isInSession(id)) return;
+
+            pendingExistingPlayerIds.value = new Set(pendingExistingPlayerIds.value).add(id);
+            const player = allKnownPlayers.value.find(item => item.id === id);
+            if (player) {
+                pendingAddedPlayers.value = [...pendingAddedPlayers.value, {
+                    player_id: id,
+                    player,
+                    status: 'WAITING',
+                    games_played: 0,
+                    wins: 0,
+                    losses: 0,
+                    pending: true,
+                }];
+            }
             newPlayerName.value = '';
+
+            try {
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+                if (result.ok) return;
+            } catch {
+                // Restore the suggestion when the server cannot accept it.
+            }
+
+            {
+                const pending = new Set(pendingExistingPlayerIds.value);
+                pending.delete(id);
+                pendingExistingPlayerIds.value = pending;
+                pendingAddedPlayers.value = pendingAddedPlayers.value.filter(sp => sp.player_id !== id);
+            }
         }
 
         async function pausePlayer(spId) {
