@@ -35,7 +35,7 @@ class SessionEventsController extends Controller
 
         // If streaming requested and headers allow, try SSE
         if ($request->has('stream')) {
-            return $this->streamResponse($session);
+            return $this->streamResponse($session, (int) $request->header('Last-Event-ID', 0));
         }
 
         // Default: polling response
@@ -53,9 +53,9 @@ class SessionEventsController extends Controller
     /**
      * SSE stream mode — falls back gracefully on Apache.
      */
-    private function streamResponse(Session $session): StreamedResponse
+    private function streamResponse(Session $session, int $lastId): StreamedResponse
     {
-        return response()->stream(function () use ($session) {
+        return response()->stream(function () use ($session, $lastId) {
             // Turn off output buffering
             if (ob_get_level() > 0) {
                 ob_end_flush();
@@ -63,12 +63,9 @@ class SessionEventsController extends Controller
             ini_set('output_buffering', 'off');
             ini_set('zlib.output_compression', '0');
 
-            $lastId = 0;
-
             while (connection_aborted() === 0) {
                 // Poll database for new events
-                $events = $this->eventService->getEvents($session->id);
-                $newEvents = array_filter($events, fn ($e) => (int) $e['id'] > $lastId);
+                $newEvents = $this->eventService->getEventsAfterId($session->id, $lastId);
 
                 foreach ($newEvents as $event) {
                     echo "id: {$event['id']}\n";

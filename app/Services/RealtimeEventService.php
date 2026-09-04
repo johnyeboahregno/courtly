@@ -87,6 +87,26 @@ class RealtimeEventService
     }
 
     /**
+     * Get events newer than an SSE event id. This lets EventSource reconnect
+     * without replaying the entire session event history.
+     */
+    public function getEventsAfterId(int $sessionId, int $lastId): array
+    {
+        return DB::table('realtime_events')
+            ->where('session_id', $sessionId)
+            ->where('id', '>', $lastId)
+            ->orderBy('id')
+            ->limit(50)
+            ->get()
+            ->map(fn ($e) => [
+                'id' => (string) $e->id,
+                'type' => $e->type,
+                'data' => $e->data,
+                'timestamp' => $e->created_at,
+            ])->toArray();
+    }
+
+    /**
      * Clean up events older than the given hours.
      */
     public function cleanup(int $olderThanHours = 24): int

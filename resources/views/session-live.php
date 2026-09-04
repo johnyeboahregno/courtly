@@ -279,6 +279,8 @@ createApp({
         const confirmNewSession = ref({ show: false });
         let syncTimer = null;
         let reconcileTimer = null;
+        let eventSource = null;
+        let eventRefreshTimer = null;
         const syncing = ref(false);
         const syncEnabled = ref(SYNC_CONFIG.sync_button !== false);
 
@@ -539,6 +541,27 @@ createApp({
             }
         }
 
+        function scheduleEventRefresh() {
+            if (eventRefreshTimer) return;
+            eventRefreshTimer = setTimeout(() => {
+                eventRefreshTimer = null;
+                fetchSession();
+            }, 100);
+        }
+
+        function startEventStream() {
+            if (!window.EventSource) return;
+
+            eventSource = new EventSource(BASE_URL + '/api/sessions/' + SESSION_ID + '/events?stream=1');
+            const eventTypes = [
+                'session.updated', 'match.completed', 'court.updated', 'rating.updated',
+                'waiting_list.updated', 'player.checked_in', 'player.paused',
+                'player.resumed', 'player.left'
+            ];
+            eventTypes.forEach(type => eventSource.addEventListener(type, scheduleEventRefresh));
+            eventSource.onopen = () => { connectionState.value = 'connected'; };
+        }
+
         async function api(url, body) {
             const res = await fetch(BASE_URL + url, { method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN} : {'Accept':'application/json'}, credentials: 'include', body: body ? JSON.stringify(body) : undefined });
             return res.json();
@@ -639,6 +662,7 @@ createApp({
             // Queue for background sync (flushed on the configured schedule,
             // on idle, via the Sync button, or at session end).
             enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { name: name });
+            flushSyncQueue();
         }
 
         async function addExistingPlayer(id) {
@@ -657,6 +681,7 @@ createApp({
 
             newPlayerName.value = ''; // clear the autocomplete input
             enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { player_ids: [id] });
+            flushSyncQueue();
         }
 
         function pausePlayer(spId) {
@@ -713,6 +738,7 @@ createApp({
             fetchSession();              // reconcile with the server once
             loadKnownPlayers();
             startSyncLoop();
+            startEventStream();
 
             // Background reconcile (safety net) instead of a 3s poll.
             if (RECONCILE_INTERVAL_MS > 0) {
@@ -728,6 +754,8 @@ createApp({
         onUnmounted(() => {
             if (syncTimer) clearInterval(syncTimer);
             if (reconcileTimer) clearInterval(reconcileTimer);
+            if (eventRefreshTimer) clearTimeout(eventRefreshTimer);
+            if (eventSource) eventSource.close();
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('pagehide', onPageHide);
         });
