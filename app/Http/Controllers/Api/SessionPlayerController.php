@@ -117,12 +117,16 @@ class SessionPlayerController extends Controller
         }
 
         if (! empty($added)) {
-            $this->events->publish($session->id, 'player.checked_in', []);
-            $this->events->publish($session->id, 'waiting_list.updated', []);
+            $this->events->publishBatch($session->id, [
+                ['type' => 'player.checked_in', 'data' => []],
+                ['type' => 'waiting_list.updated', 'data' => []],
+            ]);
 
-            // Fill available courts asynchronously; the completed allocation
-            // is announced to live browsers through SSE.
-            AllocateSessionMatches::dispatch($session->id);
+            // Upcoming sessions cannot form matches yet, so avoid queueing a
+            // matchmaking job until the session is active.
+            if ($session->isActive()) {
+                AllocateSessionMatches::dispatch($session->id)->afterResponse();
+            }
         }
 
         return response()->json([
