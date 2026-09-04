@@ -113,7 +113,6 @@
         <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
         <button class="btn btn--secondary" @click="openPlayers">+ PLAYERS</button>
-        <button v-if="syncEnabled" class="btn btn--secondary" @click="syncNow" :disabled="syncing">⟳ SYNC<span v-if="pendingCount"> ({{ pendingCount }})</span></button>
     </footer>
 
     <!-- Players dialog: add new/select existing + manage roster -->
@@ -192,7 +191,6 @@ const START_STATUS = <?= json_encode($sessionStatus ?? 'UNKNOWN', JSON_HEX_TAG |
 const START_NAME = <?= json_encode($sessionName ?? 'Session', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 const BASE_URL = <?= json_encode(($base ?? '') . '', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-const SYNC_CONFIG = <?= json_encode($syncConfig ?? []) ?>;
 
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, TransitionGroup } = Vue;
 
@@ -275,65 +273,9 @@ createApp({
         const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
         const confirmDelete = ref({ show: false, playerId: null, name: '' });
         const confirmNewSession = ref({ show: false });
-        let syncTimer = null;
-        let reconcileTimer = null;
         let eventSource = null;
         let eventRefreshTimer = null;
-        const syncing = ref(false);
-        const syncEnabled = ref(SYNC_CONFIG.sync_button !== false);
-
-        // ── Offline-first player store + sync queue ──
-        // Remote connection is only needed for the initial player load and
-        // session-end sync. During a session, players are stored locally and
-        // pushed to the server periodically; failures are silent and retried.
-        const LS_PLAYERS = 'courtly.players.v1';
-        const LS_QUEUE = 'courtly.syncQueue.v1';
-        const LS_SESSION = 'courtly.session.' + SESSION_ID + '.v1';
-        const SYNC_INTERVAL_MS = Number(SYNC_CONFIG.auto_sync_interval_ms ?? 30000);
-        const RECONCILE_INTERVAL_MS = Number(SYNC_CONFIG.reconcile_interval_ms ?? SYNC_INTERVAL_MS);
-        const SYNC_ON_IDLE = SYNC_CONFIG.sync_on_idle !== false;
-        const SYNC_ON_SESSION_END = SYNC_CONFIG.sync_on_session_end !== false;
-        function readLS(key, fallback) {
-            try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch { return fallback; }
-        }
-        function writeLS(key, val) {
-            try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
-        }
-        const syncQueue = ref(readLS(LS_QUEUE, []));
-        const pendingCount = computed(() => syncQueue.value.length);
-        function persistQueue() { writeLS(LS_QUEUE, syncQueue.value); }
-        function rescheduleSync(op) {
-            op.attempts = (op.attempts || 0) + 1;
-            op.nextAttemptAt = Date.now() + Math.min(900000, 30000 * (2 ** Math.min(op.attempts, 5)));
-            return op;
-        }
-        function enqueueSync(path, method, body) {
-            syncQueue.value.push({
-                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-                path, method, body, attempts: 0
-            });
-            persistQueue();
-        }
-        // Persist the current session state to browser storage so the UI can
-        // restore instantly and run snappily without waiting on the network.
-        function persistSessionState() {
-            writeLS(LS_SESSION, {
-                status: session.status,
-                players: players.value,
-                courts: courts.value,
-                savedAt: Date.now()
-            });
-        }
-        function loadSessionState() {
-            const cached = readLS(LS_SESSION, null);
-            if (!cached) return;
-            if (cached.status) session.status = cached.status;
-            if (Array.isArray(cached.players)) players.value = cached.players;
-            if (Array.isArray(cached.courts)) courts.value = cached.courts;
-        }
-        // Keep the local store in sync with reactive state (any change persists).
-        watch([players, courts, () => session.status], persistSessionState, { deep: true });
-        // Fetch the full player list from the server and cache it locally.
+        // Fetch the full player list from the server.
         async function refreshPlayerCache() {
             try {
                 const res = await fetch(BASE_URL + '/api/players', { credentials: 'include', headers: { 'Accept': 'application/json' } });
@@ -341,139 +283,8 @@ createApp({
                     const json = await res.json();
                     const list = json.data || [];
                     allKnownPlayers.value = list;
-                    writeLS(LS_PLAYERS, list);
                 }
             } catch { /* server unreachable — keep cached players */ }
-        }
-        // Apply freshly-formed matches from a recorded result so the next game
-        // appears on its court immediately, without waiting for a full refetch
-        // (an extra slow round-trip against the remote DB).
-        function applyNextMatches(nextMatches) {
-            if (!Array.isArray(nextMatches) || nextMatches.length === 0) return;
-
-            const stats = {};
-            players.value.forEach(sp => { stats[sp.player_id] = { wins: sp.wins, losses: sp.losses }; });
-
-            const byCourt = {};
-            nextMatches.forEach(m => {
-                const t1 = (m.match_players || []).filter(p => p.team === 1);
-                const t2 = (m.match_players || []).filter(p => p.team === 2);
-                if (t1.length !== 2 || t2.length !== 2) return;
-                const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
-                byCourt[m.court_id] = { id: m.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
-            });
-
-            courts.value = courts.value.map(c => byCourt[c.id] ? { ...c, match: byCourt[c.id] } : c);
-
-            // Players in the new match leave the waiting queue.
-            const onCourt = new Set();
-            nextMatches.forEach(m => (m.match_players || []).forEach(p => onCourt.add(p.player_id)));
-            if (onCourt.size > 0) {
-                players.value = players.value.map(sp =>
-                    onCourt.has(sp.player_id) ? { ...sp, status: 'PLAYING', waiting_since: null } : sp
-                );
-            }
-        }
-        // Push pending ops to the server. Failures are silent — kept in queue,
-        // retried 30s later by the sync loop.
-        async function flushSyncQueue() {
-            if (syncing.value || syncQueue.value.length === 0) return;
-            syncing.value = true;
-            try {
-                const remaining = [];
-                let progressed = false;
-
-                // Coalesce all queued player check-ins into a single request.
-                // The remote DB is very slow (~15-30s/request) and every add
-                // re-runs matchmaking, so flushing N players as N round-trips
-                // stalls Start Session for minutes. One batch = one round-trip
-                // and one matchmaking pass.
-                const addPath = '/api/sessions/' + SESSION_ID + '/players';
-                const addOps = syncQueue.value.filter(op => op.path === addPath);
-                if (addOps.length > 0) {
-                    const playerIds = [];
-                    const names = [];
-                    addOps.forEach(op => {
-                        const b = op.body || {};
-                        if (Array.isArray(b.player_ids)) playerIds.push(...b.player_ids);
-                        if (b.player_id !== undefined && b.player_id !== null) playerIds.push(b.player_id);
-                        if (typeof b.name === 'string' && b.name.trim()) names.push(b.name.trim());
-                    });
-                    try {
-                        const res = await fetch(BASE_URL + addPath, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                            credentials: 'include',
-                            body: JSON.stringify({ player_ids: playerIds, names })
-                        });
-                        if (res.ok) {
-                            progressed = true;
-                            authError.value = false;
-                        } else if (res.status === 401 || res.status === 403) {
-                            // Permanent auth failure — retrying will never succeed.
-                            authError.value = true;
-                        } else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-                            // Other permanent client errors — drop so they don't clog the queue.
-                        } else {
-                            addOps.forEach(op => { op.attempts++; remaining.push(op); });
-                        }
-                    } catch {
-                        addOps.forEach(op => { op.attempts++; remaining.push(op); });
-                    }
-                }
-
-                for (const op of syncQueue.value.filter(op => op.path !== addPath)) {
-                    if (op.nextAttemptAt && op.nextAttemptAt > Date.now()) {
-                        remaining.push(op);
-                        continue;
-                    }
-
-                    try {
-                        const res = await fetch(BASE_URL + op.path, {
-                            method: op.method,
-                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                            credentials: 'include',
-                            body: op.body ? JSON.stringify(op.body) : undefined
-                        });
-                        if (res.ok) {
-                            progressed = true;
-                            authError.value = false;
-                            // A recorded result already includes the freshly-formed
-                            // matches — render them straight away instead of waiting
-                            // for the full session re-fetch.
-                            if (op.path.includes('/result')) {
-                                try {
-                                    const json = await res.json();
-                                    applyNextMatches((json.data && json.data.next_matches) || []);
-                                } catch { /* fall through — fetchSession() reconciles */ }
-                            }
-                        }
-                        else if (res.status === 401 || res.status === 403) {
-                            // Permanent auth failure: the server says this login
-                            // doesn't own the session. Retrying will never succeed,
-                            // so drop the op and surface it instead of flooding the
-                            // queue and console forever.
-                            authError.value = true;
-                        }
-                        else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-                            // Other permanent client errors (404/405/410/419/422…):
-                            // retrying won't help — drop so they don't clog the queue.
-                        }
-                        else { remaining.push(rescheduleSync(op)); }
-                    } catch { remaining.push(rescheduleSync(op)); }
-                }
-
-                syncQueue.value = remaining;
-                persistQueue();
-                // On any success, reconcile local state with the server in the background
-                if (progressed) { refreshPlayerCache(); fetchSession(); }
-            } finally { syncing.value = false; }
-        }
-        function startSyncLoop() {
-            flushSyncQueue();
-            if (SYNC_INTERVAL_MS > 0) {
-                syncTimer = setInterval(flushSyncQueue, SYNC_INTERVAL_MS);
-            }
         }
 
         // Theme always follows the OS (system). No data-theme attribute is ever
@@ -482,10 +293,6 @@ createApp({
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
 
         async function loadKnownPlayers() {
-            // 1. Instant from local cache (works offline)
-            const cached = readLS(LS_PLAYERS, []);
-            if (cached.length > 0) allKnownPlayers.value = cached;
-            // 2. Background refresh from server
             await refreshPlayerCache();
         }
 
@@ -535,13 +342,7 @@ createApp({
                     return { ...c, match: md };
                 });
                 const serverPlayers = d.session_players || [];
-                // Keep optimistic local-only players (not yet synced) so they
-                // don't blink out of the list before the server catches up.
-                const serverNames = new Set(serverPlayers.map(sp => sp.player && sp.player.name));
-                const localOnly = players.value.filter(sp =>
-                    sp.player && sp.player._local && !serverNames.has(sp.player.name)
-                );
-                players.value = [...serverPlayers, ...localOnly];
+                players.value = serverPlayers;
                 connectionState.value = 'connected';
             } catch (err) {
                 clearTimeout(timer);
@@ -557,16 +358,6 @@ createApp({
             }, 100);
         }
 
-        function applyMatchCompleted(event) {
-            let data;
-            try { data = JSON.parse(event.data); } catch { return; }
-            if (!data || !data.court_id) return;
-
-            courts.value = courts.value.map(court =>
-                court.id === data.court_id ? { ...court, match: null } : court
-            );
-        }
-
         function startEventStream() {
             if (!window.EventSource) return;
 
@@ -576,47 +367,23 @@ createApp({
                 'waiting_list.updated', 'player.checked_in', 'player.paused',
                 'player.resumed', 'player.left'
             ];
+            eventTypes.push('match.completed');
             eventTypes.forEach(type => eventSource.addEventListener(type, scheduleEventRefresh));
-            eventSource.addEventListener('match.completed', applyMatchCompleted);
             eventSource.onopen = () => { connectionState.value = 'connected'; };
         }
 
-        async function api(url, body) {
-            const res = await fetch(BASE_URL + url, { method: body ? 'POST' : 'GET', headers: body ? {'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN} : {'Accept':'application/json'}, credentials: 'include', body: body ? JSON.stringify(body) : undefined });
-            return res.json();
-        }
-
-        async function postApi(url) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include' }); return res.json(); }
+        async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return res.json(); }
         async function recordResult(matchId, team, closeGame = false) {
             const submissionKey = matchId + '_' + team;
             if (submitting[submissionKey]) return;
             submitting[submissionKey] = true;
 
-            // Optimistic UI: move players to waiting and clear the court.
-            const losingTeam = team === 1 ? 2 : 1;
-            const court = courts.value.find(c => c.match && c.match.id === matchId);
-            if (court && court.match) {
-                const losers = losingTeam === 1 ? court.match.t1 : court.match.t2;
-                const winnerNames = (team === 1 ? court.match.t1 : court.match.t2).map(p => p.name);
-
-                players.value = players.value.map(sp => {
-                    const isLoser = losers.some(l => l.name === sp.player.name);
-                    const isWinner = winnerNames.includes(sp.player.name);
-                    if (isLoser) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins, losses: sp.losses + 1 };
-                    if (isWinner) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins + 1, losses: sp.losses };
-                    return sp;
-                });
-
-                court.match = null;
+            try {
+                await postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame });
+                await fetchSession();
+            } finally {
+                submitting[submissionKey] = false;
             }
-            submitting[matchId + '_' + team] = false;
-
-            // Offline-first: store the result locally, then push immediately.
-            // If the server is slow or down, the result stays queued in local
-            // storage and is retried by the sync loop, the Sync button, or at
-            // session end.
-            enqueueSync('/api/matches/' + matchId + '/result', 'POST', { winning_team: team, close_game: closeGame });
-            flushSyncQueue();
         }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
@@ -637,82 +404,44 @@ createApp({
         async function toggleMode() {
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
 
-            // Flip instantly — the POST is slow (remote DB), so don't block the
-            // switch on it. The request runs in the background and the label
-            // updates immediately from local state.
-            matchmakingMode.value = next;
-
-            fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/matchmaking-mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                credentials: 'include',
-                body: JSON.stringify({ mode: next })
-            })
-                .catch(() => {})
-                .finally(() => fetchSession());
+            await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+            await fetchSession();
         }
         async function startSession() {
-            await flushSyncQueue(); // push any pending player additions first
             await postApi('/api/sessions/' + SESSION_ID + '/start');
-            fetchSession();
+            await fetchSession();
         }
-        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
-        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
+        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); await fetchSession(); }
+        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); await fetchSession(); }
         async function finishSession() {
-            if (SYNC_ON_SESSION_END) await flushSyncQueue(); // push any pending changes
             await postApi('/api/sessions/' + SESSION_ID + '/finish');
-            fetchSession();
+            await fetchSession();
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
             if (!name) return;
 
-            const tempId = 'local_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-
-            // Local-first: show in the waiting queue immediately (no server wait)
-            players.value.push({
-                player_id: tempId,
-                player: { id: tempId, name: name, rating: 0, _local: true },
-                status: 'WAITING',
-                games_played: 0, wins: 0, losses: 0
-            });
+            await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
             newPlayerName.value = '';
-
-            // Queue for background sync (flushed on the configured schedule,
-            // on idle, via the Sync button, or at session end).
-            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { name: name });
-            flushSyncQueue();
+            await fetchSession();
         }
 
         async function addExistingPlayer(id) {
-            // Optimistic: remove from available list, add to waiting list
-            const player = allKnownPlayers.value.find(p => p.id === id);
-            allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== id);
-
-            if (player) {
-                players.value.push({
-                    player_id: id,
-                    player: { id: id, name: player.name, rating: player.rating },
-                    status: 'WAITING',
-                    games_played: 0, wins: 0, losses: 0
-                });
-            }
-
-            newPlayerName.value = ''; // clear the autocomplete input
-            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { player_ids: [id] });
-            flushSyncQueue();
+            await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+            newPlayerName.value = '';
+            await fetchSession();
         }
 
-        function pausePlayer(spId) {
+        async function pausePlayer(spId) {
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'PAUSED', waiting_since: null } : sp);
-                enqueueSync('/api/session-players/' + spId + '/pause', 'POST');
+                await postApi('/api/session-players/' + spId + '/pause');
+                await fetchSession();
             }
         }
-        function resumePlayer(spId) {
+        async function resumePlayer(spId) {
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'WAITING' } : sp);
-                enqueueSync('/api/session-players/' + spId + '/resume', 'POST');
+                await postApi('/api/session-players/' + spId + '/resume');
+                await fetchSession();
             }
         }
 
@@ -725,8 +454,7 @@ createApp({
             const spId = confirmRemove.value.spId;
             confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false };
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'LEFT', left_at: new Date().toISOString() } : sp);
-                enqueueSync('/api/session-players/' + spId + '/leave', 'POST');
+                postApi('/api/session-players/' + spId + '/leave').then(fetchSession);
             }
         }
 
@@ -741,40 +469,17 @@ createApp({
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
-            enqueueSync('/api/players/' + playerId, 'DELETE');
-        }
-
-        function onVisibilityChange() {
-            if (document.visibilityState === 'hidden') flushSyncQueue();
-        }
-        function onPageHide() {
-            flushSyncQueue();
+            fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } }).then(fetchSession);
         }
 
         onMounted(() => {
-            loadSessionState();          // instant from browser storage
-            fetchSession();              // reconcile with the server once
+            fetchSession();
             loadKnownPlayers();
-            startSyncLoop();
-            // Background reconcile (safety net) instead of a 3s poll.
-            if (RECONCILE_INTERVAL_MS > 0) {
-                reconcileTimer = setInterval(fetchSession, RECONCILE_INTERVAL_MS);
-            }
-
-            // Flush pending changes when the user leaves / tab goes idle.
-            if (SYNC_ON_IDLE) {
-                document.addEventListener('visibilitychange', onVisibilityChange);
-                window.addEventListener('pagehide', onPageHide);
-            }
+            startEventStream();
         });
         onUnmounted(() => {
-            if (syncTimer) clearInterval(syncTimer);
-            if (reconcileTimer) clearInterval(reconcileTimer);
             if (eventRefreshTimer) clearTimeout(eventRefreshTimer);
             if (eventSource) eventSource.close();
-            document.removeEventListener('visibilitychange', onVisibilityChange);
-            window.removeEventListener('pagehide', onPageHide);
         });
 
         // Lock body scroll when any modal is open
@@ -797,7 +502,7 @@ createApp({
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, syncNow: flushSyncQueue, syncing, pendingCount, syncEnabled, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, Math };
     }
 }).mount('#courtly-app');
 </script>
