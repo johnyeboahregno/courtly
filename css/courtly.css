@@ -351,19 +351,10 @@ body {
     position: relative;
 }
 
-.court-card__player-box--streak::after {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border: 2px solid #ff8a00;
-    border-radius: 9px;
-    pointer-events: none;
-    animation: court-streak-fire 0.8s ease-in-out infinite alternate;
-}
-
-@keyframes court-streak-fire {
-    from { box-shadow: 0 0 4px #ffb000, 0 0 8px rgba(255, 88, 0, 0.65); }
-    to { box-shadow: 0 0 8px #ffe066, 0 0 16px rgba(255, 54, 0, 0.9); }
+.court-card__player-box--streak {
+    background: #d97706;
+    border: 2px solid #ffb000;
+    box-sizing: border-box;
 }
 
 .court-card__player-box--team-1 {

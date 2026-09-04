@@ -62,22 +62,22 @@
                     <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[0].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak >= 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t1[1].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak >= 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[0].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak >= 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">🔥{{ court.match.t2[1].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak >= 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
                 </div>
