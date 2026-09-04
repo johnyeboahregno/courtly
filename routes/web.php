@@ -137,9 +137,9 @@ Route::get('/', function () {
         h2.list-title{margin-top:28px;margin-bottom:12px}
     </style>
     </head><body><div class="wrap">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
             <h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly_light.png" style="height:5vh;display:block;"></h1>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <form method="POST" action="/logout" style="margin:0">
                     <input type="hidden" name="_token" value="'.csrf_token().'">
@@ -147,9 +147,9 @@ Route::get('/', function () {
                 </form>
             </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
+        <div class="dashboard-subhead" style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
             <p class="sub" style="margin:0">Badminton session management</p>
-            <div style="display:flex;gap:16px;align-items:center">
+            <div class="dashboard-subhead__actions" style="display:flex;gap:16px;align-items:center">
                 <a href="'.$base.'/stats" class="manage-link">Player Stats</a>
                 <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
             </div>
