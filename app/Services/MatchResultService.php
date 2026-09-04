@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Jobs\AllocateSessionMatches;
 use App\Enums\CourtStatus;
 use App\Enums\MatchResult;
 use App\Enums\MatchStatus;
@@ -28,7 +29,7 @@ class MatchResultService
      */
     public function recordResult(GameMatch $match, int $winningTeam, bool $closeGame = false): array
     {
-        return DB::transaction(function () use ($match, $winningTeam, $closeGame) {
+        $result = DB::transaction(function () use ($match, $winningTeam, $closeGame) {
             // Matchmaking locks the session first. Do the same here so a result
             // and a concurrent player action cannot acquire locks in opposite order.
             $session = Session::query()
@@ -152,6 +153,12 @@ class MatchResultService
                 'next_matches' => $nextMatches,
             ];
         }, 3); // Retry up to 3 times on deadlock
+
+        // The completed match frees its court. Refill it asynchronously after
+        // the transaction commits so the next round cannot be stranded.
+        AllocateSessionMatches::dispatch($match->session_id)->afterResponse();
+
+        return $result;
     }
 
     /**

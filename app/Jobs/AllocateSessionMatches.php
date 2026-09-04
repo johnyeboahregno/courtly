@@ -33,7 +33,21 @@ class AllocateSessionMatches implements ShouldQueue
             return;
         }
 
-        $matches = $matchmaking->allocateMatches($session);
+        $matches = [];
+        $maxPasses = max(1, (int) $session->number_of_courts);
+
+        // Keep allocating until the server has either filled every possible
+        // court or there are fewer than four eligible waiting players left.
+        // Repeating is intentional: a strategy may return a partial set when
+        // its first candidate pass cannot find enough non-overlapping groups.
+        for ($pass = 0; $pass < $maxPasses; $pass++) {
+            $created = $matchmaking->allocateMatches($session->fresh());
+            if ($created === []) {
+                break;
+            }
+
+            $matches = array_merge($matches, $created);
+        }
 
         if ($matches !== []) {
             $events->publish($session->id, 'session.updated', [
