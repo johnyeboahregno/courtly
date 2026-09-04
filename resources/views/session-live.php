@@ -65,22 +65,22 @@
                     <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
                 </div>
@@ -114,16 +114,19 @@
     </div>
 
     <details class="match-history">
-        <summary class="match-history__summary">MATCH HISTORY <span>{{ history.length }}</span></summary>
-        <div v-if="history.length" class="match-history__list">
-            <div v-for="match in history" :key="match.id" class="match-history__item">
+        <summary class="match-history__summary">MATCH HISTORY</summary>
+        <div class="match-history__search-wrap">
+            <input v-model="historySearch" class="match-history__search" type="search" placeholder="Search players..." @click.stop>
+        </div>
+        <div v-if="filteredHistory.length" class="match-history__list">
+            <div v-for="match in filteredHistory" :key="match.id" class="match-history__item">
                 <div class="match-history__teams">
                     <strong :class="{ 'match-history__winner': match.winning_team === 1 }">{{ historyTeam(match, 1) }}</strong>
                     <strong :class="{ 'match-history__winner': match.winning_team === 2 }">{{ historyTeam(match, 2) }}</strong>
                 </div>
             </div>
         </div>
-        <p v-else class="match-history__empty">No completed matches yet.</p>
+        <p v-else class="match-history__empty">{{ history.length ? 'No matching players.' : 'No completed matches yet.' }}</p>
     </details>
 
     <footer class="session-controls">
@@ -219,6 +222,18 @@ createApp({
         const courts = ref([]);
         const players = ref([]);
         const history = ref([]);
+        const historySearch = ref('');
+        const filteredHistory = computed(() => {
+            const query = historySearch.value.trim().toLowerCase();
+            if (!query) return history.value;
+
+            return history.value.filter(match =>
+                [historyTeam(match, 1), historyTeam(match, 2)]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(query)
+            );
+        });
         const pendingAddedPlayers = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
@@ -558,7 +573,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, history, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, players, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math };
     }
 }).mount('#courtly-app');
 </script>

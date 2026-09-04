@@ -651,6 +651,18 @@ body {
     letter-spacing: .04em;
 }
 
+.match-history__search-wrap { padding: 0 14px 8px; }
+.match-history__search {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--stroke);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.match-history__search::placeholder { color: var(--text-muted); }
+
 .match-history__summary span {
     margin-left: 6px;
     color: var(--text-muted);
