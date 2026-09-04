@@ -113,7 +113,6 @@
         <button v-if="session.status === 'ACTIVE' || session.status === 'PAUSED'" class="btn btn--danger" @click="finishSession">⏹ FINISH</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" @click="startNewSession">▶ START NEW SESSION</button>
         <button class="btn btn--secondary" @click="openPlayers">+ PLAYERS</button>
-        <button v-if="syncEnabled" class="btn btn--secondary" @click="syncNow" :disabled="syncing">⟳ SYNC<span v-if="pendingCount"> ({{ pendingCount }})</span></button>
     </footer>
 
     <!-- Players dialog: add new/select existing + manage roster -->
@@ -280,7 +279,7 @@ createApp({
         let eventSource = null;
         let eventRefreshTimer = null;
         const syncing = ref(false);
-        const syncEnabled = ref(SYNC_CONFIG.sync_button !== false);
+        const syncEnabled = ref(false);
 
         // ── Offline-first player store + sync queue ──
         // Remote connection is only needed for the initial player load and
@@ -299,8 +298,8 @@ createApp({
         function writeLS(key, val) {
             try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
         }
-        const syncQueue = ref(readLS(LS_QUEUE, []));
-        const pendingCount = computed(() => syncQueue.value.length);
+        const syncQueue = ref([]);
+        const pendingCount = ref(0);
         function persistQueue() { writeLS(LS_QUEUE, syncQueue.value); }
         function rescheduleSync(op) {
             op.attempts = (op.attempts || 0) + 1;
@@ -331,8 +330,6 @@ createApp({
             if (Array.isArray(cached.players)) players.value = cached.players;
             if (Array.isArray(cached.courts)) courts.value = cached.courts;
         }
-        // Keep the local store in sync with reactive state (any change persists).
-        watch([players, courts, () => session.status], persistSessionState, { deep: true });
         // Fetch the full player list from the server and cache it locally.
         async function refreshPlayerCache() {
             try {
@@ -341,7 +338,6 @@ createApp({
                     const json = await res.json();
                     const list = json.data || [];
                     allKnownPlayers.value = list;
-                    writeLS(LS_PLAYERS, list);
                 }
             } catch { /* server unreachable — keep cached players */ }
         }
@@ -482,10 +478,6 @@ createApp({
         function courtAccent(n) { return COURT_COLORS[n] || '#6B7280'; }
 
         async function loadKnownPlayers() {
-            // 1. Instant from local cache (works offline)
-            const cached = readLS(LS_PLAYERS, []);
-            if (cached.length > 0) allKnownPlayers.value = cached;
-            // 2. Background refresh from server
             await refreshPlayerCache();
         }
 
@@ -557,16 +549,6 @@ createApp({
             }, 100);
         }
 
-        function applyMatchCompleted(event) {
-            let data;
-            try { data = JSON.parse(event.data); } catch { return; }
-            if (!data || !data.court_id) return;
-
-            courts.value = courts.value.map(court =>
-                court.id === data.court_id ? { ...court, match: null } : court
-            );
-        }
-
         function startEventStream() {
             if (!window.EventSource) return;
 
@@ -576,8 +558,8 @@ createApp({
                 'waiting_list.updated', 'player.checked_in', 'player.paused',
                 'player.resumed', 'player.left'
             ];
+            eventTypes.push('match.completed');
             eventTypes.forEach(type => eventSource.addEventListener(type, scheduleEventRefresh));
-            eventSource.addEventListener('match.completed', applyMatchCompleted);
             eventSource.onopen = () => { connectionState.value = 'connected'; };
         }
 
@@ -586,37 +568,17 @@ createApp({
             return res.json();
         }
 
-        async function postApi(url) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include' }); return res.json(); }
+        async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return res.json(); }
         async function recordResult(matchId, team, closeGame = false) {
             const submissionKey = matchId + '_' + team;
             if (submitting[submissionKey]) return;
             submitting[submissionKey] = true;
-
-            // Optimistic UI: move players to waiting and clear the court.
-            const losingTeam = team === 1 ? 2 : 1;
-            const court = courts.value.find(c => c.match && c.match.id === matchId);
-            if (court && court.match) {
-                const losers = losingTeam === 1 ? court.match.t1 : court.match.t2;
-                const winnerNames = (team === 1 ? court.match.t1 : court.match.t2).map(p => p.name);
-
-                players.value = players.value.map(sp => {
-                    const isLoser = losers.some(l => l.name === sp.player.name);
-                    const isWinner = winnerNames.includes(sp.player.name);
-                    if (isLoser) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins, losses: sp.losses + 1 };
-                    if (isWinner) return { ...sp, status: 'WAITING', games_played: sp.games_played + 1, wins: sp.wins + 1, losses: sp.losses };
-                    return sp;
-                });
-
-                court.match = null;
+            try {
+                await postApi('/api/matches/' + matchId + '/result', { winning_team: team, close_game: closeGame });
+                await fetchSession();
+            } finally {
+                submitting[submissionKey] = false;
             }
-            submitting[matchId + '_' + team] = false;
-
-            // Offline-first: store the result locally, then push immediately.
-            // If the server is slow or down, the result stays queued in local
-            // storage and is retried by the sync loop, the Sync button, or at
-            // session end.
-            enqueueSync('/api/matches/' + matchId + '/result', 'POST', { winning_team: team, close_game: closeGame });
-            flushSyncQueue();
         }
         async function startNewSession() {
             confirmNewSession.value = { show: true };
@@ -637,82 +599,41 @@ createApp({
         async function toggleMode() {
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
 
-            // Flip instantly — the POST is slow (remote DB), so don't block the
-            // switch on it. The request runs in the background and the label
-            // updates immediately from local state.
-            matchmakingMode.value = next;
-
-            fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/matchmaking-mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                credentials: 'include',
-                body: JSON.stringify({ mode: next })
-            })
-                .catch(() => {})
-                .finally(() => fetchSession());
+            await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+            await fetchSession();
         }
-        async function startSession() {
-            await flushSyncQueue(); // push any pending player additions first
-            await postApi('/api/sessions/' + SESSION_ID + '/start');
-            fetchSession();
-        }
-        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); fetchSession(); }
-        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); fetchSession(); }
+        async function startSession() { await postApi('/api/sessions/' + SESSION_ID + '/start'); await fetchSession(); }
+        async function pauseSession() { await postApi('/api/sessions/' + SESSION_ID + '/pause'); await fetchSession(); }
+        async function resumeSession() { await postApi('/api/sessions/' + SESSION_ID + '/resume'); await fetchSession(); }
         async function finishSession() {
-            if (SYNC_ON_SESSION_END) await flushSyncQueue(); // push any pending changes
             await postApi('/api/sessions/' + SESSION_ID + '/finish');
-            fetchSession();
+            await fetchSession();
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
             if (!name) return;
 
-            const tempId = 'local_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-
-            // Local-first: show in the waiting queue immediately (no server wait)
-            players.value.push({
-                player_id: tempId,
-                player: { id: tempId, name: name, rating: 0, _local: true },
-                status: 'WAITING',
-                games_played: 0, wins: 0, losses: 0
-            });
+            await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
             newPlayerName.value = '';
-
-            // Queue for background sync (flushed on the configured schedule,
-            // on idle, via the Sync button, or at session end).
-            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { name: name });
-            flushSyncQueue();
+            await fetchSession();
         }
 
         async function addExistingPlayer(id) {
-            // Optimistic: remove from available list, add to waiting list
-            const player = allKnownPlayers.value.find(p => p.id === id);
-            allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== id);
-
-            if (player) {
-                players.value.push({
-                    player_id: id,
-                    player: { id: id, name: player.name, rating: player.rating },
-                    status: 'WAITING',
-                    games_played: 0, wins: 0, losses: 0
-                });
-            }
-
-            newPlayerName.value = ''; // clear the autocomplete input
-            enqueueSync('/api/sessions/' + SESSION_ID + '/players', 'POST', { player_ids: [id] });
-            flushSyncQueue();
+            await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+            newPlayerName.value = '';
+            await fetchSession();
         }
 
-        function pausePlayer(spId) {
+        async function pausePlayer(spId) {
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'PAUSED', waiting_since: null } : sp);
-                enqueueSync('/api/session-players/' + spId + '/pause', 'POST');
+                await postApi('/api/session-players/' + spId + '/pause');
+                await fetchSession();
             }
         }
-        function resumePlayer(spId) {
+        async function resumePlayer(spId) {
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'WAITING' } : sp);
-                enqueueSync('/api/session-players/' + spId + '/resume', 'POST');
+                await postApi('/api/session-players/' + spId + '/resume');
+                await fetchSession();
             }
         }
 
@@ -725,8 +646,7 @@ createApp({
             const spId = confirmRemove.value.spId;
             confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false };
             if (typeof spId === 'number') {
-                players.value = players.value.map(sp => sp.id === spId ? { ...sp, status: 'LEFT', left_at: new Date().toISOString() } : sp);
-                enqueueSync('/api/session-players/' + spId + '/leave', 'POST');
+                postApi('/api/session-players/' + spId + '/leave').then(fetchSession);
             }
         }
 
@@ -741,8 +661,7 @@ createApp({
             if (!confirmDelete.value.playerId) return;
             const playerId = confirmDelete.value.playerId;
             confirmDelete.value = { show: false, playerId: null, name: '' };
-            allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
-            enqueueSync('/api/players/' + playerId, 'DELETE');
+            fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } }).then(fetchSession);
         }
 
         function onVisibilityChange() {
@@ -753,20 +672,9 @@ createApp({
         }
 
         onMounted(() => {
-            loadSessionState();          // instant from browser storage
-            fetchSession();              // reconcile with the server once
+            fetchSession();
             loadKnownPlayers();
-            startSyncLoop();
-            // Background reconcile (safety net) instead of a 3s poll.
-            if (RECONCILE_INTERVAL_MS > 0) {
-                reconcileTimer = setInterval(fetchSession, RECONCILE_INTERVAL_MS);
-            }
-
-            // Flush pending changes when the user leaves / tab goes idle.
-            if (SYNC_ON_IDLE) {
-                document.addEventListener('visibilitychange', onVisibilityChange);
-                window.addEventListener('pagehide', onPageHide);
-            }
+            startEventStream();
         });
         onUnmounted(() => {
             if (syncTimer) clearInterval(syncTimer);
