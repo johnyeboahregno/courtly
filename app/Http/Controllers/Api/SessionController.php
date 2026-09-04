@@ -314,6 +314,98 @@ class SessionController extends Controller
     }
 
     /**
+     * Adjust the court count and return players from a removed court to the queue.
+     */
+    public function adjustCourts(Request $request, Session $session): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:add,remove'],
+        ]);
+
+        $session = DB::transaction(function () use ($session, $validated) {
+            $lockedSession = Session::query()->lockForUpdate()->findOrFail($session->id);
+
+            if ($lockedSession->status === SessionStatus::FINISHED) {
+                abort(409, 'Courts cannot be changed after a session has finished.');
+            }
+
+            $courtCount = $lockedSession->courts()
+                ->where('status', '!=', CourtStatus::INACTIVE->value)
+                ->count();
+            $minimum = (int) config('courtly.session.min_courts', 1);
+            $maximum = (int) config('courtly.session.max_courts', 8);
+
+            if ($validated['action'] === 'add') {
+                if ($courtCount >= $maximum) {
+                    abort(422, "A session can have at most {$maximum} courts.");
+                }
+
+                $removedCourt = $lockedSession->courts()
+                    ->where('status', CourtStatus::INACTIVE->value)
+                    ->orderByDesc('court_number')
+                    ->first();
+
+                if ($removedCourt) {
+                    $removedCourt->update(['status' => CourtStatus::AVAILABLE]);
+                } else {
+                    Court::create([
+                        'session_id' => $lockedSession->id,
+                        'court_number' => ($lockedSession->courts()->max('court_number') ?? 0) + 1,
+                        'status' => CourtStatus::AVAILABLE,
+                    ]);
+                }
+            } else {
+                if ($courtCount <= $minimum) {
+                    abort(422, "A session must have at least {$minimum} court.");
+                }
+
+                $court = $lockedSession->courts()
+                    ->where('status', '!=', CourtStatus::INACTIVE->value)
+                    ->orderByDesc('court_number')
+                    ->firstOrFail();
+
+                $match = $lockedSession->matches()
+                    ->where('court_id', $court->id)
+                    ->where('status', MatchStatus::PLAYING->value)
+                    ->with('matchPlayers')
+                    ->first();
+
+                if ($match) {
+                    $lockedSession->sessionPlayers()
+                        ->whereIn('player_id', $match->matchPlayers->pluck('player_id'))
+                        ->update([
+                            'status' => SessionPlayerStatus::WAITING,
+                            'waiting_since' => now(),
+                        ]);
+
+                    $match->delete();
+                }
+
+                $court->update(['status' => CourtStatus::INACTIVE]);
+            }
+
+            $lockedSession->update(['number_of_courts' => $validated['action'] === 'add' ? $courtCount + 1 : $courtCount - 1]);
+
+            return $lockedSession->fresh()->load([
+                'courts',
+                'sessionPlayers.player',
+                'matches' => fn ($query) => $query
+                    ->where('status', MatchStatus::PLAYING->value)
+                    ->with('matchPlayers.player'),
+            ]);
+        });
+
+        $this->events->publish($session->id, 'session.updated', [
+            'session_id' => $session->id,
+            'number_of_courts' => $session->number_of_courts,
+        ]);
+
+        return response()->json(['data' => $session]);
+    }
+
+    /**
      * Delete a session and all of its data.
      */
     public function destroy(Session $session): JsonResponse

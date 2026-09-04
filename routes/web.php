@@ -147,8 +147,7 @@ Route::get('/', function () {
                 </form>
             </div>
         </div>
-        <div class="dashboard-subhead" style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
-            <p class="sub" style="margin:0">Badminton session management</p>
+        <div class="dashboard-subhead" style="display:flex;justify-content:flex-end;align-items:baseline;margin:0 0 24px;gap:12px">
             <div class="dashboard-subhead__actions" style="display:flex;gap:16px;align-items:center">
                 <a href="'.$base.'/stats" class="manage-link">Player Stats</a>
                 <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>

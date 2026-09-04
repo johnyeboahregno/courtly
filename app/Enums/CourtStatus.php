@@ -8,4 +8,5 @@ enum CourtStatus: string
 {
     case AVAILABLE = 'AVAILABLE';
     case PLAYING = 'PLAYING';
+    case INACTIVE = 'INACTIVE';
 }

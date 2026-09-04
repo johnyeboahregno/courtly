@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Enums\CourtStatus;
+use App\Enums\MatchStatus;
 use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
 use App\Models\Court;
+use App\Models\GameMatch;
+use App\Models\MatchPlayer;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
@@ -37,6 +40,89 @@ it('creates a session with courts for the authenticated user', function () {
         'court_number' => 1,
         'status' => CourtStatus::AVAILABLE->value,
     ]);
+});
+
+it('allows courts to be added and removed while a session is being set up', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->create([
+        'status' => SessionStatus::UPCOMING->value,
+        'number_of_courts' => 2,
+    ]);
+    Court::factory()->for($session)->create(['court_number' => 1]);
+    Court::factory()->for($session)->create(['court_number' => 2]);
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'add'])
+        ->assertOk()
+        ->assertJsonPath('data.number_of_courts', 3)
+        ->assertJsonCount(3, 'data.courts');
+
+    $this->assertDatabaseHas('courts', [
+        'session_id' => $session->id,
+        'court_number' => 3,
+        'status' => CourtStatus::AVAILABLE->value,
+    ]);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'remove'])
+        ->assertOk()
+        ->assertJsonPath('data.number_of_courts', 2)
+        ->assertJsonCount(2, 'data.courts');
+
+    $this->assertDatabaseHas('courts', [
+        'session_id' => $session->id,
+        'court_number' => 3,
+        'status' => CourtStatus::INACTIVE->value,
+    ]);
+});
+
+it('returns players to next up when removing an active court', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    Court::factory()->for($session)->create(['court_number' => 1]);
+    $court = Court::factory()->for($session)->create(['court_number' => 2, 'status' => CourtStatus::PLAYING]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::PLAYING]));
+    $match = GameMatch::factory()->for($session)->for($court)->create(['status' => MatchStatus::PLAYING]);
+    $players->each(fn (Player $player, int $index) => MatchPlayer::factory()
+        ->for($match, 'match')
+        ->for($player)
+        ->create(['team' => $index < 2 ? 1 : 2]));
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'remove'])
+        ->assertOk()
+        ->assertJsonPath('data.number_of_courts', 1)
+        ->assertJsonCount(2, 'data.courts');
+
+    expect($session->fresh()->number_of_courts)->toBe(1);
+    $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::INACTIVE->value]);
+    $this->assertDatabaseMissing('matches', ['id' => $match->id]);
+
+    foreach ($players as $player) {
+        $this->assertDatabaseHas('session_players', [
+            'session_id' => $session->id,
+            'player_id' => $player->id,
+            'status' => SessionPlayerStatus::WAITING->value,
+        ]);
+    }
+});
+
+it('does not allow court changes after a session has finished', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->create([
+        'status' => SessionStatus::FINISHED->value,
+    ]);
+    Court::factory()->for($session)->create(['court_number' => 1]);
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'add'])
+        ->assertStatus(409);
 });
 
 it('starts an upcoming session and marks waiting players as eligible', function () {
