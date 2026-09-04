@@ -89,6 +89,12 @@ class SessionController extends Controller
     {
         $this->authorizeSession($session);
 
+        // Keep every active court populated when the live view reconnects or
+        // receives an SSE-triggered refresh.
+        if ($session->status === SessionStatus::ACTIVE) {
+            $this->matchmaking->allocateMatches($session);
+        }
+
         // The live view only needs the matches currently in play — loading every
         // match in the session (potentially hundreds) on each poll is wasteful
         // against the high-latency remote DB.
