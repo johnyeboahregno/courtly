@@ -25,7 +25,8 @@
         .ranking-table thead th { color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
         .ranking-table tbody th { color: var(--text); font-weight: 700; }
         .ranking-table tbody tr:last-child th, .ranking-table tbody tr:last-child td { border-bottom: 0; }
-        .ranking-table__rank { color: var(--accent); font-weight: 800; width: 48px; }
+        .ranking-table__rank { color: var(--accent); font-weight: 800; width: 48px; font-size: 1.05rem; }
+        .ranking-table__icon { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
         .ranking-table__empty { color: var(--text-muted); text-align: left !important; padding: 24px 10px !important; }
         .ranking-table__rating { font-weight: 800; color: var(--accent); }
     </style>
@@ -58,8 +59,16 @@
                 <?php else: ?>
                     <?php foreach ($players as $rank => $player): ?>
                         <?php $winPercentage = $player->total_games > 0 ? round(($player->wins / $player->total_games) * 100, 1) : 0; ?>
+                        <?php $rankNumber = $rank + 1; ?>
+                        <?php $rankIcons = [1 => 'apex@2x.png', 2 => 'pace@2x.png', 3 => 'rise@2x.png', 4 => 'start@2x.png']; ?>
                         <tr>
-                            <td class="ranking-table__rank"><?= $rank + 1 ?></td>
+                            <td class="ranking-table__rank" aria-label="Rank <?= $rankNumber ?>">
+                                <?php if (isset($rankIcons[$rankNumber])): ?>
+                                    <img class="ranking-table__icon" src="<?= e($base ?? '') ?>/assets/ranks/<?= e($rankIcons[$rankNumber]) ?>" alt="Rank <?= $rankNumber ?>">
+                                <?php else: ?>
+                                    <?= $rankNumber ?>
+                                <?php endif; ?>
+                            </td>
                             <th scope="row"><?= e($player->name) ?></th>
                             <td class="ranking-table__rating"><?= number_format((float) $player->rating, 1) ?></td>
                             <td><?= $player->total_games ?></td>
