@@ -328,9 +328,9 @@ textarea,
 }
 
 .session-sport-icon {
-    width: 68px;
-    height: 68px;
-    flex: 0 0 68px;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
     background: #fff;
     -webkit-mask-image: var(--session-sport-image);
     mask-image: var(--session-sport-image);
@@ -2130,9 +2130,8 @@ textarea,
     color: #fff;
 }
 
-/* Version label and dashboard link in the session header. */
-.session-header__version,
-.session-header__back {
+/* Version label in the session header. */
+.session-header__version {
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -2140,19 +2139,6 @@ textarea,
     border: 1px solid var(--stroke);
     border-radius: 999px;
     white-space: nowrap;
-}
-
-.session-header__back {
-    text-decoration: none;
-    transition: border-color .15s, color .15s, background .15s;
-}
-
-.session-header__back:hover,
-.session-header__back:focus-visible {
-    border-color: var(--accent);
-    background: var(--surface-2);
-    color: var(--text);
-    outline: none;
 }
 
 /* Matchmaking-mode switch (header) */

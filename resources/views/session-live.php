@@ -44,7 +44,6 @@
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
                 <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
             </a>
-            <span class="session-sport-icon" :style="{ '--session-sport-image': 'url(/assets/' + session.sport + '.png)' }" aria-hidden="true"></span>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
         <div class="session-header__stats">
@@ -55,8 +54,8 @@
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
-            <a href="<?= $base ?? '/courtly' ?>/" class="session-header__back" title="Back to dashboard">DASHBOARD</a>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? '1.0.0') ?></span>
+            <span class="session-sport-icon" :style="{ '--session-sport-image': 'url(/assets/' + session.sport + '.png)' }" aria-hidden="true"></span>
             <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
         </div>
     </header>
