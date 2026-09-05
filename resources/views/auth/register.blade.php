@@ -36,7 +36,7 @@
 <body>
 <div class="auth-page">
     <div class="auth-card">
-        <div class="auth-logo"><a href="/"><img src="/assets/courtly_light.png" alt="Courtly"></a></div>
+        <div class="auth-logo"><a href="/"><img src="/assets/favicon.png" alt="Courtly"></a></div>
         <h2>Create your account</h2>
         <p class="sub">Play. Connect. Rotate. Improve.<br>Join the badminton community.</p>
 

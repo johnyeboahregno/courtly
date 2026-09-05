@@ -123,8 +123,9 @@ textarea,
 }
 
 .session-header__logo-img {
-    height: 5vh;
-    width: auto;
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
     display: block;
 }
 
