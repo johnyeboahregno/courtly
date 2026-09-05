@@ -60,17 +60,20 @@
                     <?php foreach ($players as $rank => $player): ?>
                         <?php $winPercentage = $player->total_games > 0 ? round(($player->wins / $player->total_games) * 100, 1) : 0; ?>
                         <?php $rankNumber = $rank + 1; ?>
-                        <?php $rankIcons = [1 => 'apex@2x.png', 2 => 'pace@2x.png', 3 => 'rise@2x.png', 4 => 'start@2x.png']; ?>
+                        <?php
+                            $rating = (float) $player->rating;
+                            $tier = $rating >= 75 ? 'apex' : ($rating >= 50 ? 'pace' : ($rating >= 25 ? 'rise' : 'start'));
+                            $emblemBase = e($base ?? '') . '/assets/ranks/' . $tier;
+                        ?>
                         <tr>
-                            <td class="ranking-table__rank" aria-label="Rank <?= $rankNumber ?>">
-                                <?php if (isset($rankIcons[$rankNumber])): ?>
-                                    <img class="ranking-table__icon" src="<?= e($base ?? '') ?>/assets/ranks/<?= e($rankIcons[$rankNumber]) ?>" alt="Rank <?= $rankNumber ?>">
-                                <?php else: ?>
-                                    <?= $rankNumber ?>
-                                <?php endif; ?>
-                            </td>
-                            <th scope="row"><?= e($player->name) ?></th>
-                            <td class="ranking-table__rating"><?= number_format((float) $player->rating, 1) ?></td>
+                            <td class="ranking-table__rank" aria-label="Rank <?= $rankNumber ?>"><?= $rankNumber ?></td>
+                            <th scope="row">
+                                <span class="rank-icon">
+                                    <img src="<?= $emblemBase ?>@2x.png" srcset="<?= $emblemBase ?>@1x.png 1x, <?= $emblemBase ?>@2x.png 2x, <?= $emblemBase ?>@3x.png 3x" alt="<?= e(ucfirst($tier)) ?> rank" width="28" height="28" decoding="async">
+                                </span>
+                                <?= e($player->name) ?>
+                            </th>
+                            <td class="ranking-table__rating"><?= number_format($rating, 1) ?></td>
                             <td><?= $player->total_games ?></td>
                             <td><?= $winPercentage ?>%</td>
                         </tr>

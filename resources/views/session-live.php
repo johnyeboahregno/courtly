@@ -44,6 +44,7 @@
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
                 <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
             </a>
+            <span class="session-sport-icon" :style="{ '--session-sport-image': 'url(/assets/' + session.sport + '.png)' }" aria-hidden="true"></span>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
         <div class="session-header__stats">
@@ -376,7 +377,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, nextT
 
 createApp({
     setup() {
-        const session = reactive({ status: START_STATUS, type: 'casual' });
+        const session = reactive({ status: START_STATUS, type: 'casual', sport: 'badminton' });
         const sessionName = ref(START_NAME);
         const matchmakingMode = ref('smart');
         const modeLabel = computed(() => matchmakingMode.value === 'peg' ? 'Traditional Pegs' : 'Smart Match Making');
@@ -650,6 +651,7 @@ createApp({
         function applySessionData(d) {
             if (!d) return;
                 session.status = d.status;
+                session.sport = d.sport || 'badminton';
                 session.type = d.type || 'casual';
                 tournament.value = d.tournament || null;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';

@@ -47,10 +47,11 @@ Route::get('/', function () {
 
         $mode = ($session->matchmaking_mode ?? 'smart') === 'peg' ? 'PEG' : 'SMART';
         $modeTag = '<span class="tag tag--mode tag--mode--'.strtolower($mode).'">'.$mode.'</span>';
+        $sport = $session->sport?->value ?? 'badminton';
 
         $row = '<div class="session-row">'
             .'<a class="session-link" href="'.$base.'/sessions/'.$session->id.'/live">'
-                .'<span class="session-link__name">'.e($session->name).'</span>'
+            .'<span class="session-link__name"><span class="session-row-sport" style="--session-row-sport-image:url('.$base.'/assets/'.e($sport).'.png)" aria-hidden="true"></span>'.e($session->name).'</span>'
                 .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.ucfirst((string) $session->sport->value).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span> '.$modeTag.'</span>'
             .'</a>'
             .'<button type="button" class="session-delete" data-id="'.$session->id.'" title="Delete session">✕</button>'
@@ -83,7 +84,8 @@ Route::get('/', function () {
         .manage-link:hover{color:var(--accent);text-decoration:underline}
         .session-link{display:block;background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;color:var(--text);box-shadow:var(--shadow-card);transition:border-color .15s}
         .session-link:hover{border-color:var(--accent)}
-        .session-link__name{font-weight:700;font-size:1.05rem;display:block;margin-bottom:4px}
+        .session-link__name{font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:9px;margin-bottom:4px}
+        .session-row-sport{width:28px;height:28px;flex:0 0 28px;background:#fff;-webkit-mask-image:var(--session-row-sport-image);mask-image:var(--session-row-sport-image);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-mode:luminance;mask-mode:luminance}
         .session-link__meta{font-size:.85rem;color:var(--text-muted)}
         .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.7rem;font-weight:700}
         .tag--active{background:var(--status-active-bg);color:var(--status-active-text)}.tag--upcoming{background:var(--status-upcoming-bg);color:var(--status-upcoming-text)}.tag--paused{background:var(--status-paused-bg);color:var(--status-paused-text)}.tag--finished{background:var(--status-finished-bg);color:var(--status-finished-text)}
@@ -115,6 +117,8 @@ Route::get('/', function () {
         .dialog__btn--cancel:hover{border-color:var(--accent);color:var(--text)}
         .dialog__btn--danger{background:var(--accent);color:#fff}
         .dialog__btn--danger:hover{filter:brightness(1.1)}
+        .dialog__btn--reset{background:transparent;border-color:#d9a441;color:#d9a441}
+        .dialog__btn--reset:hover{background:rgba(217,164,65,.12);color:#e0b457}
         .card{background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:18px;margin-bottom:20px;box-shadow:var(--shadow-card)}
         .card h2{font-size:1.05rem;margin:0 0 14px;color:var(--text)}
         .field{margin-bottom:12px}
@@ -164,21 +168,20 @@ Route::get('/', function () {
             <form id="createForm">
                 <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
                 <div class="sport-picker" id="sportPicker" role="radiogroup" aria-label="Choose a court sport">
-                    <span class="sport-picker__label">Built for every court</span>
                     <button type="button" class="sport-option is-selected" data-sport="badminton" aria-pressed="true">
-                        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="m20 4 6 8-6 5-6-5zM14 16l-5 16m8-15-1 18m7-19 5 16m-11-15h6m-11 15h16m-14 4h12"/><path d="m26 11 6 6"/></svg><span>Badminton</span>
+                        <span class="sport-icon sport-icon--badminton" aria-hidden="true"></span><span>Badminton</span>
                     </button>
                     <button type="button" class="sport-option" data-sport="tennis" aria-pressed="false">
-                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><path d="M10 8c6 4 8 9 7 15s-4 10-9 12M30 8c-6 4-8 9-7 15s4 10 9 12"/></svg><span>Tennis</span>
+                        <span class="sport-icon sport-icon--tennis" aria-hidden="true"></span><span>Tennis</span>
                     </button>
                     <button type="button" class="sport-option" data-sport="pickleball" aria-pressed="false">
-                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><circle cx="14" cy="14" r="1" fill="currentColor"/><circle cx="25" cy="13" r="1" fill="currentColor"/><circle cx="28" cy="22" r="1" fill="currentColor"/><circle cx="17" cy="27" r="1" fill="currentColor"/><circle cx="11" cy="23" r="1" fill="currentColor"/></svg><span>Pickleball</span>
+                        <span class="sport-icon sport-icon--pickleball" aria-hidden="true"></span><span>Pickleball</span>
                     </button>
                     <button type="button" class="sport-option" data-sport="padel" aria-pressed="false">
-                        <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="17" cy="14" rx="8" ry="11" transform="rotate(35 17 14)"/><path d="m21 22 9 12M13 9l8 6m-10-2 8 6m-9-2 7 5"/><circle cx="15" cy="12" r=".8" fill="currentColor"/><circle cx="18" cy="15" r=".8" fill="currentColor"/><circle cx="14" cy="17" r=".8" fill="currentColor"/></svg><span>Padel</span>
+                        <span class="sport-icon sport-icon--padel" aria-hidden="true"></span><span>Padel</span>
                     </button>
                     <button type="button" class="sport-option" data-sport="squash" aria-pressed="false">
-                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><circle cx="16" cy="16" r="1" fill="currentColor"/><circle cx="25" cy="24" r="1" fill="currentColor"/><path d="M20 5c-2 7-2 14 0 30"/></svg><span>Squash</span>
+                        <span class="sport-icon sport-icon--squash" aria-hidden="true"></span><span>Squash</span>
                     </button>
                 </div>
                 <input id="fSport" type="hidden" value="badminton">
@@ -208,6 +211,7 @@ Route::get('/', function () {
             <p class="dialog__message">Edit names or delete players. Players on court are locked.</p>
             <div id="manageList" style="max-height:60vh;overflow:auto;margin-bottom:16px"></div>
             <div class="dialog__actions">
+                <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()">Reset All</button>
                 <button type="button" class="dialog__btn dialog__btn--cancel" onclick="closeManage()">Close</button>
             </div>
         </div>
@@ -485,7 +489,7 @@ Route::get('/', function () {
     }
 
     function resetPlayer(id) {
-        showConfirmDialog("Reset player rating", "Reset this player rating to the default starting value?", function(){
+        showConfirmDialog("Reset player", "Reset this player\'s rating, games and history to the default starting values?", function(){
         fetch("/api/players/" + id + "/reset-rating", {
             method: "POST",
             headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
@@ -494,10 +498,26 @@ Route::get('/', function () {
         .then(function(r){
             if (r.ok) {
                 fetchPlayers().then(renderManage);
-            } else { alert(r.message || "Could not reset rating"); }
+            } else { alert(r.message || "Could not reset player"); }
         })
         .catch(function(){ alert("Network error"); });
         }, "Reset");
+    }
+
+    function resetAllPlayers() {
+        showConfirmDialog("Reset all players", "Reset every player\'s rating, games and history to the default starting values? Players currently on court are skipped. This cannot be undone.", function(){
+        fetch("/api/players/reset-all", {
+            method: "POST",
+            headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
+        })
+        .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
+        .then(function(r){
+            if (r.ok) {
+                fetchPlayers().then(renderManage);
+            } else { alert(r.message || "Could not reset players"); }
+        })
+        .catch(function(){ alert("Network error"); });
+        }, "Reset all");
     }
 
     // Preload the roster into local memory on startup.

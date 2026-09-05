@@ -12,7 +12,7 @@ it('links to rankings from the dashboard and shows the users rankings page', fun
     Player::factory()->create([
         'user_id' => $user->id,
         'name' => 'Beta Player',
-        'rating' => 82,
+        'rating' => 40,
         'total_games' => 20,
         'wins' => 10,
     ]);
@@ -26,9 +26,16 @@ it('links to rankings from the dashboard and shows the users rankings page', fun
     Player::factory()->create([
         'user_id' => $user->id,
         'name' => 'Gamma Player',
-        'rating' => 82,
+        'rating' => 60,
         'total_games' => 30,
         'wins' => 15,
+    ]);
+    Player::factory()->create([
+        'user_id' => $user->id,
+        'name' => 'Delta Player',
+        'rating' => 10,
+        'total_games' => 4,
+        'wins' => 1,
     ]);
     Player::factory()->create([
         'user_id' => $otherUser->id,
@@ -52,8 +59,10 @@ it('links to rankings from the dashboard and shows the users rankings page', fun
         ->assertSee('/assets/ranks/apex@2x.png', false)
         ->assertSee('/assets/ranks/pace@2x.png', false)
         ->assertSee('/assets/ranks/rise@2x.png', false)
+        ->assertSee('/assets/ranks/start@2x.png', false)
         ->assertSee('Gamma Player')
         ->assertSee('Beta Player')
+        ->assertSee('Delta Player')
         ->assertDontSee('Private Player')
         ->assertSeeInOrder(['Alpha Player', 'Gamma Player', 'Beta Player']);
 });

@@ -140,7 +140,7 @@ class PlayerController extends Controller
     }
 
     /**
-     * Reset a player's rating to the configured starting value.
+     * Reset a player's rating, game stats and history to their starting values.
      */
     public function resetRating(Player $player): JsonResponse
     {
@@ -152,23 +152,73 @@ class PlayerController extends Controller
             ], 409);
         }
 
-        $player->update([
-            'rating' => config('courtly.rating.default_rating', 0.00),
-            'rating_status' => 'PROVISIONAL',
-            'rating_confidence' => config('courtly.rating.initial_confidence', 0.10),
-            'rated_games_count' => 0,
-        ]);
+        \Illuminate\Support\Facades\DB::transaction(fn () => $this->applyReset($player));
 
         return response()->json([
-            'message' => 'Player rating reset.',
+            'message' => 'Player reset.',
             'data' => [
                 'id' => $player->id,
                 'rating' => (float) $player->rating,
                 'rating_status' => $player->rating_status,
                 'rating_confidence' => (float) $player->rating_confidence,
                 'rated_games_count' => $player->rated_games_count,
+                'total_games' => $player->total_games,
+                'wins' => $player->wins,
+                'losses' => $player->losses,
             ],
         ]);
+    }
+
+    /**
+     * Reset every player in the user's roster back to their starting values.
+     * Players currently on court are skipped.
+     */
+    public function resetAll(): JsonResponse
+    {
+        $players = Player::where('user_id', $this->currentUser()->id)->get();
+
+        $reset = 0;
+        $skipped = 0;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($players, &$reset, &$skipped) {
+            foreach ($players as $player) {
+                if ($player->isInActiveMatch()) {
+                    $skipped++;
+                    continue;
+                }
+
+                $this->applyReset($player);
+                $reset++;
+            }
+        });
+
+        return response()->json([
+            'message' => "Reset {$reset} player(s).",
+            'data' => [
+                'reset' => $reset,
+                'skipped' => $skipped,
+            ],
+        ]);
+    }
+
+    /**
+     * Apply the full reset to a single player: stats back to defaults and
+     * rating history cleared.
+     */
+    private function applyReset(Player $player): void
+    {
+        $player->update([
+            'rating' => config('courtly.rating.default_rating', 0.00),
+            'rating_status' => 'PROVISIONAL',
+            'rating_confidence' => config('courtly.rating.initial_confidence', 0.10),
+            'rated_games_count' => 0,
+            'total_games' => 0,
+            'wins' => 0,
+            'losses' => 0,
+            'consecutive_wins' => 0,
+        ]);
+
+        \App\Models\RatingHistory::where('player_id', $player->id)->delete();
     }
 
     /**

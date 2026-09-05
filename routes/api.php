@@ -69,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/players/{player}/history', [PlayerController::class, 'history']);
     Route::get('/players/{player}', [PlayerController::class, 'show']);
     Route::patch('/players/{player}', [PlayerController::class, 'update']);
+    Route::post('/players/reset-all', [PlayerController::class, 'resetAll']);
     Route::post('/players/{player}/reset-rating', [PlayerController::class, 'resetRating']);
     Route::delete('/players/{player}', [PlayerController::class, 'destroy']);
 });
