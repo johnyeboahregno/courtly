@@ -1367,6 +1367,29 @@ textarea,
     color: #3cae67;
 }
 
+/* Remove-from-session button beside the pause button */
+.player-card__remove {
+    border: none;
+    background: #2a2a44;
+    color: var(--text-muted);
+    border-radius: 8px;
+    font-size: 1.2rem;
+    line-height: 1;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.player-card__remove:hover {
+    background: #3a2024;
+    color: #d47a8a;
+}
+
 /* The next 4 waiting players — next game on court */
 .player-card--next {
     border-color: #00c764;
@@ -2050,6 +2073,8 @@ textarea,
 [data-theme="light"] .court-card__divider span { background: #f0f4f2; color: #8fa39b; }
 [data-theme="light"] .player-card__pause { background: #dbe9e4; }
 [data-theme="light"] .player-card__pause:hover { background: #ffefc8; color: #8a5200; }
+[data-theme="light"] .player-card__remove { background: #f5e3e5; }
+[data-theme="light"] .player-card__remove:hover { background: #f8d7da; color: #a81c2a; }
 
 [data-theme="light"] .session-header__badge--active { background: var(--status-active-bg); color: var(--status-active-text); }
 [data-theme="light"] .session-header__badge--upcoming { background: var(--status-upcoming-bg); color: var(--status-upcoming-text); }
@@ -2126,6 +2151,8 @@ textarea,
     :root:not([data-theme]) .court-card__divider span { background: #f0f4f2; color: #8fa39b; }
     :root:not([data-theme]) .player-card__pause { background: #dbe9e4; }
     :root:not([data-theme]) .player-card__pause:hover { background: #ffefc8; color: #8a5200; }
+    :root:not([data-theme]) .player-card__remove { background: #f5e3e5; }
+    :root:not([data-theme]) .player-card__remove:hover { background: #f8d7da; color: #a81c2a; }
     :root:not([data-theme]) .session-header__badge--active { background: var(--status-active-bg); color: var(--status-active-text); }
     :root:not([data-theme]) .session-header__badge--upcoming { background: var(--status-upcoming-bg); color: var(--status-upcoming-text); }
     :root:not([data-theme]) .session-header__badge--paused { background: var(--status-paused-bg); color: var(--status-paused-text); }
