@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register — Courtly</title>
-    <link rel="icon" type="image/png" href="/assets/favicon.png?v=2">
+    <link rel="icon" type="image/png" href="/assets/favicon.png?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/courtly.css?v=3">
+    <link rel="stylesheet" href="/css/courtly.css?v=9">
     <style>
         .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); font-family: "Manrope", "Segoe UI", sans-serif; }
         .auth-card { width: 100%; max-width: 540px; background: var(--surface); border-radius: 8px; padding: 48px 44px; box-shadow: var(--shadow-card); border: 1px solid var(--stroke); }
@@ -37,7 +37,6 @@
 <div class="auth-page">
     <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     <div class="auth-card">
-        <div class="auth-logo"><a href="/"><img src="/assets/favicon.png" alt="Courtly"></a></div>
         <div class="auth-wordmark"><img class="auth-wordmark__image--dark" src="/assets/courtly_dark_blue.png" alt="Courtly — Smarter games. Fairer courts."><img class="auth-wordmark__image--light" src="/assets/courtly_light_blue.png" alt="Courtly — Smarter games. Fairer courts."></div>
 
         @if ($errors->any())
