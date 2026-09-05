@@ -242,3 +242,44 @@ it('accepts optional scores when recording a tournament result and uses them for
     $winner = collect($standings)->firstWhere('wins', 1);
     expect($winner['point_diff'])->toBe(6);
 });
+
+it('starts a ladder tournament, seeds challenge matches, and swaps ranks on an upset', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->create([
+        'status' => SessionStatus::UPCOMING->value,
+        'type' => 'tournament',
+        'tournament_format' => 'ladder',
+        'number_of_courts' => 2,
+    ]);
+    Court::factory()->for($session)->create(['court_number' => 1]);
+    Court::factory()->for($session)->create(['court_number' => 2]);
+
+    $players = Player::factory()->count(8)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/start")
+        ->assertOk()
+        ->assertJsonPath('data.session.status', SessionStatus::ACTIVE->value);
+
+    expect($session->fresh()->tournamentTeams)->toHaveCount(4);
+
+    $standingsBefore = $this->getJson("/api/sessions/{$session->id}")->json('data.tournament.standings');
+    expect($standingsBefore)->toHaveCount(4);
+    expect(collect($standingsBefore)->pluck('rank')->sort()->values()->all())->toBe([1, 2, 3, 4]);
+
+    // Bottom-ranked team (rank 4) challenges rank 3 first.
+    $challengerTeam = \App\Models\TournamentTeam::where('session_id', $session->id)->where('rank', 4)->firstOrFail();
+    $challengerFixture = \App\Models\TournamentFixture::where('away_team_id', $challengerTeam->id)->firstOrFail();
+
+    $this->postJson("/api/matches/{$challengerFixture->match_id}/result", ['winning_team' => 2])
+        ->assertOk();
+
+    $standingsAfter = $this->getJson("/api/sessions/{$session->id}")->json('data.tournament.standings');
+    $newTop = collect($standingsAfter)->firstWhere('rank', 3);
+    expect($newTop['players'])->toBe(collect($standingsBefore)->firstWhere('rank', 4)['players']);
+});

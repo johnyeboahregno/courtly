@@ -161,7 +161,8 @@ Route::get('/', function () {
             <form id="createForm">
                 <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
                 <div class="field"><label>Number of courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>
-                <div class="field"><label>Session type</label><select id="fType"><option value="casual" selected>Casual</option><option value="tournament">Tournament (round-robin ladder)</option></select></div>
+                <div class="field"><label>Session type</label><select id="fType" onchange="document.getElementById(\'fFormatField\').style.display = this.value === \'tournament\' ? \'block\' : \'none\'"><option value="casual" selected>Casual</option><option value="tournament">Tournament</option></select></div>
+                <div class="field" id="fFormatField" style="display:none"><label>Tournament format</label><select id="fFormat"><option value="round_robin" selected>Round Robin (everyone plays everyone)</option><option value="ladder">Ladder (challenge the rank above you)</option></select></div>
                 <button type="submit" class="create-btn">Create Session</button>
                 <div id="err" class="err"></div>
             </form>
@@ -201,7 +202,8 @@ Route::get('/', function () {
                 body: JSON.stringify({
                     name: document.getElementById("fName").value.trim(),
                     number_of_courts: parseInt(document.getElementById("fCourts").value, 10),
-                    type: document.getElementById("fType").value
+                    type: document.getElementById("fType").value,
+                    tournament_format: document.getElementById("fFormat").value
                 })
             });
             var json = await res.json();
