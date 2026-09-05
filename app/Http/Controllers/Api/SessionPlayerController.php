@@ -216,11 +216,20 @@ class SessionPlayerController extends Controller
 
     /**
      * Pause a player in the session.
+     * Only allowed if the player is currently WAITING or PAUSED.
+     * PLAYING players must finish their match first.
      */
     public function pause(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
         $this->authorizeSession($session);
+
+        // Validate state transition: only WAITING or PAUSED can be paused
+        if ($sessionPlayer->status !== SessionPlayerStatus::WAITING && $sessionPlayer->status !== SessionPlayerStatus::PAUSED) {
+            return response()->json([
+                'message' => "Cannot pause a player who is {$sessionPlayer->status->value}. They must finish their current match first.",
+            ], 422);
+        }
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::PAUSED,
@@ -238,11 +247,19 @@ class SessionPlayerController extends Controller
 
     /**
      * Resume a paused player.
+     * Only allowed if the player is currently PAUSED.
      */
     public function resume(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
         $this->authorizeSession($session);
+
+        // Validate state transition: only PAUSED can be resumed
+        if ($sessionPlayer->status !== SessionPlayerStatus::PAUSED) {
+            return response()->json([
+                'message' => "Cannot resume a player who is {$sessionPlayer->status->value}.",
+            ], 422);
+        }
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::WAITING,
@@ -255,19 +272,30 @@ class SessionPlayerController extends Controller
 
         $this->events->publish($session->id, 'waiting_list.updated', []);
 
-        // Fill available courts asynchronously.
-        AllocateSessionMatches::dispatch($session->id);
+        // Fill available courts synchronously to ensure immediate refill.
+        if ($session->isActive() && ! $session->isTournament()) {
+            $this->matchmaking->allocateMatches($session);
+        }
 
         return response()->json(['data' => $sessionPlayer->fresh()]);
     }
 
     /**
      * Mark a player as having left the session.
+     * Only allowed if the player is currently WAITING or PAUSED.
+     * PLAYING players must finish their match first.
      */
     public function leave(SessionPlayer $sessionPlayer): JsonResponse
     {
         $session = $sessionPlayer->session;
         $this->authorizeSession($session);
+
+        // Validate state transition: only WAITING or PAUSED can leave
+        if ($sessionPlayer->status !== SessionPlayerStatus::WAITING && $sessionPlayer->status !== SessionPlayerStatus::PAUSED) {
+            return response()->json([
+                'message' => "Cannot remove a player who is {$sessionPlayer->status->value}. They must finish their current match first.",
+            ], 422);
+        }
 
         $sessionPlayer->update([
             'status' => SessionPlayerStatus::LEFT,
