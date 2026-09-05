@@ -27,11 +27,7 @@
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
-            <div class="theme-toggle">
-                <button :class="{ active: theme === 'light' }" @click="setTheme('light')" title="Light">☀</button>
-                <button :class="{ active: theme === 'dark' }" @click="setTheme('dark')" title="Dark">☾</button>
-                <button :class="{ active: theme === 'system' }" @click="setTheme('system')" title="System">◐</button>
-            </div>
+            <button class="theme-switch" type="button" @click="toggleTheme" :title="theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'" aria-label="Switch theme">{{ theme === 'light' ? '☾' : '☀' }}</button>
         </div>
     </header>
 
@@ -233,6 +229,10 @@ createApp({
             if (t === 'system') document.documentElement.removeAttribute('data-theme');
             else document.documentElement.setAttribute('data-theme', t);
         }
+        function toggleTheme() {
+            const isLight = theme.value === 'light' || (theme.value === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+            setTheme(isLight ? 'dark' : 'light');
+        }
         // Apply on load
         if (theme.value !== 'system') document.documentElement.setAttribute('data-theme', theme.value);
 
@@ -431,7 +431,7 @@ createApp({
             return parts.join(' ');
         }
 
-        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, showPlayers, newPlayerName, availablePlayers, selectedExisting, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
+        return { session, sessionName, courts, players, waitingPlayers, queuePlayers, activePlayers, submitting, connectionState, elapsed, theme, setTheme, toggleTheme, showPlayers, newPlayerName, availablePlayers, selectedExisting, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, Math };
     }
 }).mount('#courtly-app');
 </script>

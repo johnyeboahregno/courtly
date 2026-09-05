@@ -141,9 +141,10 @@ Route::get('/', function () {
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly_light_blue.png" style="height:72px;width:240px;object-fit:contain;display:block;"></h1></div>
+            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/favicon.png" style="width:48px;height:48px;object-fit:contain;display:block;"></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
+                <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
                 <form method="POST" action="/logout" style="margin:0">
                     <input type="hidden" name="_token" value="'.csrf_token().'">
                     <button type="submit" style="background:transparent;border:1px solid var(--stroke,#2e2e4a);padding:8px 18px;border-radius:6px;font-size:.85rem;font-weight:700;cursor:pointer;color:var(--text-muted,#8888a8)">Logout</button>
@@ -210,6 +211,27 @@ Route::get('/', function () {
         </div>
     </div>
     <script>
+    function courtlyUpdateThemeIcon() {
+        var button = document.getElementById("themeSwitch");
+        if (!button) return;
+        var light = document.documentElement.getAttribute("data-theme") === "light";
+        button.textContent = light ? "☾" : "☀";
+        button.title = light ? "Switch to dark theme" : "Switch to light theme";
+        button.setAttribute("aria-label", button.title);
+    }
+    function toggleCourtlyTheme() {
+        var isLight = document.documentElement.getAttribute("data-theme") === "light";
+        var next = isLight ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("courtly-theme", next);
+        courtlyUpdateThemeIcon();
+    }
+    (function() {
+        var stored = localStorage.getItem("courtly-theme");
+        if (stored === "light" || stored === "dark") document.documentElement.setAttribute("data-theme", stored);
+        courtlyUpdateThemeIcon();
+    })();
+
     var sportInput = document.getElementById("fSport");
     document.querySelectorAll(".sport-option").forEach(function(option) {
         option.addEventListener("click", function() {

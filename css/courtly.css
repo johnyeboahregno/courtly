@@ -59,6 +59,66 @@ body {
     font-family: "Manrope", "Segoe UI", sans-serif !important;
 }
 
+.theme-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--stroke);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    font: 700 1.05rem/1 "Manrope", "Segoe UI", sans-serif;
+    transition: border-color .15s, background .15s, transform .15s;
+}
+
+.theme-switch:hover,
+.theme-switch:focus-visible {
+    border-color: var(--court-cyan);
+    background: var(--bg-accent);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.auth-page > .theme-switch {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2;
+}
+
+.auth-logo img {
+    width: 96px !important;
+    height: 96px !important;
+    object-fit: contain;
+}
+
+.auth-wordmark {
+    display: flex;
+    justify-content: center;
+    margin: 4px auto 30px;
+}
+
+.auth-wordmark img {
+    width: min(280px, 90%);
+    height: 100px;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 8px;
+}
+
+.auth-wordmark__image--light { display: none; }
+[data-theme="light"] .auth-wordmark__image--dark { display: none; }
+[data-theme="light"] .auth-wordmark__image--light { display: block; }
+
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .auth-wordmark__image--dark { display: none; }
+    :root:not([data-theme]) .auth-wordmark__image--light { display: block; }
+}
+
 .auth-card {
     background: var(--surface) !important;
     border-color: var(--stroke) !important;
