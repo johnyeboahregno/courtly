@@ -65,16 +65,19 @@ class SessionController extends Controller
             'tournament_format' => ['nullable', 'string', 'in:round_robin,ladder'],
         ]);
 
+        $isTournament = ($validated['type'] ?? 'casual') === 'tournament';
+
         $session = Session::create([
             'name' => $validated['name'],
             'sport' => $validated['sport'] ?? 'badminton',
             'date' => $validated['date'] ?? now()->toDateString(),
             'start_time' => $validated['start_time'] ?? null,
             'number_of_courts' => $validated['number_of_courts'],
-            'status' => SessionStatus::UPCOMING,
+            'status' => $isTournament ? SessionStatus::UPCOMING : SessionStatus::ACTIVE,
             'type' => $validated['type'] ?? 'casual',
             'tournament_format' => $validated['tournament_format'] ?? 'round_robin',
             'created_by' => $request->user()->id,
+            'started_at' => $isTournament ? null : now(),
         ]);
 
         // Create courts
@@ -135,7 +138,9 @@ class SessionController extends Controller
         // session is somehow already ACTIVE, just fill any idle courts instead
         // of rejecting the request with a 409.
         if ($session->status === SessionStatus::ACTIVE) {
-            AllocateSessionMatches::dispatch($session->id);
+            if (! $session->isTournament()) {
+                $this->matchmaking->allocateMatches($session);
+            }
 
             return response()->json([
                 'data' => [
