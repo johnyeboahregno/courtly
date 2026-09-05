@@ -327,6 +327,23 @@ textarea,
     font-weight: 700;
 }
 
+.session-sport-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    background: #fff;
+    -webkit-mask-image: var(--session-sport-image);
+    mask-image: var(--session-sport-image);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-mode: luminance;
+    mask-mode: luminance;
+}
+
 .session-header__tagline {
     margin: 0;
     color: var(--court-cyan);
@@ -361,22 +378,36 @@ textarea,
 
 .sport-picker {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(72px, 1fr));
     gap: 0;
     margin: 0 -2px 18px;
-    padding: 14px 0 8px;
+    padding: 14px 0 10px;
     border-top: 1px solid var(--stroke);
     border-bottom: 1px solid var(--stroke);
 }
 
 .sport-picker__label {
-    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     color: var(--text-muted);
     font-size: .68rem;
     font-weight: 800;
     letter-spacing: .15em;
+    line-height: 1.5;
     text-transform: uppercase;
-    padding: 0 8px 12px;
+    padding: 0 12px;
+    border-right: 1px solid var(--stroke);
+}
+
+.sport-picker__label span { display: block; }
+
+.sport-picker__label i {
+    display: block;
+    width: 22px;
+    height: 1px;
+    margin-top: 10px;
+    background: var(--court-cyan);
 }
 
 .sport-option {
@@ -399,9 +430,32 @@ textarea,
     transition: border-color .15s, background .15s, color .15s, transform .15s;
 }
 
-.sport-option svg {
+.sport-option svg,
+.sport-option .sport-icon {
     width: 34px;
     height: 34px;
+    display: block;
+}
+
+.sport-option .sport-icon {
+    background: #fff;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-mode: luminance;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    mask-mode: luminance;
+}
+
+.sport-icon--badminton { -webkit-mask-image: url('/assets/badminton.png'); mask-image: url('/assets/badminton.png'); }
+.sport-icon--tennis { -webkit-mask-image: url('/assets/tennis.png'); mask-image: url('/assets/tennis.png'); }
+.sport-icon--pickleball { -webkit-mask-image: url('/assets/pickleball.png'); mask-image: url('/assets/pickleball.png'); }
+.sport-icon--padel { -webkit-mask-image: url('/assets/padel.png'); mask-image: url('/assets/padel.png'); }
+.sport-icon--squash { -webkit-mask-image: url('/assets/squash.png'); mask-image: url('/assets/squash.png'); }
+
+.sport-option svg {
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
@@ -425,6 +479,10 @@ textarea,
 }
 
 .sport-option.is-selected svg { color: #fff; }
+
+.sport-option--more { color: var(--text-muted); }
+.sport-option--more:hover,
+.sport-option--more:focus-visible { color: var(--court-cyan); }
 
 .session-header__stats {
     display: flex;
@@ -1173,7 +1231,7 @@ textarea,
     .session-header__name { font-size: 1.05rem; }
     .session-header__tagline,
     .dashboard-brand-copy { display: none; }
-    .sport-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .sport-picker { grid-template-columns: repeat(5, 78px); overflow-x: auto; }
     .session-header__stats { font-size: 0.8rem; gap: 8px; }
     .court-card__number { font-size: 1.15rem; }
     .court-card__player { font-size: 1rem; }
@@ -1451,14 +1509,11 @@ textarea,
 .rank-icon {
     display: inline-block;
     flex: none;
-    /* 28px art + 1px border each side: the image lands 1:1 with no resampling. */
     box-sizing: border-box;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     margin-right: 6px;
     vertical-align: middle;
-    background: #1b1b28;
-    border: 1px solid #d9a441;
     border-radius: 7px;
 }
 
