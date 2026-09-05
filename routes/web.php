@@ -33,6 +33,33 @@ Route::get('/', function () {
         ->where('created_by', \Illuminate\Support\Facades\Auth::id())
         ->orderByDesc('date')->get();
 
+    $rankedPlayers = \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
+        ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+        ->orderByDesc('rating')
+        ->orderByDesc('total_games')
+        ->orderBy('name')
+        ->orderBy('id')
+        ->get();
+
+    $rankingRows = '';
+    foreach ($rankedPlayers as $rank => $player) {
+        $winPercentage = $player->total_games > 0
+            ? round(($player->wins / $player->total_games) * 100, 1)
+            : 0;
+
+        $rankingRows .= '<tr>'
+            .'<td class="ranking-table__rank">'.($rank + 1).'</td>'
+            .'<th scope="row">'.e($player->name).'</th>'
+            .'<td>'.number_format((float) $player->rating, 1).'</td>'
+            .'<td>'.$player->total_games.'</td>'
+            .'<td>'.$winPercentage.'%</td>'
+            .'</tr>';
+    }
+
+    if ($rankingRows === '') {
+        $rankingRows = '<tr><td colspan="5" class="ranking-table__empty">No players yet.</td></tr>';
+    }
+
     $today = now()->startOfDay();
     $currentRows = '';
     $pastRows = '';
@@ -138,6 +165,17 @@ Route::get('/', function () {
         .manage-btn:disabled{opacity:.4;cursor:not-allowed}
         .manage-del:hover{color:var(--accent,#ff2d55)}
         h2.list-title{margin-top:28px;margin-bottom:12px}
+        .rankings-card{margin-bottom:28px}
+        .rankings-card__intro{color:var(--text-muted,#8888a8);font-size:.8rem;margin:-6px 0 14px}
+        .ranking-table-wrap{overflow-x:auto}
+        .ranking-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:440px}
+        .ranking-table th,.ranking-table td{padding:10px 8px;border-bottom:1px solid var(--stroke,#2e2e4a);text-align:right;white-space:nowrap}
+        .ranking-table th:first-of-type,.ranking-table td:first-child{text-align:left}
+        .ranking-table thead th{color:var(--text-muted,#8888a8);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+        .ranking-table tbody th{font-weight:700;color:var(--text,#e4e4f0)}
+        .ranking-table tbody tr:last-child th,.ranking-table tbody tr:last-child td{border-bottom:0}
+        .ranking-table__rank{color:var(--accent,#ff2d55);font-weight:800;width:34px}
+        .ranking-table__empty{text-align:left!important;color:var(--text-muted,#8888a8);padding:14px 8px!important}
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -157,6 +195,16 @@ Route::get('/', function () {
                 <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
             </div>
         </div>
+        <section class="card rankings-card" aria-labelledby="rankings-heading">
+            <h2 id="rankings-heading">Rankings</h2>
+            <p class="rankings-card__intro">Your roster, ordered by rating.</p>
+            <div class="ranking-table-wrap">
+                <table class="ranking-table">
+                    <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Rating</th><th scope="col">Games</th><th scope="col">Win rate</th></tr></thead>
+                    <tbody>'.$rankingRows.'</tbody>
+                </table>
+            </div>
+        </section>
         <div class="card">
             <h2>New Session</h2>
             <form id="createForm">
