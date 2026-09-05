@@ -6,6 +6,28 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Polling-based real-time updates (no Redis/WebSockets required).
+ *
+ * ## Architecture
+ * Events are stored in a database table (`realtime_events`) and retrieved via HTTP polling.
+ * The frontend polls with an ID-based cursor to fetch only new events since the last check.
+ * This avoids race conditions with timestamp-based cursors and works on any hosting (Apache, Nginx).
+ *
+ * ## Event Retention Policy
+ * Events are kept for 7 days by default to support:
+ * - Initial page loads (snapshot + recent events)
+ * - Polling clients that reconnect after brief disconnections
+ * - Post-session analytics and debugging
+ *
+ * Run `php artisan realtime:prune --days=7` (or adjust) to clean up old events.
+ * Recommended: Add to your scheduler:
+ *   $schedule->command('realtime:prune', ['--days' => 7])->daily();
+ *
+ * ## Indexes
+ * - `[session_id, id]` — fast pagination during polling
+ * - `[created_at]` — fast cleanup queries
+ */
 class RealtimeEventService
 {
     /**

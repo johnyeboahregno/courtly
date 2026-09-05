@@ -993,7 +993,7 @@ class MatchmakingService
         // Rank by tier first (no-repeat > fairness), then total cost.
         usort($scored, fn (array $a, array $b) =>
             [$a['tier'] ?? 3, $a['total_cost'] ?? $a['group_cost'] ?? 0]
-            <=
+            <=>
             [$b['tier'] ?? 3, $b['total_cost'] ?? $b['group_cost'] ?? 0]
         );
 

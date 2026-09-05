@@ -272,6 +272,7 @@ class SessionController extends Controller
 
     /**
      * Finish the session.
+     * Uses transaction with session locking to serialize against concurrent results.
      */
     public function finish(Session $session): JsonResponse
     {
@@ -281,7 +282,18 @@ class SessionController extends Controller
             return response()->json(['message' => 'Session cannot be finished from current status.'], 409);
         }
 
-        $this->finalizeSession($session);
+        DB::transaction(function () use ($session) {
+            // Lock the session row to serialize against concurrent result/allocation
+            $lockedSession = Session::query()
+                ->lockForUpdate()
+                ->findOrFail($session->id);
+
+            if (! in_array($lockedSession->status, [SessionStatus::ACTIVE, SessionStatus::PAUSED])) {
+                throw new \RuntimeException('Session status changed during finish.');
+            }
+
+            $this->finalizeSession($lockedSession);
+        });
 
         return response()->json([
             'data' => [
@@ -324,21 +336,25 @@ class SessionController extends Controller
      * Close out every other open session (ACTIVE or PAUSED) owned by the same
      * user so only one session is ever live at a time. UPCOMING sessions are
      * left untouched — they hold no stats yet and may be scheduled for later.
+     * Wrapped in transaction for atomicity.
      */
     private function finishOtherOpenSessions(Session $current): void
     {
-        $others = Session::query()
-            ->where('created_by', $current->created_by)
-            ->where('id', '!=', $current->id)
-            ->whereIn('status', [
-                SessionStatus::ACTIVE->value,
-                SessionStatus::PAUSED->value,
-            ])
-            ->get();
+        DB::transaction(function () use ($current) {
+            $others = Session::query()
+                ->where('created_by', $current->created_by)
+                ->where('id', '!=', $current->id)
+                ->whereIn('status', [
+                    SessionStatus::ACTIVE->value,
+                    SessionStatus::PAUSED->value,
+                ])
+                ->lockForUpdate()
+                ->get();
 
-        foreach ($others as $other) {
-            $this->finalizeSession($other);
-        }
+            foreach ($others as $other) {
+                $this->finalizeSession($other);
+            }
+        });
     }
 
     /**
