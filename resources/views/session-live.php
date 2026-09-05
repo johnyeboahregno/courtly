@@ -35,7 +35,7 @@
             }
         });
     </script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=51">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=56">
 </head>
 <body>
 <div id="courtly-app">
@@ -49,24 +49,17 @@
         </div>
         <div class="session-header__stats">
             <span>👥 {{ players.length }} Players</span>
-            <span class="court-count">🏟 {{ courts.length }} Courts
-                <span v-if="session.status !== 'FINISHED'" class="court-count__controls">
-                    <button class="court-count__button" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove')" title="Remove a court">−</button>
-                    <button class="court-count__button" type="button" :disabled="courts.length >= 8 || updatingCourts" @click="adjustCourts('add')" title="Add a court">+</button>
-                </span>
-            </span>
+            <span class="court-count">🏟 {{ courts.length }} Courts</span>
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'round_robin' && tournament.round_progress" class="session-header__badge session-header__badge--tournament">Round {{ tournament.round_progress.current_round }}/{{ tournament.round_progress.total_rounds }}</span>
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'ladder'" class="session-header__badge session-header__badge--tournament">LADDER</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
-            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
-            <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
-            <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__back" title="Back to dashboard">DASHBOARD</a>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
+            <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
         </div>
     </header>
 
@@ -78,7 +71,10 @@
         <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')">
             <div class="court-card__head">
                 <span class="court-card__number">COURT {{ court.court_number }}</span>
-                <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
+                <div class="court-card__head-right">
+                    <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
+                    <button v-if="session.status !== 'FINISHED'" class="court-card__remove" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove')" title="Remove a court" aria-label="Remove court">−</button>
+                </div>
             </div>
             <div v-if="!court.match" class="court-card__body court-card__body--empty"
                 :class="{ 'court-card__body--drop': dragOverCourtId === court.id }"
@@ -131,12 +127,15 @@
                 <strong>WIN</strong>
             </div>
         </div>
+        <button v-if="session.status !== 'FINISHED' && courts.length < 8" class="court-card__add" type="button" :disabled="updatingCourts" @click="adjustCourts('add')" title="Add a court" aria-label="Add a court">+</button>
     </div>
 
     <div class="waiting-list">
         <div class="waiting-list__head">
             <h3 class="waiting-list__title">NEXT UP</h3>
             <button class="fill-courts-btn" :class="{ 'is-busy': uiPending.fill }" type="button" :disabled="!canFillCourts || uiPending.fill" @click="fillCourts">FILL COURTS</button>
+            <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
+            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
         </div>
         <div class="waiting-list__cards">
