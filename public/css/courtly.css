@@ -630,13 +630,64 @@ textarea,
 .court-card__status--playing { color: #3cae67; }
 .court-card__status--available { color: var(--text-muted); }
 
+.court-card__head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.court-card__remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.court-card__remove:hover:not(:disabled) { border-color: var(--auth-error-text, #ff5d73); color: var(--auth-error-text, #ff5d73); }
+.court-card__remove:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.court-card__add {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--stroke);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    padding: 0;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.court-card__add:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.court-card__add:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* Court body: dark surface, colors driven by --court-* vars set per sport */
 .court-card__body {
     position: relative;
     width: 100%;
     aspect-ratio: 1.8 / 1;
     background: var(--court-surface, #161626);
-    border: 1px solid var(--court-line, var(--stroke));
+    border: 1px solid color-mix(in srgb, var(--court-line, var(--stroke)) 50%, transparent);
     border-radius: 0;
     box-shadow: var(--shadow-card), var(--court-wall-shadow, none);
     padding: 14px 12px;
@@ -653,7 +704,7 @@ textarea,
     inset: 0;
     pointer-events: none;
     z-index: 1;
-    opacity: 0.3;
+    opacity: 0.15;
     background-image: var(--court-zone-bands, none);
 }
 
@@ -685,8 +736,8 @@ textarea,
 
 /* Sport-specific court coloring and line styling */
 .court-card--badminton {
-    --court-surface: rgba(15, 154, 75, 0.2);
-    --court-surface-empty: rgba(14, 138, 67, 0.2);
+    --court-surface: rgba(15, 154, 75, 0.05);
+    --court-surface-empty: rgba(14, 138, 67, 0.05);
     --court-line: #ffffff;
 }
 
@@ -745,8 +796,8 @@ textarea,
 }
 
 .court-card--tennis {
-    --court-surface: rgba(28, 92, 60, 0.2);
-    --court-surface-empty: rgba(26, 82, 54, 0.2);
+    --court-surface: rgba(28, 92, 60, 0.05);
+    --court-surface-empty: rgba(26, 82, 54, 0.05);
     --court-line: #f2f7f0;
     --court-line-opacity: 0.85;
     --court-baseline-inset: 6%;
@@ -754,8 +805,8 @@ textarea,
 }
 
 .court-card--pickleball {
-    --court-surface: rgba(27, 77, 107, 0.2);
-    --court-surface-empty: rgba(26, 71, 98, 0.2);
+    --court-surface: rgba(27, 77, 107, 0.05);
+    --court-surface-empty: rgba(26, 71, 98, 0.05);
     --court-line: #f4d35e;
     --court-baseline-inset: 8%;
     --court-sideline-inset: 6%;
@@ -763,8 +814,8 @@ textarea,
 }
 
 .court-card--padel {
-    --court-surface: rgba(13, 107, 110, 0.2);
-    --court-surface-empty: rgba(12, 98, 101, 0.2);
+    --court-surface: rgba(13, 107, 110, 0.05);
+    --court-surface-empty: rgba(12, 98, 101, 0.05);
     --court-line: #eafffd;
     --court-line-opacity: 0.9;
     --court-baseline-inset: 4%;
@@ -773,8 +824,8 @@ textarea,
 }
 
 .court-card--squash {
-    --court-surface: rgba(122, 50, 50, 0.2);
-    --court-surface-empty: rgba(113, 45, 45, 0.2);
+    --court-surface: rgba(122, 50, 50, 0.05);
+    --court-surface-empty: rgba(113, 45, 45, 0.05);
     --court-line: #ffffff;
     --court-baseline-inset: 4%;
     --court-sideline-inset: 30%;
@@ -819,7 +870,7 @@ textarea,
     align-items: center;
     justify-content: center;
     background: var(--court-surface-empty, #1a1a2a);
-    border: 1px solid var(--court-line, var(--stroke));
+    border: 1px solid color-mix(in srgb, var(--court-line, var(--stroke)) 50%, transparent);
     border-radius: 0;
 }
 
