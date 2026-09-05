@@ -7,6 +7,9 @@ use App\Models\Player;
 use App\Models\SessionPlayer;
 use App\Services\MatchmakingService;
 use Illuminate\Support\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 it('prioritizes players with fewer games, longer waits, and winner bonus', function () {
     Carbon::setTestNow('2026-09-04 19:00:00');
@@ -103,4 +106,44 @@ it('keeps match quality between zero and one hundred', function () {
 
     expect($service->calculateMatchQuality(0, 0, 100, 0))->toBe(100);
     expect($service->calculateMatchQuality(500, 500, 0, 1000))->toBe(0);
+});
+
+it('prefers mixed teams for a close two-and-two gender group', function () {
+    config(['courtly.matchmaking.per_court_repeat_guards' => false]);
+    $service = app(MatchmakingService::class);
+    $session = \App\Models\Session::factory()->make();
+    $session->cachedRecentMatches = collect();
+    $session->cachedLastMatch = null;
+    $players = [
+        Player::factory()->make(['id' => 1, 'gender' => 'MALE', 'rating' => 50]),
+        Player::factory()->make(['id' => 2, 'gender' => 'MALE', 'rating' => 51]),
+        Player::factory()->make(['id' => 3, 'gender' => 'FEMALE', 'rating' => 50]),
+        Player::factory()->make(['id' => 4, 'gender' => 'FEMALE', 'rating' => 51]),
+    ];
+
+    $split = $service->findBestSplit($players, $session);
+
+    expect(collect($split['team1'])->pluck('gender')->unique())->toHaveCount(2);
+    expect(collect($split['team2'])->pluck('gender')->unique())->toHaveCount(2);
+});
+
+it('pairs the minority gender with the strongest opposite-gender player', function () {
+    config(['courtly.matchmaking.per_court_repeat_guards' => false]);
+    $service = app(MatchmakingService::class);
+    $session = \App\Models\Session::factory()->make();
+    $session->cachedRecentMatches = collect();
+    $session->cachedLastMatch = null;
+    $players = [
+        Player::factory()->make(['id' => 1, 'gender' => 'FEMALE', 'rating' => 30]),
+        Player::factory()->make(['id' => 2, 'gender' => 'MALE', 'rating' => 40]),
+        Player::factory()->make(['id' => 3, 'gender' => 'MALE', 'rating' => 70]),
+        Player::factory()->make(['id' => 4, 'gender' => 'MALE', 'rating' => 50]),
+    ];
+
+    $split = $service->findBestSplit($players, $session);
+    $femaleTeam = collect([$split['team1'], $split['team2']])->first(
+        fn (array $team) => collect($team)->contains(fn (Player $player) => $player->gender?->value === 'FEMALE')
+    );
+
+    expect(collect($femaleTeam)->pluck('id')->all())->toContain(3);
 });

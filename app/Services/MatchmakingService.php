@@ -73,6 +73,10 @@ class MatchmakingService
             }
 
             $players = $sessionPlayers->map(fn (SessionPlayer $sp) => $this->attachPlayer($sp))->all();
+            if (collect($players)->contains(fn (Player $player) => $player->gender === null)) {
+                throw new \DomainException('Complete gender for all four players before assigning a court.');
+            }
+
             $split = ($team1Ids !== null && $team2Ids !== null)
                 ? $this->buildManualSplit($players, $team1Ids, $team2Ids, $lockedSession)
                 : $this->findBestSplit($players, $lockedSession);
@@ -129,6 +133,10 @@ class MatchmakingService
         $team1Rating = $this->calculateTeamStrength($team1);
         $team2Rating = $this->calculateTeamStrength($team2);
 
+        if (! $this->isGenderSplitAllowed($team1, $team2)) {
+            throw new \DomainException('Choose mixed teams, or teams whose ratings are close enough for this gender split.');
+        }
+
         return [
             'team1' => $team1,
             'team2' => $team2,
@@ -173,6 +181,13 @@ class MatchmakingService
 
         // Fast path: not enough players to form even a single match.
         if ($waitingPlayers->count() < 4) {
+            return [];
+        }
+
+        // Gender is required for the composition rule. The session controller
+        // normally prevents this state, but keep the service safe for queued
+        // jobs and direct callers as well.
+        if ($waitingPlayers->contains(fn (SessionPlayer $sp) => $sp->player->gender === null)) {
             return [];
         }
 
@@ -334,6 +349,10 @@ class MatchmakingService
         $cost = 0.0;
         $config = config('courtly.matchmaking');
 
+        if (! $this->isGenderSplitAllowed($team1, $team2)) {
+            return 1000000.0;
+        }
+
         // Team balance
         $team1Strength = $this->calculateTeamStrength($team1);
         $team2Strength = $this->calculateTeamStrength($team2);
@@ -384,6 +403,35 @@ class MatchmakingService
     public function findBestSplit(array $players, Session $session): array
     {
         $splits = $this->generateTeamSplits($players);
+
+        // When a mixed split is possible for a 2M/2F group, same-gender teams
+        // are not eligible. For uneven groups, only the strongest opposite-
+        // gender pairing remains eligible.
+        $genderSplits = array_values(array_filter(
+            $splits,
+            fn (array $split): bool => $this->isGenderSplitAllowed($split['team1'], $split['team2'])
+        ));
+        if ($genderSplits !== []) {
+            $genderCounts = array_count_values(array_map(
+                fn (Player $player): string => $player->gender?->value ?? 'UNKNOWN',
+                $players
+            ));
+            $maleCount = $genderCounts['MALE'] ?? 0;
+            $femaleCount = $genderCounts['FEMALE'] ?? 0;
+
+            if ($maleCount + $femaleCount === 4) {
+                $mixedSplits = array_values(array_filter(
+                    $genderSplits,
+                    fn (array $split): bool => $this->isMixedSplit($split['team1'], $split['team2'])
+                ));
+                if ($mixedSplits !== []) {
+                    $genderSplits = $mixedSplits;
+                }
+            }
+
+            $splits = $genderSplits;
+        }
+
         $bestSplit = null;
         $bestCost = PHP_FLOAT_MAX;
         $fallbackSplit = null;
@@ -434,6 +482,54 @@ class MatchmakingService
                 $this->calculateTeamStrength($bestSplit['team2'])
             ),
         ];
+    }
+
+    /**
+     * Apply the gender composition rule before the normal pairing costs.
+     */
+    private function isGenderSplitAllowed(array $team1, array $team2): bool
+    {
+        $players = array_merge($team1, $team2);
+        if (count($players) !== 4 || collect($players)->contains(fn (Player $player) => $player->gender === null)) {
+            return false;
+        }
+
+        $femaleCount = collect($players)->filter(fn (Player $player) => $player->gender?->value === 'FEMALE')->count();
+        $team1FemaleCount = collect($team1)->filter(fn (Player $player) => $player->gender?->value === 'FEMALE')->count();
+        $team2FemaleCount = 2 - $team1FemaleCount;
+
+        if ($femaleCount === 2) {
+            if ($team1FemaleCount === 1 && $team2FemaleCount === 1) {
+                return true;
+            }
+
+            return abs($this->calculateTeamStrength($team1) - $this->calculateTeamStrength($team2))
+                <= (float) config('courtly.matchmaking.max_balance_difference');
+        }
+
+        if ($femaleCount === 1 || $femaleCount === 3) {
+            $minorityGender = $femaleCount === 1 ? 'FEMALE' : 'MALE';
+            $minority = collect($players)->first(fn (Player $player) => $player->gender?->value === $minorityGender);
+            $opposite = collect($players)
+                ->filter(fn (Player $player) => $player->gender?->value !== $minorityGender)
+                ->sortByDesc(fn (Player $player) => (float) $player->rating)
+                ->first();
+
+            $minorityTeam = $team1FemaleCount === ($femaleCount === 1 ? 1 : 0) ? $team1 : $team2;
+            return collect($minorityTeam)->contains(fn (Player $player) => $player->id === $minority?->id)
+                && collect($minorityTeam)->contains(fn (Player $player) => $player->id === $opposite?->id);
+        }
+
+        return true;
+    }
+
+    private function isMixedSplit(array $team1, array $team2): bool
+    {
+        return collect([$team1, $team2])->every(function (array $team): bool {
+            $genders = collect($team)->map(fn (Player $player) => $player->gender?->value)->unique();
+
+            return $genders->count() === 2;
+        });
     }
 
     /**

@@ -1011,6 +1011,20 @@ textarea,
     line-height: 1.2;
 }
 
+.gender-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 5px 2px 0;
+    border: 1px solid rgba(0, 0, 0, .45);
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.gender-dot--male { background: #000; }
+.gender-dot--female { background: #fff; }
+.gender-dot--missing { background: #9ca3af; }
+
 .court-card__player-meta {
     position: absolute;
     left: 6px;
@@ -1279,6 +1293,8 @@ textarea,
     text-overflow: ellipsis;
     max-width: 100%;
 }
+
+.player-card__name .gender-dot { margin-left: 1px; }
 
 .player-card__name .rank-icon {
     margin-right: 5px;

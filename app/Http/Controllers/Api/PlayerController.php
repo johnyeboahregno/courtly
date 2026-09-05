@@ -7,6 +7,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 use App\Services\PlayerAnalyticsService;
+use App\Enums\PlayerGender;
+use App\Enums\MatchStatus;
+use App\Enums\SessionStatus;
 
 use App\Models\Player;
 use Illuminate\Http\JsonResponse;
@@ -25,13 +28,26 @@ class PlayerController extends Controller
         $players = Player::query()
             ->where('user_id', $this->currentUser()->id)
             ->orderBy('name')
-            ->get()
-            ->map(fn ($p) => [
+            ->get();
+
+        $activePlayerIds = Player::query()
+            ->where('user_id', $this->currentUser()->id)
+            ->whereHas('matchPlayers.match', fn ($query) => $query
+                ->where('status', MatchStatus::PLAYING->value)
+                ->whereHas('session', fn ($sessionQuery) => $sessionQuery
+                    ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
+                )
+            )
+            ->pluck('id')
+            ->flip();
+
+        $players = $players->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->name,
+                'gender' => $p->gender?->value,
                 'rating' => (float) $p->rating,
                 'total_games' => $p->total_games,
-                'is_playing' => $p->isInActiveMatch(),
+                'is_playing' => $activePlayerIds->has($p->id),
             ]);
 
         return response()->json(['data' => $players]);
@@ -65,6 +81,7 @@ class PlayerController extends Controller
             'data' => [
                 'id' => $player->id,
                 'name' => $player->name,
+                'gender' => $player->gender?->value,
                 'rating' => (int) round($player->rating),
                 'rating_status' => $player->rating_status,
                 'rating_confidence' => $player->rating_confidence,
@@ -120,21 +137,27 @@ class PlayerController extends Controller
 
         $validated = $request->validate([
             'name' => [
-                'required',
+                'sometimes',
                 'string',
                 'max:255',
                 Rule::unique('players', 'name')
                     ->where('user_id', $this->currentUser()->id)
                     ->ignore($player->id),
             ],
+                'gender' => ['sometimes', 'nullable', Rule::enum(PlayerGender::class)],
         ]);
 
-        $player->update(['name' => $validated['name']]);
+            if ($validated === []) {
+                return response()->json(['message' => 'Provide a name or gender.'], 422);
+            }
+
+            $player->update(array_intersect_key($validated, array_flip(['name', 'gender'])));
 
         return response()->json([
             'data' => [
                 'id' => $player->id,
                 'name' => $player->name,
+                'gender' => $player->gender?->value,
             ],
         ]);
     }

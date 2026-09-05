@@ -84,7 +84,7 @@
                 <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
                     <div class="court-card__pending-grid">
                         <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending" @click="removePendingPlayer(court.id, sp.player_id)" title="Tap to return to NEXT UP">
-                            <span class="court-card__player">{{ formatName(sp.player.name) }}</span>
+                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}</span>
                         </div>
                     </div>
                     <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
@@ -102,22 +102,22 @@
                 <div class="court-card__court">
                     <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 1, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
+                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t1[0].gender)" :title="genderLabel(court.match.t1[0].gender)"></span>{{ formatName(court.match.t1[0].name) }}</span>
                             <span v-if="court.match.t1[0].wins || court.match.t1[0].streak > 3" class="court-card__player-meta"><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
+                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t1[1].gender)" :title="genderLabel(court.match.t1[1].gender)"></span>{{ formatName(court.match.t1[1].name) }}</span>
                             <span v-if="court.match.t1[1].wins || court.match.t1[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 2, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
+                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[0].gender)" :title="genderLabel(court.match.t2[0].gender)"></span>{{ formatName(court.match.t2[0].name) }}</span>
                             <span v-if="court.match.t2[0].wins || court.match.t2[0].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
+                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[1].gender)" :title="genderLabel(court.match.t2[1].gender)"></span>{{ formatName(court.match.t2[1].name) }}</span>
                             <span v-if="court.match.t2[1].wins || court.match.t2[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
@@ -143,7 +143,7 @@
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
                 <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }" :draggable="sp.status === 'WAITING'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd">
                     <div class="player-card__col">
-                        <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                        <span class="player-card__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
@@ -197,7 +197,7 @@
             <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
             <div class="existing-list manual-assign__list">
                 <button v-for="sp in waitingPlayers" :key="sp.id" type="button" class="existing-item manual-assignment__player" :class="{ 'existing-item--selected': manualAssignment.playerIds.includes(sp.player_id) }" @click="toggleManualPlayer(sp.player_id)">
-                    <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                    <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
                     <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span></span>
                 </button>
             </div>
@@ -215,7 +215,7 @@
                         @dragleave="manualDragOverId === sp.player_id && (manualDragOverId = null)"
                         @drop="manualDrop(sp.player_id, $event)"
                         @click="manualTap(sp.player_id)">
-                        <span class="manual-team__name">{{ formatName(sp.player.name) }}</span>
+                        <span class="manual-team__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}</span>
                     </div>
                 </div>
             </div>
@@ -240,7 +240,12 @@
             <div class="add-section">
                 <div class="add-section__new">
                     <input ref="playerNameInput" v-model="newPlayerName" placeholder="Player name" class="modal__input" @keyup.enter="addPlayers" @focus="showSuggestionsNow" @blur="hideSuggestionsLater">
-                    <button class="btn btn--primary" :class="{ 'is-busy': uiPending.add }" @click="addPlayers" :disabled="!newPlayerName.trim() || uiPending.add">Add</button>
+                    <select v-model="newPlayerGender" class="modal__input modal__input--select" aria-label="Gender">
+                        <option value="">Gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                    </select>
+                    <button class="btn btn--primary" :class="{ 'is-busy': uiPending.add }" @click="addPlayers" :disabled="!newPlayerName.trim() || !newPlayerGender || uiPending.add">Add</button>
                 </div>
 
                 <!-- Autocomplete suggestions: top 10 on focus, matches while typing -->
@@ -248,7 +253,7 @@
                     <p class="add-section__label">{{ newPlayerName.trim() ? 'Suggestions:' : 'Top players:' }}</p>
                     <div class="existing-list">
                         <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
-                            <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                            <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
                             <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                         </div>
                     </div>
@@ -280,7 +285,7 @@
                         @dragleave="dragOverPlayerId === p.player_id && (dragOverPlayerId = null)"
                         @drop="onPlayerDrop(p.player_id, $event)">
                         <span class="team-card__handle">⠿</span>
-                        <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                        <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
                         <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                     </div>
                 </div>
@@ -470,6 +475,7 @@ createApp({
         const showPlayers = ref(false);
         const showSuggestions = ref(false);
         const newPlayerName = ref('');
+        const newPlayerGender = ref('');
         const playerNameInput = ref(null);
         const allKnownPlayers = ref([]);
         const pendingExistingPlayerIds = ref(new Set());
@@ -635,6 +641,7 @@ createApp({
 
         function openPlayers() {
             newPlayerName.value = '';
+            newPlayerGender.value = '';
             showPlayers.value = true;
             showSuggestions.value = true;
             nextTick(() => playerNameInput.value && playerNameInput.value.focus());
@@ -1074,11 +1081,13 @@ createApp({
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
-            if (!name || uiPending.add) return;
+            const gender = newPlayerGender.value;
+            if (!name || !gender || uiPending.add) return;
             uiPending.add = true;
             newPlayerName.value = '';
+            newPlayerGender.value = '';
             try {
-                await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
+                await postApi('/api/sessions/' + SESSION_ID + '/players', { name, gender });
                 await fetchSession();
             } finally {
                 uiPending.add = false;
@@ -1191,6 +1200,14 @@ createApp({
             return parts.join(' ');
         }
 
+        function genderDotClass(gender) {
+            return gender === 'MALE' ? 'gender-dot--male' : gender === 'FEMALE' ? 'gender-dot--female' : 'gender-dot--missing';
+        }
+
+        function genderLabel(gender) {
+            return gender === 'MALE' ? 'Male' : gender === 'FEMALE' ? 'Female' : 'Gender not set';
+        }
+
         // Clamp a rating into the visible 1–100 badge range.
         function ratingBadge(r) { return Math.max(1, Math.min(100, Math.round(Number(r) || 0))); }
 
@@ -1224,7 +1241,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>

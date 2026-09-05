@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\RatingStatus;
+use App\Enums\PlayerGender;
 use App\Enums\MatchStatus;
 use App\Enums\SessionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ class Player extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'gender',
         'rating',
         'rating_status',
         'rating_confidence',
@@ -34,6 +36,7 @@ class Player extends Model
         return [
             'rating' => 'decimal:2',
             'rating_status' => RatingStatus::class,
+            'gender' => PlayerGender::class,
             'rating_confidence' => 'decimal:2',
             'rated_games_count' => 'integer',
             'total_games' => 'integer',

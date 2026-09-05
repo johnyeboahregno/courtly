@@ -120,6 +120,8 @@ Route::get('/', function () {
         .dialog__btn--danger:hover{filter:brightness(1.1)}
         .dialog__btn--reset{background:transparent;border-color:#d9a441;color:#d9a441}
         .dialog__btn--reset:hover{background:rgba(217,164,65,.12);color:#e0b457}
+        .dialog__btn--save{background:var(--accent);color:#fff}
+        .dialog__btn--save:hover{filter:brightness(1.1)}
         .card{background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:18px;margin-bottom:20px;box-shadow:var(--shadow-card)}
         .card h2{font-size:1.05rem;margin:0 0 14px;color:var(--text)}
         .field{margin-bottom:12px}
@@ -137,6 +139,11 @@ Route::get('/', function () {
         .manage-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
         .manage-name{flex:1;min-width:0;padding:8px 10px;border:none;border-radius:6px;background:var(--bg);color:var(--text);font-size:.9rem}
         .manage-name:disabled{opacity:.5}
+        .manage-gender-toggle{width:32px;height:32px;padding:0;border:1px solid var(--stroke);border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer}
+        .manage-gender-toggle:disabled{opacity:.5;cursor:not-allowed}
+        .manage-gender-toggle::before{content:"";width:12px;height:12px;border:1px solid rgba(0,0,0,.45);border-radius:50%;background:#9ca3af}
+        .manage-gender-toggle--male::before{background:#000}
+        .manage-gender-toggle--female::before{background:#fff}
         .manage-rating{font-size:.8rem;color:var(--text-muted);min-width:34px;text-align:center}
         .manage-lock{font-size:.9rem}
         .manage-btn{border:1px solid var(--stroke);background:transparent;color:var(--text-muted);border-radius:6px;padding:7px 10px;cursor:pointer;font-size:.85rem;font-weight:700}
@@ -196,10 +203,11 @@ Route::get('/', function () {
     <div class="dialog-overlay" id="manageDialog" style="display:none">
         <div class="dialog" style="max-width:480px">
             <h3 class="dialog__title">Manage Players</h3>
-            <p class="dialog__message">Edit names or delete players. Players on court are locked.</p>
+            <p class="dialog__message">Edit names, gender, or delete players. Players on court are locked.</p>
             <div id="manageList" style="max-height:60vh;overflow:auto;margin-bottom:16px"></div>
             <div class="dialog__actions">
-                <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()">Reset All</button>
+                <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()" title="Reset all player ratings" aria-label="Reset all player ratings">Reset All</button>
+                <button type="button" class="dialog__btn dialog__btn--save" onclick="saveAllPlayers()" title="Save all player changes" aria-label="Save all player changes">Save</button>
                 <button type="button" class="dialog__btn dialog__btn--cancel" onclick="closeManage()">Close</button>
             </div>
         </div>
@@ -318,6 +326,8 @@ Route::get('/', function () {
     // on a network round-trip each time it opens.
     var playersCache = null;
     var PLAYERS_CACHE_KEY = "courtly.playersCache.v1";
+    var manageDrafts = {};
+    var manageOriginals = {};
 
     function loadPlayersCache() {
         try {
@@ -339,6 +349,8 @@ Route::get('/', function () {
             });
     }
     function openManage() {
+        manageDrafts = {};
+        manageOriginals = {};
         document.getElementById("manageDialog").style.display = "flex";
         var list = document.getElementById("manageList");
         if (playersCache !== null) {
@@ -375,16 +387,36 @@ Route::get('/', function () {
             return;
         }
         players.forEach(function(p){
+            if (!manageOriginals[p.id]) {
+                manageOriginals[p.id] = { name: p.name, gender: p.gender || null };
+            }
+            if (!manageDrafts[p.id]) {
+                manageDrafts[p.id] = { name: p.name, gender: p.gender || null };
+            }
+            var draft = manageDrafts[p.id];
             var row = document.createElement("div");
             row.className = "manage-row";
             var input = document.createElement("input");
             input.className = "manage-name";
-            input.value = p.name;
+            input.value = draft.name;
             input.disabled = !!p.is_playing;
+            input.addEventListener("input", function(){ manageDrafts[p.id].name = input.value; });
+            var gender = document.createElement("button");
+            gender.type = "button";
+            gender.className = "manage-gender-toggle";
+            gender.setAttribute("aria-label", "Toggle gender for " + p.name);
+            gender.disabled = !!p.is_playing;
+            setGenderToggle(gender, draft.gender);
+            gender.addEventListener("click", function(){
+                var nextGender = gender.dataset.gender === "MALE" ? "FEMALE" : "MALE";
+                setGenderToggle(gender, nextGender);
+                manageDrafts[p.id].gender = nextGender;
+            });
             var rating = document.createElement("span");
             rating.className = "manage-rating";
             rating.textContent = Math.round(p.rating);
             row.appendChild(input);
+            row.appendChild(gender);
             row.appendChild(rating);
             if (p.is_playing) {
                 var lock = document.createElement("span");
@@ -393,11 +425,6 @@ Route::get('/', function () {
                 lock.textContent = "🔒";
                 row.appendChild(lock);
             }
-            var save = document.createElement("button");
-            save.className = "manage-btn";
-            save.textContent = "Save";
-            save.disabled = !!p.is_playing;
-            save.addEventListener("click", function(){ saveName(input, p.id); });
             var del = document.createElement("button");
             del.className = "manage-btn manage-del";
             del.textContent = "✕";
@@ -408,36 +435,54 @@ Route::get('/', function () {
             reset.textContent = "Reset";
             reset.disabled = !!p.is_playing;
             reset.title = "Reset rating to the default";
+            reset.setAttribute("aria-label", "Reset rating to the default");
             reset.addEventListener("click", function(){ resetPlayer(p.id); });
-            row.appendChild(save);
             row.appendChild(reset);
             row.appendChild(del);
             list.appendChild(row);
         });
     }
-    function saveName(input, id) {
-        var name = input.value.trim();
-        if (!name) return;
-        fetch("/api/players/" + id, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" },
-            body: JSON.stringify({ name: name })
-        })
-        .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
-        .then(function(r){
-            if (r.ok) {
-                // Update the local cache immediately, then sync from the server.
-                if (playersCache) {
-                    for (var i = 0; i < playersCache.length; i++) {
-                        if (playersCache[i].id === id) playersCache[i].name = name;
-                    }
-                    savePlayersCache(playersCache);
-                    renderManage(playersCache);
-                }
-                fetchPlayers().then(renderManage);
-            } else { alert(r.message || "Could not save"); }
-        })
-        .catch(function(){ alert("Network error"); });
+    function setGenderToggle(button, value) {
+        button.dataset.gender = value || "";
+        button.classList.toggle("manage-gender-toggle--male", value === "MALE");
+        button.classList.toggle("manage-gender-toggle--female", value === "FEMALE");
+        button.title = value === "MALE" ? "Male — click to switch to female" : value === "FEMALE" ? "Female — click to switch to male" : "Gender not set — click to set male";
+        button.setAttribute("aria-pressed", value ? "true" : "false");
+    }
+    function saveAllPlayers() {
+        var changes = [];
+        Object.keys(manageDrafts).forEach(function(id){
+            var draft = manageDrafts[id];
+            var original = manageOriginals[id];
+            var name = draft.name.trim();
+            if (!name) return;
+            if (name !== original.name || draft.gender !== original.gender) {
+                changes.push({ id: id, name: name, gender: draft.gender || null });
+            }
+        });
+        if (!changes.length) return;
+
+        var saveButton = document.querySelector("#manageDialog .dialog__btn--save");
+        if (saveButton) saveButton.disabled = true;
+        Promise.all(changes.map(function(change){
+            return fetch("/api/players/" + change.id, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" },
+                body: JSON.stringify({ name: change.name, gender: change.gender })
+            }).then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); });
+        })).then(function(results){
+            var failed = results.find(function(result){ return !result.ok; });
+            if (failed) {
+                alert(failed.message || "Could not save all player changes");
+                return;
+            }
+            fetchPlayers().then(function(players){
+                manageDrafts = {};
+                manageOriginals = {};
+                renderManage(players);
+            });
+        }).catch(function(){ alert("Network error"); })
+        .finally(function(){ if (saveButton) saveButton.disabled = false; });
     }
     function deletePlayer(id) {
         showConfirmDialog("Delete player", "Delete this player permanently? This cannot be undone.", function(){

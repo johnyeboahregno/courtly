@@ -138,6 +138,13 @@ class SessionController extends Controller
         // session is somehow already ACTIVE, just fill any idle courts instead
         // of rejecting the request with a 409.
         if ($session->status === SessionStatus::ACTIVE) {
+            $missingGender = $this->missingGenderCount($session);
+            if ($missingGender > 0) {
+                return response()->json([
+                    'message' => "Complete gender for {$missingGender} session player(s) before matching.",
+                ], 422);
+            }
+
             if (! $session->isTournament()) {
                 $this->matchmaking->allocateMatches($session);
             }
@@ -151,6 +158,13 @@ class SessionController extends Controller
 
         if ($session->status !== SessionStatus::UPCOMING) {
             return response()->json(['message' => 'Session can only be started from UPCOMING status.'], 409);
+        }
+
+        $missingGender = $this->missingGenderCount($session);
+        if ($missingGender > 0) {
+            return response()->json([
+                'message' => "Complete gender for {$missingGender} session player(s) before starting.",
+            ], 422);
         }
 
         // One live session at a time: closing out any other active/paused
@@ -195,6 +209,14 @@ class SessionController extends Controller
                     'session' => $session->fresh(['courts']),
             ],
         ]);
+    }
+
+    private function missingGenderCount(Session $session): int
+    {
+        return $session->sessionPlayers()
+            ->where('status', '!=', SessionPlayerStatus::LEFT->value)
+            ->whereHas('player', fn ($query) => $query->whereNull('gender'))
+            ->count();
     }
 
     /**

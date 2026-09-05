@@ -7,12 +7,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 
 use App\Enums\UserRole;
+use App\Enums\PlayerGender;
 use App\Models\Player;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -27,6 +29,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
+            'gender' => ['sometimes', 'nullable', Rule::enum(PlayerGender::class)],
         ]);
 
         $user = DB::transaction(function () use ($validated) {
@@ -40,6 +43,7 @@ class AuthController extends Controller
             Player::create([
                 'user_id' => $user->id,
                 'name' => $user->name,
+                'gender' => $validated['gender'] ?? null,
                 'rating' => config('courtly.rating.default_rating', 0.00),
                 'rating_status' => 'PROVISIONAL',
                 'rating_confidence' => 0.10,

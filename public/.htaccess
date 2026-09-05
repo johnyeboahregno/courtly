@@ -30,3 +30,11 @@
 <FilesMatch "^\.env.example$">
     Require all denied
 </FilesMatch>
+
+# Static icons are versioned by the application release and can be cached for
+# a year without another request on subsequent page loads.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(png|webp|avif|ico)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
