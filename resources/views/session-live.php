@@ -711,7 +711,7 @@ createApp({
                     if (match && match.match_players && match.match_players.length === 4) {
                         const t1 = match.match_players.filter(p => p.team === 1);
                         const t2 = match.match_players.filter(p => p.team === 2);
-                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
+                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, gender: mp.player.gender, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
                         md = { id: match.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
                     }
                     return { ...c, match: md };
