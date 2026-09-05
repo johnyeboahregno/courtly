@@ -75,7 +75,7 @@ Route::get('/', function () {
     <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=3">
     <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=9">
     <style>
-        body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;background:var(--bg,#12121f);color:var(--text,#e4e4f0);margin:0;padding:40px 20px}
+        body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;background:linear-gradient(rgba(15,23,42,.82),rgba(15,23,42,.9)),url(\'/assets/court-background.png\') center center / cover no-repeat fixed !important;color:var(--text,#e4e4f0);margin:0;padding:40px 20px}
         .wrap{max-width:560px;margin:0 auto}
         h1{font-size:2rem;margin:0 0 4px}
         .sub{color:var(--text-muted,#8888a8);margin:0 0 24px}
@@ -141,7 +141,7 @@ Route::get('/', function () {
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/favicon.png" style="width:48px;height:48px;object-fit:contain;display:block;"></h1></div>
+            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/favicon.png" style="width:72px;height:72px;object-fit:contain;display:block;"></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
