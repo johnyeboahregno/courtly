@@ -35,7 +35,7 @@
             }
         });
     </script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=24">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=25">
 </head>
 <body>
 <div id="courtly-app">
@@ -84,8 +84,8 @@
                 <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
                     <div class="court-card__pending-grid">
                         <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending">
-                            <i class="court-card__rating"><span class="rating-value">{{ ratingBadge(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></i>
-                            <span class="court-card__player">{{ formatName(sp.player.name) }}</span>
+                            <i class="court-card__rating"><span class="rating-value">{{ ratingBadge(sp.player.rating) }}</span></i>
+                            <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
                         </div>
                     </div>
                     <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
@@ -96,32 +96,27 @@
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
                 <div class="court-card__court">
-                    <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1, false, $event)" title="Tap to record a win for this team">
+                    <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 1, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[0].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t1[0].rating) }}</span></span></i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
+                            <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(court.match.t1[0].rating)"></span>{{ formatName(court.match.t1[0].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[0].rating) }}</span></i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[1].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t1[1].rating) }}</span></span></i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
+                            <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(court.match.t1[1].rating)"></span>{{ formatName(court.match.t1[1].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[1].rating) }}</span></i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
-                    <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2, false, $event)" title="Tap to record a win for this team">
+                    <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 2, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[0].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t2[0].rating) }}</span></span></i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
+                            <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(court.match.t2[0].rating)"></span>{{ formatName(court.match.t2[0].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[0].rating) }}</span></i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
-                            <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[1].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t2[1].rating) }}</span></span></i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
+                            <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(court.match.t2[1].rating)"></span>{{ formatName(court.match.t2[1].name) }}</span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[1].rating) }}</span></i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
-                </div>
-                <div v-if="session.type === 'tournament'" class="court-card__scores" @click.stop>
-                    <input type="number" min="0" max="999" placeholder="Score" v-model="matchScores[court.match.id].t1" class="court-card__score-input">
-                    <span class="court-card__score-sep">–</span>
-                    <input type="number" min="0" max="999" placeholder="Score" v-model="matchScores[court.match.id].t2" class="court-card__score-input">
                 </div>
             </div>
             <div v-if="celebration && celebration.courtId === court.id" class="court-card__celebration" :style="{ '--origin-x': celebration.x + '%', '--origin-y': celebration.y + '%' }" aria-hidden="true">
@@ -134,14 +129,15 @@
     <div class="waiting-list">
         <div class="waiting-list__head">
             <h3 class="waiting-list__title">NEXT UP</h3>
+            <button class="fill-courts-btn" type="button" :disabled="!canFillCourts" @click="fillCourts">FILL COURTS</button>
             <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
         </div>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
                 <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }">
                     <div class="player-card__col">
-                        <span class="player-card__name">{{ formatName(sp.player.name) }}</span>
-                        <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
+                        <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                        <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
                         <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
@@ -207,8 +203,8 @@
             <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
             <div class="existing-list manual-assign__list">
                 <button v-for="sp in waitingPlayers" :key="sp.id" type="button" class="existing-item manual-assignment__player" :class="{ 'existing-item--selected': manualAssignment.playerIds.includes(sp.player_id) }" @click="toggleManualPlayer(sp.player_id)">
-                    <span class="existing-item__name">{{ formatName(sp.player.name) }}</span>
-                    <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></span>
+                    <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                    <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span></span>
                 </button>
             </div>
 
@@ -225,8 +221,8 @@
                         @dragleave="manualDragOverId === sp.player_id && (manualDragOverId = null)"
                         @drop="manualDrop(sp.player_id, $event)"
                         @click="manualTap(sp.player_id)">
-                        <span class="manual-team__name">{{ formatName(sp.player.name) }}</span>
-                        <span class="manual-team__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></span>
+                        <span class="manual-team__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                        <span class="manual-team__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span></span>
                     </div>
                 </div>
             </div>
@@ -259,8 +255,8 @@
                     <p class="add-section__label">{{ newPlayerName.trim() ? 'Suggestions:' : 'Top players:' }}</p>
                     <div class="existing-list">
                         <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
-                            <span class="existing-item__name">{{ formatName(p.name) }}</span>
-                            <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}<span class="rating-emoji">{{ ratingIcon(p.rating) }}</span></span></span>
+                            <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                            <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                         </div>
                     </div>
                 </div>
@@ -291,8 +287,8 @@
                         @dragleave="dragOverPlayerId === p.player_id && (dragOverPlayerId = null)"
                         @drop="onPlayerDrop(p.player_id, $event)">
                         <span class="team-card__handle">⠿</span>
-                        <span class="existing-item__name">{{ formatName(p.name) }}</span>
-                        <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}<span class="rating-emoji">{{ ratingIcon(p.rating) }}</span></span></span>
+                        <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                        <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                     </div>
                 </div>
             </div>
@@ -342,6 +338,39 @@
             </div>
         </div>
     </div>
+
+    <!-- Score picker — roller deck shown after a winner is tapped -->
+    <div v-if="scorePicker.show" class="score-picker" @click.self="closeScorePicker">
+        <div class="score-picker__panel" role="dialog" aria-label="Enter match score">
+            <div class="score-picker__head">
+                <span class="score-picker__court">COURT {{ scorePicker.courtNumber }} — FINAL SCORE</span>
+                <button class="score-picker__close" type="button" @click="closeScorePicker" aria-label="Cancel">✕</button>
+            </div>
+            <div class="score-picker__teams">
+                <span class="score-picker__team score-picker__team--1" :class="{ 'score-picker__team--winner': scorePicker.team === 1 }">{{ scorePicker.t1Names }}</span>
+                <span class="score-picker__team score-picker__team--2" :class="{ 'score-picker__team--winner': scorePicker.team === 2 }">{{ scorePicker.t2Names }}</span>
+            </div>
+            <div class="score-picker__deck">
+                <div class="score-picker__band" aria-hidden="true"></div>
+                <div class="score-picker__wheel" ref="wheelT1" @scroll.passive="onWheelScroll('t1', $event)">
+                    <div class="score-picker__spacer"></div>
+                    <div v-for="value in scoreValues" :key="'t1-' + value" class="score-picker__item" :class="{ 'score-picker__item--active': scorePicker.t1 === value }">{{ value }}</div>
+                    <div class="score-picker__spacer"></div>
+                </div>
+                <span class="score-picker__colon">:</span>
+                <div class="score-picker__wheel" ref="wheelT2" @scroll.passive="onWheelScroll('t2', $event)">
+                    <div class="score-picker__spacer"></div>
+                    <div v-for="value in scoreValues" :key="'t2-' + value" class="score-picker__item" :class="{ 'score-picker__item--active': scorePicker.t2 === value }">{{ value }}</div>
+                    <div class="score-picker__spacer"></div>
+                </div>
+            </div>
+            <p class="score-picker__hint" :class="{ 'score-picker__hint--error': !scoreValid }">{{ scoreHint }}</p>
+            <div class="score-picker__actions">
+                <button class="score-picker__btn score-picker__btn--skip" type="button" @click="skipScore">SKIP</button>
+                <button class="score-picker__btn score-picker__btn--confirm" :class="'score-picker__btn--team-' + scorePicker.team" type="button" :disabled="!scoreValid" @click="confirmScore">CONFIRM</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -381,6 +410,7 @@ createApp({
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
         const emptyCourts = computed(() => courts.value.filter(court => !court.match));
+        const canFillCourts = computed(() => session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0);
         const emptyCourtPrompt = reactive({ show: false, courts: [] });
         const manualAssignment = reactive({ show: false, court: null, playerIds: [], submitting: false, error: '' });
         const manualDraggedId = ref(null);
@@ -393,7 +423,8 @@ createApp({
                 ids.slice(2, 4).map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean),
             ];
         });
-        const emptyCourtCountdown = ref(30);
+        const EMPTY_COURT_WAIT_MS = 60000;
+        const emptyCourtCountdown = ref(EMPTY_COURT_WAIT_MS / 1000);
         let emptyCourtTimer = null;
         let emptyCourtClockTimer = null;
         let emptyCourtSince = null;
@@ -433,8 +464,18 @@ createApp({
                 .map(p => p.player_id)
         );
         const submitting = reactive({});
-        const matchScores = reactive({});
         const pendingResultMatchIds = new Set();
+
+        // Score picker — the wheels are index-addressed, so value === index.
+        const MATCH_POINTS = 21;
+        const CLOSE_MARGIN = 3;
+        const SCORE_ITEM_HEIGHT = 56;
+        const scoreValues = Object.freeze(Array.from({ length: 41 }, (_, index) => index));
+        const scorePicker = reactive({ show: false, matchId: null, team: 1, courtNumber: null, t1: 21, t2: 15, t1Names: '', t2Names: '' });
+        const wheelT1 = ref(null);
+        const wheelT2 = ref(null);
+        const wheelFrames = { t1: 0, t2: 0 };
+        let scorePickerSpot = null;
         const celebration = ref(null);
         const celebrationParticles = Array.from({ length: 28 }, (_, index) => index);
         let celebrationTimer = null;
@@ -653,7 +694,6 @@ createApp({
                         const t2 = match.match_players.filter(p => p.team === 2);
                         const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
                         md = { id: match.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
-                        if (!matchScores[match.id]) matchScores[match.id] = { t1: '', t2: '' };
                     }
                     return { ...c, match: md };
                 });
@@ -706,31 +746,102 @@ createApp({
         }
 
         async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return { ok: res.ok, data: await res.json() }; }
-        async function recordResult(matchId, team, closeGame = false, event = null) {
+        const scoreValid = computed(() => {
+            const winner = scorePicker.team === 1 ? scorePicker.t1 : scorePicker.t2;
+            const loser = scorePicker.team === 1 ? scorePicker.t2 : scorePicker.t1;
+            if (winner < MATCH_POINTS || winner <= loser) return false;
+            return winner === MATCH_POINTS ? (winner - loser) >= 2 : (winner - loser) === 2;
+        });
+        const scoreHint = computed(() => {
+            const winner = scorePicker.team === 1 ? scorePicker.t1 : scorePicker.t2;
+            const loser = scorePicker.team === 1 ? scorePicker.t2 : scorePicker.t1;
+            if (winner <= loser) return 'The winning team needs the higher score';
+            if (winner < MATCH_POINTS) return 'A game is played to ' + MATCH_POINTS;
+            if (winner === MATCH_POINTS && (winner - loser) < 2) return 'A game must be won by two';
+            if (winner > MATCH_POINTS && (winner - loser) !== 2) return 'Past ' + MATCH_POINTS + ' the game ends on a two-point lead';
+            return (winner - loser) <= CLOSE_MARGIN ? 'Close game — ratings move gently' : 'Comfortable win — ratings move further';
+        });
+
+        function onWheelScroll(key, event) {
+            if (wheelFrames[key]) return;
+            const el = event.target;
+            wheelFrames[key] = requestAnimationFrame(() => {
+                wheelFrames[key] = 0;
+                const index = Math.max(0, Math.min(scoreValues.length - 1, Math.round(el.scrollTop / SCORE_ITEM_HEIGHT)));
+                if (scorePicker[key] !== index) {
+                    scorePicker[key] = index;
+                    if (navigator.vibrate) navigator.vibrate(5);
+                }
+            });
+        }
+
+        function openScorePicker(court, team, event) {
+            const match = court.match;
+            if (!match || pendingResultMatchIds.has(match.id)) return;
+
+            const card = event?.currentTarget?.closest('.court-card');
+            const bounds = card?.getBoundingClientRect();
+            scorePickerSpot = {
+                courtId: court.id,
+                x: bounds ? ((event.clientX - bounds.left) / bounds.width) * 100 : (team === 1 ? 25 : 75),
+                y: bounds ? ((event.clientY - bounds.top) / bounds.height) * 100 : 50,
+            };
+
+            scorePicker.matchId = match.id;
+            scorePicker.team = team;
+            scorePicker.courtNumber = court.court_number;
+            scorePicker.t1Names = match.t1.map(p => formatName(p.name)).join(' + ');
+            scorePicker.t2Names = match.t2.map(p => formatName(p.name)).join(' + ');
+            scorePicker.t1 = team === 1 ? MATCH_POINTS : 15;
+            scorePicker.t2 = team === 2 ? MATCH_POINTS : 15;
+            scorePicker.show = true;
+
+            nextTick(() => {
+                if (wheelT1.value) wheelT1.value.scrollTop = scorePicker.t1 * SCORE_ITEM_HEIGHT;
+                if (wheelT2.value) wheelT2.value.scrollTop = scorePicker.t2 * SCORE_ITEM_HEIGHT;
+            });
+        }
+
+        function closeScorePicker() {
+            scorePicker.show = false;
+            scorePicker.matchId = null;
+            scorePickerSpot = null;
+        }
+
+        function confirmScore() {
+            if (!scoreValid.value || !scorePicker.matchId) return;
+            const payload = { matchId: scorePicker.matchId, team: scorePicker.team, scores: { t1: scorePicker.t1, t2: scorePicker.t2 }, spot: scorePickerSpot };
+            scorePicker.show = false;
+            scorePicker.matchId = null;
+            recordResult(payload.matchId, payload.team, payload.scores, payload.spot);
+        }
+
+        function skipScore() {
+            if (!scorePicker.matchId) return;
+            const payload = { matchId: scorePicker.matchId, team: scorePicker.team, spot: scorePickerSpot };
+            scorePicker.show = false;
+            scorePicker.matchId = null;
+            recordResult(payload.matchId, payload.team, null, payload.spot);
+        }
+
+        async function recordResult(matchId, team, scores = null, spot = null) {
             const submissionKey = matchId + '_' + team;
             if (pendingResultMatchIds.has(matchId)) return;
             submitting[submissionKey] = true;
             pendingResultMatchIds.add(matchId);
 
-            const scores = matchScores[matchId];
-            const hasScores = scores && scores.t1 !== '' && scores.t2 !== '';
-
             const court = courts.value.find(item => item.match && item.match.id === matchId);
             const previousMatch = court ? court.match : null;
             if (court) {
                 court.match = null;
-                const card = event?.currentTarget?.closest('.court-card');
-                const bounds = card?.getBoundingClientRect();
-                const x = bounds ? ((event.clientX - bounds.left) / bounds.width) * 100 : (team === 1 ? 25 : 75);
-                const y = bounds ? ((event.clientY - bounds.top) / bounds.height) * 100 : 50;
-                celebration.value = { courtId: court.id, x, y };
+                celebration.value = { courtId: court.id, x: spot ? spot.x : (team === 1 ? 25 : 75), y: spot ? spot.y : 50 };
                 clearTimeout(celebrationTimer);
                 celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
             }
 
-            postApi('/api/matches/' + matchId + '/result', hasScores
-                ? { winning_team: team, close_game: closeGame, team_1_score: parseInt(scores.t1, 10), team_2_score: parseInt(scores.t2, 10) }
-                : { winning_team: team, close_game: closeGame })
+            postApi('/api/matches/' + matchId + '/result', scores
+                ? { winning_team: team, team_1_score: scores.t1, team_2_score: scores.t2 }
+                : { winning_team: team })
                 .then(result => {
                     if (!result.ok) {
                         pendingResultMatchIds.delete(matchId);
@@ -778,6 +889,10 @@ createApp({
 
             postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
         }
+        async function fillCourts() {
+            const result = await postApi('/api/sessions/' + SESSION_ID + '/fill');
+            if (result.ok) await fetchSession();
+        }
         async function adjustCourts(action) {
             if (updatingCourts.value) return;
 
@@ -803,11 +918,11 @@ createApp({
                 emptyCourtPrompt.show = false;
                 return;
             }
-            if (emptyCourtPrompt.show || manualAssignment.show) return;
+            if (emptyCourtPrompt.show || manualAssignment.show || scorePicker.show) return;
 
-            const promptAt = Math.max(emptyCourtSince + 30000, emptyCourtPromptSnoozedUntil);
+            const promptAt = Math.max(emptyCourtSince + EMPTY_COURT_WAIT_MS, emptyCourtPromptSnoozedUntil);
             emptyCourtTimer = setTimeout(() => {
-                if (session.status === 'ACTIVE' && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4) {
+                if (session.status === 'ACTIVE' && !scorePicker.show && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4) {
                     emptyCourtPrompt.courts = [...emptyCourts.value];
                     emptyCourtPrompt.show = true;
                 }
@@ -817,7 +932,7 @@ createApp({
             const hasActiveEmptyCourt = session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0;
             if (!hasActiveEmptyCourt) {
                 emptyCourtSince = null;
-                emptyCourtCountdown.value = 30;
+                emptyCourtCountdown.value = EMPTY_COURT_WAIT_MS / 1000;
                 clearInterval(emptyCourtClockTimer);
                 emptyCourtClockTimer = null;
                 return;
@@ -825,7 +940,7 @@ createApp({
 
             if (emptyCourtSince === null) emptyCourtSince = Date.now();
             const update = () => {
-                emptyCourtCountdown.value = Math.max(0, Math.ceil((emptyCourtSince + 30000 - Date.now()) / 1000));
+                emptyCourtCountdown.value = Math.max(0, Math.ceil((emptyCourtSince + EMPTY_COURT_WAIT_MS - Date.now()) / 1000));
             };
             update();
             if (!emptyCourtClockTimer) emptyCourtClockTimer = setInterval(update, 1000);
@@ -833,13 +948,13 @@ createApp({
         function waitForPlayers() {
             emptyCourtPrompt.show = false;
             emptyCourtSince = Date.now();
-            emptyCourtPromptSnoozedUntil = emptyCourtSince + 30000;
+            emptyCourtPromptSnoozedUntil = emptyCourtSince + EMPTY_COURT_WAIT_MS;
             scheduleEmptyCourtPrompt();
         }
         async function closeEmptyCourt() {
             emptyCourtPrompt.show = false;
             emptyCourtSince = Date.now();
-            emptyCourtPromptSnoozedUntil = emptyCourtSince + 30000;
+            emptyCourtPromptSnoozedUntil = emptyCourtSince + EMPTY_COURT_WAIT_MS;
             await adjustCourts('remove');
         }
         function openManualAssignment() {
@@ -1045,7 +1160,7 @@ createApp({
         });
 
         // Lock body scroll when any modal is open
-        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || emptyCourtPrompt.show || manualAssignment.show);
+        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || emptyCourtPrompt.show || manualAssignment.show || scorePicker.show);
         watch(modalOpen, (val) => { document.body.style.overflow = val ? 'hidden' : ''; });
 
         function formatName(name) {
@@ -1060,16 +1175,25 @@ createApp({
         // Clamp a rating into the visible 1–100 badge range.
         function ratingBadge(r) { return Math.max(1, Math.min(100, Math.round(Number(r) || 0))); }
 
-        // Rank icon by tier (rounded to the displayed value). The U+FE0F
-        // variation selector forces color-emoji presentation everywhere.
-        function ratingIcon(r) {
+        // Rank emblems (START/RISE/PACE/APEX) — brand artwork from public/assets/ranks.
+        // Exact 1x/2x/3x exports so the 28px slot never relies on browser downscaling.
+        // Static markup built from a fixed tier list, so it is safe for v-html.
+        const RANK_EMBLEMS = ['START', 'RISE', 'PACE', 'APEX'].reduce((set, tier) => {
+            const base = `${BASE_URL}/assets/ranks/${tier.toLowerCase()}`;
+            set[tier] = `<img src="${base}@1x.png" srcset="${base}@1x.png 1x, ${base}@2x.png 2x, ${base}@3x.png 3x" alt="" width="28" height="28" decoding="async">`;
+            return set;
+        }, {});
+
+        // Rank tier by rating (rounded to the displayed value).
+        function rankTier(r) {
             const rating = Math.round(Number(r) || 0);
-            if (rating >= 100) return '👑\uFE0F';
-            if (rating >= 75) return '🏆\uFE0F';
-            if (rating >= 50) return '🔥\uFE0F';
-            if (rating >= 25) return '⚡\uFE0F';
-            return '🌱\uFE0F';
+            if (rating >= 75) return 'APEX';
+            if (rating >= 50) return 'PACE';
+            if (rating >= 25) return 'RISE';
+            return 'START';
         }
+
+        function rankIcon(r) { return RANK_EMBLEMS[rankTier(r)]; }
 
         // How many games this player has sat out (relative to the session leader).
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
@@ -1081,7 +1205,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, matchScores, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, emptyCourtPrompt, emptyCourtCountdown, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, waitForPlayers, closeEmptyCourt, openManualAssignment, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, ratingIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, emptyCourtPrompt, emptyCourtCountdown, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, waitForPlayers, closeEmptyCourt, openManualAssignment, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>

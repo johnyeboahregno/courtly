@@ -87,3 +87,39 @@ it('clamps player adjustments to rating bounds', function () {
     expect($service->calculatePlayerAdjustment($nearCeiling, 0.0, true))->toBe(0.5);
     expect($service->calculatePlayerAdjustment($nearFloor, 1.0, false))->toBe(-0.5);
 });
+it('scales the rating multiplier by margin of victory', function () {
+    config([
+        'courtly.rating.margin_multiplier_min' => 0.75,
+        'courtly.rating.margin_multiplier_max' => 1.25,
+        'courtly.rating.margin_close_threshold' => 3,
+        'courtly.rating.margin_blowout_threshold' => 15,
+    ]);
+
+    $service = app(RatingService::class);
+
+    expect($service->calculateMarginMultiplier(21, 19))->toBe(0.75);
+    expect($service->calculateMarginMultiplier(21, 18))->toBe(0.75);
+    expect($service->calculateMarginMultiplier(21, 12))->toBe(1.0);
+    expect($service->calculateMarginMultiplier(21, 6))->toBe(1.25);
+    expect($service->calculateMarginMultiplier(21, 0))->toBe(1.25);
+});
+
+it('leaves the multiplier untouched when a match has no score', function () {
+    $service = app(RatingService::class);
+
+    expect($service->calculateMarginMultiplier(null, null))->toBe(1.0);
+    expect($service->calculateMarginMultiplier(21, null))->toBe(1.0);
+});
+
+it('clamps the combined close game and margin multipliers', function () {
+    config([
+        'courtly.rating.margin_combined_min' => 0.60,
+        'courtly.rating.margin_combined_max' => 1.50,
+    ]);
+
+    $service = app(RatingService::class);
+
+    expect($service->combineMultipliers(1.25, 1.25))->toBe(1.5);
+    expect($service->combineMultipliers(0.75, 0.75))->toBe(0.6);
+    expect($service->combineMultipliers(1.25, 0.75))->toBe(0.9375);
+});

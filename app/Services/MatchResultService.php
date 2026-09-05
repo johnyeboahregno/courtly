@@ -36,6 +36,7 @@ class MatchResultService
         ?int $team2Score = null,
     ): array {
         $result = DB::transaction(function () use ($match, $winningTeam, $closeGame, $team1Score, $team2Score) {
+            $closeGame = $this->resolveCloseGame($closeGame, $team1Score, $team2Score);
             // Matchmaking locks the session first. Do the same here so a result
             // and a concurrent player action cannot acquire locks in opposite order.
             $session = Session::query()
@@ -198,12 +199,31 @@ class MatchResultService
     }
 
     /**
+     * A recorded score is the source of truth for closeness; the manual flag is
+     * only a fallback for results logged without a score.
+     */
+    private function resolveCloseGame(bool $closeGame, ?int $team1Score, ?int $team2Score): bool
+    {
+        if ($team1Score === null || $team2Score === null) {
+            return $closeGame;
+        }
+
+        $threshold = (int) config('courtly.rating.margin_close_threshold', 3);
+
+        return abs($team1Score - $team2Score) <= $threshold;
+    }
+
+    /**
      * Correct a completed match's winner — reverts the previous result
      * and recalculates ratings/stats with the new winning team.
      */
-    public function correctResult(GameMatch $match, int $newWinningTeam): array
-    {
-        return DB::transaction(function () use ($match, $newWinningTeam) {
+    public function correctResult(
+        GameMatch $match,
+        int $newWinningTeam,
+        ?int $team1Score = null,
+        ?int $team2Score = null,
+    ): array {
+        return DB::transaction(function () use ($match, $newWinningTeam, $team1Score, $team2Score) {
             $match = GameMatch::query()
                 ->where('id', $match->id)
                 ->lockForUpdate()
@@ -219,6 +239,7 @@ class MatchResultService
                 return $this->buildExistingResult($match);
             }
 
+            $previousWinner = (int) $match->winning_team;
             $session = $match->session;
 
             // 1. Revert the previous result
@@ -228,17 +249,27 @@ class MatchResultService
                 $this->revertResult($match, $session);
             }
 
-            // 2. Re-apply with the corrected winner
+            // 2. Settle the scoreline first — ratings read it off the match row.
+            // Without replacement scores, swapping keeps the winner on top.
+            if ($team1Score === null || $team2Score === null) {
+                $team1Score = $match->team_2_score;
+                $team2Score = $match->team_1_score;
+            }
+
+            $match->update([
+                'winning_team' => $newWinningTeam,
+                'close_game' => $this->resolveCloseGame((bool) $match->close_game, $team1Score, $team2Score),
+                'team_1_score' => $team1Score,
+                'team_2_score' => $team2Score,
+                'completed_at' => now(),
+            ]);
+
+            // 3. Re-apply with the corrected winner
             $ratingChanges = $session->isTournament()
                 ? $this->applyTournamentResult($match, $newWinningTeam)
                 : $this->ratingService->updateRatings($match, $newWinningTeam);
 
-            $match->update([
-                'winning_team' => $newWinningTeam,
-                'completed_at' => now(),
-            ]);
-
-            // 3. Update session player stats for corrected result
+            // 4. Update session player stats for corrected result
             $match->load('matchPlayers');
             foreach ($match->matchPlayers as $mp) {
                 $sessionPlayer = $session->sessionPlayers()
@@ -255,7 +286,7 @@ class MatchResultService
                 }
             }
 
-            // 4. Publish events so clients refresh
+            // 5. Publish events so clients refresh
             $this->eventService->publish($session->id, 'match.completed', [
                 'match_id' => $match->id,
                 'court_id' => $match->court_id,
@@ -267,7 +298,7 @@ class MatchResultService
 
             Log::info('match.result.corrected', [
                 'match_id' => $match->id,
-                'previous_winner' => $match->winning_team,
+                'previous_winner' => $previousWinner,
                 'new_winner' => $newWinningTeam,
             ]);
 

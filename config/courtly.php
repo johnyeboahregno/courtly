@@ -115,6 +115,14 @@ return [
         'confidence_factor' => 0.15,
         'close_game_favorite_multiplier' => 0.75,
         'close_game_upset_multiplier' => 1.25,
+
+        // Margin of victory scales rating movement: a narrow win says less than a thrashing.
+        'margin_multiplier_min' => 0.75,
+        'margin_multiplier_max' => 1.25,
+        'margin_close_threshold' => 3,
+        'margin_blowout_threshold' => 15,
+        'margin_combined_min' => 0.60,
+        'margin_combined_max' => 1.50,
     ],
 
     /*

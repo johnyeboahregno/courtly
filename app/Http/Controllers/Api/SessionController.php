@@ -353,6 +353,29 @@ class SessionController extends Controller
     }
 
     /**
+     * Fill any idle courts immediately by running matchmaking.
+     */
+    public function fill(Session $session): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        if ($session->status !== SessionStatus::ACTIVE) {
+            return response()->json(['message' => 'Only active sessions can fill courts.'], 409);
+        }
+
+        if (! $session->isTournament()) {
+            $this->matchmaking->allocateMatches($session);
+        }
+
+        $this->events->publish($session->id, 'session.updated', [
+            'session_id' => $session->id,
+            'courts_filled' => true,
+        ]);
+
+        return response()->json(['data' => $session->fresh(['courts'])]);
+    }
+
+    /**
      * Start a match chosen by the organizer on an available court.
      */
     public function manualAssignment(Request $request, Session $session): JsonResponse
