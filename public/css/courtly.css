@@ -488,8 +488,7 @@ textarea,
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 14px;
+    gap: 0;
     font-size: 0.93rem;
     color: var(--text-muted);
 }
@@ -551,7 +550,7 @@ textarea,
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    margin-left: -6px;
+    margin-left: 0;
     cursor: default;
 }
 .connection-dot--connecting {
@@ -2032,6 +2031,9 @@ textarea,
 [data-theme="light"] .session-header__badge--paused { background: var(--status-paused-bg); color: var(--status-paused-text); }
 [data-theme="light"] .session-header__badge--finished { background: var(--status-finished-bg); color: var(--status-finished-text); }
 
+[data-theme="light"] .brand-word,
+[data-theme="light"] .auth-brand__word { color: #32405c; }
+
 /* System preference: light */
 @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
@@ -2103,6 +2105,9 @@ textarea,
     :root:not([data-theme]) .session-header__badge--upcoming { background: var(--status-upcoming-bg); color: var(--status-upcoming-text); }
     :root:not([data-theme]) .session-header__badge--paused { background: var(--status-paused-bg); color: var(--status-paused-text); }
     :root:not([data-theme]) .session-header__badge--finished { background: var(--status-finished-bg); color: var(--status-finished-text); }
+
+    :root:not([data-theme]) .brand-word,
+    :root:not([data-theme]) .auth-brand__word { color: #32405c; }
 }
 
 /* ── Theme Toggle ────────────────────────────────────────────────────── */
@@ -2292,8 +2297,8 @@ textarea,
     }
 
     .session-header__stats {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
     }
@@ -2428,8 +2433,6 @@ textarea,
 
 @media (max-width: 374px) {
     #courtly-app { padding: 0 8px; }
-
-    .session-header__stats { grid-template-columns: 1fr; }
 
     .court-card__body { padding: 8px 6px; }
 
