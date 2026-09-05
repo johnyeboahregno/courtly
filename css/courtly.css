@@ -2130,8 +2130,8 @@ textarea,
     color: #fff;
 }
 
-/* Version label in the session header. */
-.session-header__version {
+/* Version label on the dashboard. */
+.version-chip {
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -2300,7 +2300,6 @@ textarea,
     .session-header__stats > * { min-width: 0; }
 
     .mode-switch,
-    .session-header__version,
     .theme-toggle { justify-self: start; }
 
     .mode-switch { min-height: 40px; }
