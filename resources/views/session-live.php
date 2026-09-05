@@ -43,7 +43,7 @@
         <div class="session-header__left">
             <a href="<?= $base ?? '/courtly' ?>/" class="back-btn" title="Back to dashboard">←</a>
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
-                <img src="<?= $base ?? '/courtly' ?>/assets/favicon.png" alt="Courtly" class="session-header__logo-img">
+                <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
@@ -84,13 +84,14 @@
                 <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
                     <div class="court-card__pending-grid">
                         <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending">
-                            <i class="court-card__rating">{{ ratingBadge(sp.player.rating) }}</i>
+                            <i class="court-card__rating"><span class="rating-value">{{ ratingBadge(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></i>
                             <span class="court-card__player">{{ formatName(sp.player.name) }}</span>
                         </div>
                     </div>
                     <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
                 </div>
                 <span v-else class="court-empty-text">Waiting for players</span>
+                <span v-if="session.status === 'ACTIVE' && session.type !== 'tournament'" class="court-empty-countdown">{{ emptyCourtCountdown }}s</span>
             </div>
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
@@ -98,22 +99,22 @@
                     <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 1, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[0].rating) }}</i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[0].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t1[0].rating) }}</span></span></i><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t1[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t1[1].rating) }}</i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t1[1].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t1[1].rating) }}</span></span></i><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="recordResult(court.match.id, 2, false, $event)" title="Tap to record a win for this team">
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[0].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[0].rating) }}</i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[0].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t2[0].rating) }}</span></span></i><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
                         <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
                             <span class="court-card__player">{{ formatName(court.match.t2[1].name) }}</span>
-                            <span class="court-card__player-meta"><i class="court-card__rating">{{ ratingBadge(court.match.t2[1].rating) }}</i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
+                            <span class="court-card__player-meta"><i class="court-card__rating"><span class="rating-value">{{ ratingBadge(court.match.t2[1].rating) }}<span class="rating-emoji">{{ ratingIcon(court.match.t2[1].rating) }}</span></span></i><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
                     </div>
                 </div>
@@ -140,7 +141,7 @@
                 <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }">
                     <div class="player-card__col">
                         <span class="player-card__name">{{ formatName(sp.player.name) }}</span>
-                        <span class="player-card__rating">{{ Math.round(sp.player.rating) }}-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
+                        <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
                         <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
@@ -184,6 +185,60 @@
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession'" @click="startNewSession">▶ START NEW SESSION</button>
     </footer>
 
+    <div v-if="emptyCourtPrompt.show" class="modal-overlay" @click.self="waitForPlayers">
+        <div class="modal modal--confirm modal--empty-court">
+            <div class="confirm-icon">?</div>
+            <h3>{{ emptyCourtPrompt.courts.length }} court{{ emptyCourtPrompt.courts.length === 1 ? '' : 's' }} still open</h3>
+            <p class="confirm-note">There are enough players waiting to start a game. Keep waiting for smart matchmaking, close an unused court, or choose the players yourself.</p>
+            <div class="modal__actions">
+                <button class="btn btn--secondary" @click="waitForPlayers">Wait longer</button>
+                <button class="btn btn--warning" @click="closeEmptyCourt">Close empty court</button>
+                <button class="btn btn--primary" @click="openManualAssignment">Assign players</button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="manualAssignment.show" class="modal-overlay" @click.self="closeManualAssignment">
+        <div class="modal modal--wide modal--manual-assign">
+            <div class="modal__head">
+                <h3>Assign Court {{ manualAssignment.court.court_number }}</h3>
+                <button class="modal__close" @click="closeManualAssignment">✕</button>
+            </div>
+            <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
+            <div class="existing-list manual-assign__list">
+                <button v-for="sp in waitingPlayers" :key="sp.id" type="button" class="existing-item manual-assignment__player" :class="{ 'existing-item--selected': manualAssignment.playerIds.includes(sp.player_id) }" @click="toggleManualPlayer(sp.player_id)">
+                    <span class="existing-item__name">{{ formatName(sp.player.name) }}</span>
+                    <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></span>
+                </button>
+            </div>
+
+            <div v-if="manualAssignment.playerIds.length === 4" class="manual-teams">
+                <div v-for="(team, teamIndex) in manualTeams" :key="teamIndex" class="manual-team" :class="'manual-team--' + (teamIndex + 1)">
+                    <div class="manual-team__head">TEAM {{ teamIndex + 1 }}</div>
+                    <div v-for="sp in team" :key="sp.player_id"
+                        class="manual-team__slot"
+                        :class="{ 'manual-team__slot--dragging': manualDraggedId === sp.player_id, 'manual-team__slot--over': manualDragOverId === sp.player_id, 'manual-team__slot--tapped': manualTapId === sp.player_id }"
+                        draggable="true"
+                        @dragstart="manualDragStart(sp.player_id, $event)"
+                        @dragend="manualDragEnd"
+                        @dragover.prevent="manualDragOverId = sp.player_id"
+                        @dragleave="manualDragOverId === sp.player_id && (manualDragOverId = null)"
+                        @drop="manualDrop(sp.player_id, $event)"
+                        @click="manualTap(sp.player_id)">
+                        <span class="manual-team__name">{{ formatName(sp.player.name) }}</span>
+                        <span class="manual-team__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}<span class="rating-emoji">{{ ratingIcon(sp.player.rating) }}</span></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <p v-if="manualAssignment.error" class="err" style="display:block">{{ manualAssignment.error }}</p>
+            <div class="modal__actions">
+                <button class="btn btn--secondary" @click="closeManualAssignment">Cancel</button>
+                <button class="btn btn--primary" :disabled="manualAssignment.playerIds.length !== 4 || manualAssignment.submitting" @click="submitManualAssignment">Start match ({{ manualAssignment.playerIds.length }}/4)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Players dialog: add new/select existing + manage roster -->
     <div v-if="showPlayers" class="modal-overlay" @click.self="showPlayers = false">
         <div class="modal modal--wide">
@@ -205,7 +260,7 @@
                     <div class="existing-list">
                         <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
                             <span class="existing-item__name">{{ formatName(p.name) }}</span>
-                            <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
+                            <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}<span class="rating-emoji">{{ ratingIcon(p.rating) }}</span></span></span>
                         </div>
                     </div>
                 </div>
@@ -237,7 +292,7 @@
                         @drop="onPlayerDrop(p.player_id, $event)">
                         <span class="team-card__handle">⠿</span>
                         <span class="existing-item__name">{{ formatName(p.name) }}</span>
-                        <span class="existing-item__rating">{{ Math.round(p.rating) }}</span>
+                        <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}<span class="rating-emoji">{{ ratingIcon(p.rating) }}</span></span></span>
                     </div>
                 </div>
             </div>
@@ -325,6 +380,24 @@ createApp({
         const pendingAddedPlayers = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
+        const emptyCourts = computed(() => courts.value.filter(court => !court.match));
+        const emptyCourtPrompt = reactive({ show: false, courts: [] });
+        const manualAssignment = reactive({ show: false, court: null, playerIds: [], submitting: false, error: '' });
+        const manualDraggedId = ref(null);
+        const manualDragOverId = ref(null);
+        const manualTapId = ref(null);
+        const manualTeams = computed(() => {
+            const ids = manualAssignment.playerIds;
+            return [
+                ids.slice(0, 2).map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean),
+                ids.slice(2, 4).map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean),
+            ];
+        });
+        const emptyCourtCountdown = ref(30);
+        let emptyCourtTimer = null;
+        let emptyCourtClockTimer = null;
+        let emptyCourtSince = null;
+        let emptyCourtPromptSnoozedUntil = 0;
         // Preview of players heading to each empty court. They render grayed
         // out until the court reaches a full four — the server then forms the
         // real match and the court switches to full colour. Sorted by name so
@@ -592,6 +665,7 @@ createApp({
                     [...pendingExistingPlayerIds.value].filter(id => !confirmedIds.has(id))
                 );
                 connectionState.value = 'connected';
+                scheduleEmptyCourtPrompt();
         }
 
         async function fetchSession() {
@@ -721,6 +795,148 @@ createApp({
                 updatingCourts.value = false;
             }
         }
+        function scheduleEmptyCourtPrompt() {
+            clearTimeout(emptyCourtTimer);
+            updateEmptyCourtCountdown();
+            const canAssign = session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4;
+            if (!canAssign) {
+                emptyCourtPrompt.show = false;
+                return;
+            }
+            if (emptyCourtPrompt.show || manualAssignment.show) return;
+
+            const promptAt = Math.max(emptyCourtSince + 30000, emptyCourtPromptSnoozedUntil);
+            emptyCourtTimer = setTimeout(() => {
+                if (session.status === 'ACTIVE' && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4) {
+                    emptyCourtPrompt.courts = [...emptyCourts.value];
+                    emptyCourtPrompt.show = true;
+                }
+            }, Math.max(0, promptAt - Date.now()));
+        }
+        function updateEmptyCourtCountdown() {
+            const hasActiveEmptyCourt = session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0;
+            if (!hasActiveEmptyCourt) {
+                emptyCourtSince = null;
+                emptyCourtCountdown.value = 30;
+                clearInterval(emptyCourtClockTimer);
+                emptyCourtClockTimer = null;
+                return;
+            }
+
+            if (emptyCourtSince === null) emptyCourtSince = Date.now();
+            const update = () => {
+                emptyCourtCountdown.value = Math.max(0, Math.ceil((emptyCourtSince + 30000 - Date.now()) / 1000));
+            };
+            update();
+            if (!emptyCourtClockTimer) emptyCourtClockTimer = setInterval(update, 1000);
+        }
+        function waitForPlayers() {
+            emptyCourtPrompt.show = false;
+            emptyCourtSince = Date.now();
+            emptyCourtPromptSnoozedUntil = emptyCourtSince + 30000;
+            scheduleEmptyCourtPrompt();
+        }
+        async function closeEmptyCourt() {
+            emptyCourtPrompt.show = false;
+            emptyCourtSince = Date.now();
+            emptyCourtPromptSnoozedUntil = emptyCourtSince + 30000;
+            await adjustCourts('remove');
+        }
+        function openManualAssignment() {
+            const court = emptyCourtPrompt.courts[0] || emptyCourts.value[0];
+            if (!court) return;
+            emptyCourtPrompt.show = false;
+            manualAssignment.show = true;
+            manualAssignment.court = court;
+            manualAssignment.playerIds = balanceManualTeam(waitingPlayers.value.slice(0, 4).map(sp => sp.player_id));
+            manualAssignment.error = '';
+        }
+        function closeManualAssignment() {
+            manualAssignment.show = false;
+            manualAssignment.court = null;
+            manualAssignment.playerIds = [];
+            manualAssignment.error = '';
+            manualDraggedId.value = null;
+            manualDragOverId.value = null;
+            manualTapId.value = null;
+            scheduleEmptyCourtPrompt();
+        }
+        function toggleManualPlayer(playerId) {
+            const selected = manualAssignment.playerIds;
+            if (selected.includes(playerId)) {
+                manualAssignment.playerIds = selected.filter(id => id !== playerId);
+            } else if (selected.length < 4) {
+                const next = [...selected, playerId];
+                manualAssignment.playerIds = next.length === 4 ? balanceManualTeam(next) : next;
+            }
+        }
+        function balanceManualTeam(ids) {
+            const selected = ids.map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean);
+            selected.sort((a, b) => (Number(a.player.rating) || 0) - (Number(b.player.rating) || 0));
+            return [selected[0].player_id, selected[3].player_id, selected[1].player_id, selected[2].player_id];
+        }
+        function swapManualPlayers(playerIdA, playerIdB) {
+            const ids = [...manualAssignment.playerIds];
+            const a = ids.indexOf(playerIdA);
+            const b = ids.indexOf(playerIdB);
+            if (a === -1 || b === -1 || a === b) return;
+            [ids[a], ids[b]] = [ids[b], ids[a]];
+            manualAssignment.playerIds = ids;
+        }
+        function manualDragStart(playerId, event) {
+            manualDraggedId.value = playerId;
+            manualTapId.value = null;
+            if (event && event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', String(playerId));
+            }
+        }
+        function manualDragEnd() {
+            manualDraggedId.value = null;
+            manualDragOverId.value = null;
+        }
+        function manualDrop(playerId, event) {
+            if (event) event.preventDefault();
+            const source = manualDraggedId.value;
+            manualDragEnd();
+            if (source && source !== playerId) swapManualPlayers(source, playerId);
+        }
+        function manualTap(playerId) {
+            if (manualTapId.value === null) {
+                manualTapId.value = playerId;
+                return;
+            }
+            if (manualTapId.value === playerId) {
+                manualTapId.value = null;
+                return;
+            }
+            const a = manualTapId.value;
+            manualTapId.value = null;
+            swapManualPlayers(a, playerId);
+        }
+        async function submitManualAssignment() {
+            if (!manualAssignment.court || manualAssignment.playerIds.length !== 4 || manualAssignment.submitting) return;
+            manualAssignment.submitting = true;
+            manualAssignment.error = '';
+            try {
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
+                    court_id: manualAssignment.court.id,
+                    player_ids: manualAssignment.playerIds,
+                    team_1_ids: manualAssignment.playerIds.slice(0, 2),
+                    team_2_ids: manualAssignment.playerIds.slice(2, 4),
+                });
+                if (!result.ok) {
+                    manualAssignment.error = result.data.message || 'Unable to start this match.';
+                    return;
+                }
+                closeManualAssignment();
+                await fetchSession();
+            } catch {
+                manualAssignment.error = 'Unable to start this match.';
+            } finally {
+                manualAssignment.submitting = false;
+            }
+        }
         async function startSession() {
             if (sessionActionPending.value) return;
             sessionActionPending.value = 'start';
@@ -824,10 +1040,12 @@ createApp({
             pollingStopped = true;
             if (pollTimer) clearTimeout(pollTimer);
             if (celebrationTimer) clearTimeout(celebrationTimer);
+            if (emptyCourtTimer) clearTimeout(emptyCourtTimer);
+            if (emptyCourtClockTimer) clearInterval(emptyCourtClockTimer);
         });
 
         // Lock body scroll when any modal is open
-        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show);
+        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || emptyCourtPrompt.show || manualAssignment.show);
         watch(modalOpen, (val) => { document.body.style.overflow = val ? 'hidden' : ''; });
 
         function formatName(name) {
@@ -842,6 +1060,17 @@ createApp({
         // Clamp a rating into the visible 1–100 badge range.
         function ratingBadge(r) { return Math.max(1, Math.min(100, Math.round(Number(r) || 0))); }
 
+        // Rank icon by tier (rounded to the displayed value). The U+FE0F
+        // variation selector forces color-emoji presentation everywhere.
+        function ratingIcon(r) {
+            const rating = Math.round(Number(r) || 0);
+            if (rating >= 100) return '👑\uFE0F';
+            if (rating >= 75) return '🏆\uFE0F';
+            if (rating >= 50) return '🔥\uFE0F';
+            if (rating >= 25) return '⚡\uFE0F';
+            return '🌱\uFE0F';
+        }
+
         // How many games this player has sat out (relative to the session leader).
         const sessionMaxGames = computed(() => players.value.reduce((m, p) => Math.max(m, p.games_played || 0), 0));
         function sitOuts(sp) { return Math.max(0, sessionMaxGames.value - (sp.games_played || 0)); }
@@ -852,7 +1081,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, matchScores, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, matchScores, history, historySearch, filteredHistory, waitingPlayers, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, emptyCourtPrompt, emptyCourtCountdown, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, waitForPlayers, closeEmptyCourt, openManualAssignment, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, ratingIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>

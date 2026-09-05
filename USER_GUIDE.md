@@ -122,7 +122,17 @@ After you **finish** a session, the summary shows:
 
 ---
 
-## 10. Troubleshooting
+## 10. Empty Courts
+
+When an active casual session has an open court and at least four waiting players for 30 seconds, Courtly asks how to proceed:
+
+- **Wait longer** — keeps the current court count and gives smart matchmaking another 30 seconds.
+- **Close empty court** — removes one unused court from the current session.
+- **Assign players** — choose exactly four waiting players for an open court. Courtly balances the two teams and starts the match.
+
+---
+
+## 11. Troubleshooting
 
 | Problem | What to do |
 |---------|------------|

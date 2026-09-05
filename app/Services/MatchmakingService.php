@@ -42,6 +42,104 @@ class MatchmakingService
     }
 
     /**
+     * Create one organizer-selected match while preserving the normal match
+     * creation, status-update, and logging behavior.
+     */
+    public function createManualMatch(Session $session, int $courtId, array $playerIds, ?array $team1Ids = null, ?array $team2Ids = null): GameMatch
+    {
+        return DB::transaction(function () use ($session, $courtId, $playerIds, $team1Ids, $team2Ids): GameMatch {
+            $lockedSession = Session::query()->lockForUpdate()->findOrFail($session->id);
+
+            if ($lockedSession->status !== SessionStatus::ACTIVE) {
+                throw new \DomainException('Manual assignments are only available for active sessions.');
+            }
+
+            $court = $lockedSession->courts()
+                ->whereKey($courtId)
+                ->lockForUpdate()
+                ->first();
+            if ($court === null || $court->status !== CourtStatus::AVAILABLE) {
+                throw new \DomainException('Choose an available court.');
+            }
+
+            $sessionPlayers = $lockedSession->sessionPlayers()
+                ->whereIn('player_id', $playerIds)
+                ->where('status', SessionPlayerStatus::WAITING->value)
+                ->with('player')
+                ->lockForUpdate()
+                ->get();
+            if ($sessionPlayers->count() !== 4 || $sessionPlayers->pluck('player_id')->sort()->values()->all() !== collect($playerIds)->sort()->values()->all()) {
+                throw new \DomainException('Choose four players who are waiting for a court.');
+            }
+
+            $players = $sessionPlayers->map(fn (SessionPlayer $sp) => $this->attachPlayer($sp))->all();
+            $split = ($team1Ids !== null && $team2Ids !== null)
+                ? $this->buildManualSplit($players, $team1Ids, $team2Ids, $lockedSession)
+                : $this->findBestSplit($players, $lockedSession);
+            $assignment = [[
+                'players' => $players,
+                'best_split' => $split,
+                'rotation_score' => $this->calculateRotationScore($players, $lockedSession),
+                'skill_spread' => $this->calculateSkillSpread($players),
+                'group_cost' => 0.0,
+            ]];
+
+            return $this->createMatchesFromAssignments($lockedSession, collect([$court]), $assignment, microtime(true))[0];
+        });
+    }
+
+    /**
+     * Build the team split for a manual assignment using the organizer's
+     * chosen team composition instead of auto-balancing.
+     */
+    private function buildManualSplit(array $players, array $team1Ids, array $team2Ids, Session $session): array
+    {
+        $byId = [];
+        foreach ($players as $player) {
+            $byId[(int) $player->id] = $player;
+        }
+
+        $team1 = [];
+        foreach ($team1Ids as $id) {
+            $id = (int) $id;
+            if (! isset($byId[$id])) {
+                throw new \DomainException('Choose a valid player for team one.');
+            }
+            $team1[] = $byId[$id];
+        }
+
+        $team2 = [];
+        foreach ($team2Ids as $id) {
+            $id = (int) $id;
+            if (! isset($byId[$id])) {
+                throw new \DomainException('Choose a valid player for team two.');
+            }
+            $team2[] = $byId[$id];
+        }
+
+        $chosen = array_merge(array_map('intval', $team1Ids), array_map('intval', $team2Ids));
+        sort($chosen);
+        $all = array_map(fn (Player $player) => (int) $player->id, $players);
+        sort($all);
+
+        if ($chosen !== $all) {
+            throw new \DomainException('The chosen teams must use exactly the four selected players.');
+        }
+
+        $team1Rating = $this->calculateTeamStrength($team1);
+        $team2Rating = $this->calculateTeamStrength($team2);
+
+        return [
+            'team1' => $team1,
+            'team2' => $team2,
+            'pairing_cost' => $this->calculatePairingCost($team1, $team2, $session),
+            'team1_rating' => $team1Rating,
+            'team2_rating' => $team2Rating,
+            'balance_difference' => abs($team1Rating - $team2Rating),
+        ];
+    }
+
+    /**
      * Allocate matches while the parent session row is locked.
      *
      * @return array<int, Match>
