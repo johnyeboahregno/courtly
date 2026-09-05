@@ -12,7 +12,6 @@ use App\Enums\MatchStatus;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SessionEventsController extends Controller
 {
@@ -24,23 +23,18 @@ class SessionEventsController extends Controller
 
     /**
      * Get recent events for a session.
-     * Primary real-time mechanism: HTTP polling (works on Apache without Redis).
+     * Polling-only real-time mechanism: HTTP polling with ID-based cursor.
+     * Works on Apache without Redis, no WebSocket complexity.
      *
      * Query params:
-     *   ?last_event_id=123         — only events after this ID (recommended; no race condition)
-     *   ?since=2026-08-09T14:30:00 — only events after this timestamp (legacy; can skip events)
-     *   ?stream=1                  — use SSE streaming (if available)
+     *   ?last_event_id=123  — only events after this ID (recommended; no race condition)
+     *   ?since=timestamp    — only events after this timestamp (legacy; can skip events on clock skew)
+     *   ?snapshot=1         — include full session state (for initial page load)
      */
-    public function __invoke(Request $request, Session $session): JsonResponse|StreamedResponse
+    public function __invoke(Request $request, Session $session): JsonResponse
     {
         $this->authorizeSession($session);
 
-        // If streaming requested and headers allow, try SSE
-        if ($request->has('stream')) {
-            return $this->streamResponse($session, (int) $request->header('Last-Event-ID', 0));
-        }
-
-        // Default: polling response
         // Prefer ID-based cursor over timestamp to avoid race conditions.
         $lastEventId = (int) $request->query('last_event_id', 0);
         if ($lastEventId > 0) {
@@ -63,60 +57,7 @@ class SessionEventsController extends Controller
     }
 
     /**
-     * SSE stream mode — falls back gracefully on Apache.
-     */
-    private function streamResponse(Session $session, int $lastId): StreamedResponse
-    {
-        return response()->stream(function () use ($session, $lastId) {
-            // Turn off output buffering
-            if (ob_get_level() > 0) {
-                ob_end_flush();
-            }
-            ini_set('output_buffering', 'off');
-            ini_set('zlib.output_compression', '0');
-
-            echo "event: session.snapshot\n";
-            echo 'data: '.json_encode(['data' => $this->sessionSnapshot($session)], JSON_THROW_ON_ERROR)."\n\n";
-            flush();
-
-            while (connection_aborted() === 0) {
-                // Poll database for new events
-                $newEvents = $this->eventService->getEventsAfterId($session->id, $lastId);
-
-                foreach ($newEvents as $event) {
-                    echo "id: {$event['id']}\n";
-                    echo "event: {$event['type']}\n";
-                    echo "data: {$event['data']}\n\n";
-                    $lastId = (int) $event['id'];
-                }
-
-                if ($newEvents !== []) {
-                    echo "event: session.snapshot\n";
-                    echo 'data: '.json_encode(['data' => $this->sessionSnapshot($session)], JSON_THROW_ON_ERROR)."\n\n";
-                }
-
-                // Heartbeat every cycle
-                echo ": heartbeat\n\n";
-
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
-                flush();
-
-                usleep(800_000); // ~0.8s — fast push, reasonable DB load
-            }
-        }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Connection' => 'keep-alive',
-            'X-Accel-Buffering' => 'no',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ]);
-    }
-
-    /**
-     * Build the authoritative state sent to each live browser over SSE.
+     * Build the authoritative state sent to the live browser on first load.
      */
     private function sessionSnapshot(Session $session): array
     {

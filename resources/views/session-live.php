@@ -320,28 +320,28 @@
     </div>
 
     <!-- Styled confirmation dialog (remove from session) -->
-    <div v-if="confirmRemove.show" class="modal-overlay" @click.self="confirmRemove.show = false">
+    <div v-if="confirmRemove.show" class="modal-overlay" @click.self="!confirmRemove.loading && (confirmRemove.show = false)">
         <div class="modal modal--confirm">
             <div class="confirm-icon">✕</div>
             <h3>Remove {{ confirmRemove.name }}?</h3>
             <p v-if="confirmRemove.isPlaying" class="confirm-note">This player is currently on court. They'll finish the current game, then be removed from the session.</p>
             <p v-else class="confirm-note">This player will be removed from the session and won't be allocated to any more courts.</p>
             <div class="modal__actions">
-                <button class="btn btn--secondary" @click="confirmRemove.show = false">Cancel</button>
-                <button class="btn btn--danger" @click="confirmLeave">Remove</button>
+                <button class="btn btn--secondary" :disabled="confirmRemove.loading" @click="confirmRemove.show = false">Cancel</button>
+                <button class="btn btn--danger" :class="{ 'is-busy': confirmRemove.loading }" :disabled="confirmRemove.loading" @click="confirmLeave">{{ confirmRemove.loading ? 'Removing...' : 'Remove' }}</button>
             </div>
         </div>
     </div>
 
     <!-- Delete permanently dialog -->
-    <div v-if="confirmDelete.show" class="modal-overlay" @click.self="confirmDelete.show = false">
+    <div v-if="confirmDelete.show" class="modal-overlay" @click.self="!confirmDelete.loading && (confirmDelete.show = false)">
         <div class="modal modal--confirm">
             <div class="confirm-icon confirm-icon--delete">🗑</div>
             <h3>Delete {{ confirmDelete.name }}?</h3>
             <p class="confirm-note">This removes the player from the entire system — they won't appear in any session or future event. This cannot be undone.</p>
             <div class="modal__actions">
-                <button class="btn btn--secondary" @click="confirmDelete.show = false">Cancel</button>
-                <button class="btn btn--danger" @click="deletePlayer">Delete Permanently</button>
+                <button class="btn btn--secondary" :disabled="confirmDelete.loading" @click="confirmDelete.show = false">Cancel</button>
+                <button class="btn btn--danger" :class="{ 'is-busy': confirmDelete.loading }" :disabled="confirmDelete.loading" @click="deletePlayer">{{ confirmDelete.loading ? 'Deleting...' : 'Delete Permanently' }}</button>
             </div>
         </div>
     </div>
@@ -533,8 +533,8 @@ createApp({
         function isInSession(playerId) {
             return activePlayers.value.some(sp => sp.player_id === playerId);
         }
-        const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false });
-        const confirmDelete = ref({ show: false, playerId: null, name: '' });
+        const confirmRemove = ref({ show: false, spId: null, name: '', isPlaying: false, loading: false });
+        const confirmDelete = ref({ show: false, playerId: null, name: '', loading: false });
         const confirmNewSession = ref({ show: false });
         const showTeams = ref(false);
         const teamsList = ref([]);
@@ -1178,29 +1178,45 @@ createApp({
 
         // Styled remove confirmation
         function openRemove(sp) {
-            confirmRemove.value = { show: true, spId: sp.id, name: sp.player.name, isPlaying: sp.status === 'PLAYING' };
+            confirmRemove.value = { show: true, spId: sp.id, name: sp.player.name, isPlaying: sp.status === 'PLAYING', loading: false };
         }
-        function confirmLeave() {
-            if (!confirmRemove.value.spId) return;
+        async function confirmLeave() {
+            if (!confirmRemove.value.spId || confirmRemove.value.loading) return;
             const spId = confirmRemove.value.spId;
-            confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false };
-            if (typeof spId === 'number') {
-                postApi('/api/session-players/' + spId + '/leave');
+            confirmRemove.value.loading = true;
+            try {
+                const result = await postApi('/api/session-players/' + spId + '/leave');
+                if (result.ok) {
+                    confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false, loading: false };
+                } else {
+                    confirmRemove.value.loading = false;
+                }
+            } catch (e) {
+                confirmRemove.value.loading = false;
             }
         }
 
         // Permanent delete from system
         function openDelete(sp) {
-            confirmDelete.value = { show: true, playerId: sp.player_id, name: sp.player.name };
+            confirmDelete.value = { show: true, playerId: sp.player_id, name: sp.player.name, loading: false };
         }
         function openDeleteById(playerId, playerName) {
-            confirmDelete.value = { show: true, playerId: playerId, name: playerName };
+            confirmDelete.value = { show: true, playerId: playerId, name: playerName, loading: false };
         }
-        function deletePlayer() {
-            if (!confirmDelete.value.playerId) return;
+        async function deletePlayer() {
+            if (!confirmDelete.value.playerId || confirmDelete.value.loading) return;
             const playerId = confirmDelete.value.playerId;
-            confirmDelete.value = { show: false, playerId: null, name: '' };
-            fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
+            confirmDelete.value.loading = true;
+            try {
+                const res = await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
+                if (res.ok) {
+                    confirmDelete.value = { show: false, playerId: null, name: '', loading: false };
+                } else {
+                    confirmDelete.value.loading = false;
+                }
+            } catch (e) {
+                confirmDelete.value.loading = false;
+            }
         }
 
         onMounted(() => {
