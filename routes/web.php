@@ -293,7 +293,7 @@ Route::get('/', function () {
         appDialog.style.display = "flex";
     }
 
-    function showConfirmDialog(title, message, onConfirm) {
+    function showConfirmDialog(title, message, onConfirm, actionLabel) {
         appDialogTitle.textContent = title;
         appDialogMessage.textContent = message;
         appDialogActions.innerHTML = "";
@@ -305,7 +305,7 @@ Route::get('/', function () {
         var ok = document.createElement("button");
         ok.type = "button";
         ok.className = "dialog__btn dialog__btn--danger";
-        ok.textContent = "Delete";
+        ok.textContent = actionLabel || "Delete";
         ok.addEventListener("click", function(){ closeAppDialog(); onConfirm(); });
         appDialogActions.appendChild(cancel);
         appDialogActions.appendChild(ok);
@@ -423,7 +423,14 @@ Route::get('/', function () {
             del.textContent = "✕";
             del.disabled = !!p.is_playing;
             del.addEventListener("click", function(){ deletePlayer(p.id); });
+            var reset = document.createElement("button");
+            reset.className = "manage-btn manage-reset";
+            reset.textContent = "Reset";
+            reset.disabled = !!p.is_playing;
+            reset.title = "Reset rating to the default";
+            reset.addEventListener("click", function(){ resetPlayer(p.id); });
             row.appendChild(save);
+            row.appendChild(reset);
             row.appendChild(del);
             list.appendChild(row);
         });
@@ -475,6 +482,22 @@ Route::get('/', function () {
         })
         .catch(function(){ alert("Network error"); });
         });
+    }
+
+    function resetPlayer(id) {
+        showConfirmDialog("Reset player rating", "Reset this player rating to the default starting value?", function(){
+        fetch("/api/players/" + id + "/reset-rating", {
+            method: "POST",
+            headers: { "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'" }
+        })
+        .then(function(res){ return res.json().then(function(j){ return { ok: res.ok, message: j.message }; }); })
+        .then(function(r){
+            if (r.ok) {
+                fetchPlayers().then(renderManage);
+            } else { alert(r.message || "Could not reset rating"); }
+        })
+        .catch(function(){ alert("Network error"); });
+        }, "Reset");
     }
 
     // Preload the roster into local memory on startup.

@@ -140,6 +140,38 @@ class PlayerController extends Controller
     }
 
     /**
+     * Reset a player's rating to the configured starting value.
+     */
+    public function resetRating(Player $player): JsonResponse
+    {
+        $this->authorizePlayer($player);
+
+        if ($player->isInActiveMatch()) {
+            return response()->json([
+                'message' => 'This player is currently on court and cannot be reset.',
+            ], 409);
+        }
+
+        $player->update([
+            'rating' => config('courtly.rating.default_rating', 0.00),
+            'rating_status' => 'PROVISIONAL',
+            'rating_confidence' => config('courtly.rating.initial_confidence', 0.10),
+            'rated_games_count' => 0,
+        ]);
+
+        return response()->json([
+            'message' => 'Player rating reset.',
+            'data' => [
+                'id' => $player->id,
+                'rating' => (float) $player->rating,
+                'rating_status' => $player->rating_status,
+                'rating_confidence' => (float) $player->rating_confidence,
+                'rated_games_count' => $player->rated_games_count,
+            ],
+        ]);
+    }
+
+    /**
      * Delete a player permanently from the system — removes them from all
      * sessions, matches, and the player record itself so they can never be
      * added to any future session.

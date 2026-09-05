@@ -1675,6 +1675,8 @@ textarea,
 .manage-btn--danger:hover { background: #fdeeea; }
 .manage-btn--delete { border-color: #d1cccc; color: #555; }
 .manage-btn--delete:hover { background: #fbf6f6; border-color: #c0392b; color: #c0392b; }
+.manage-reset { border-color: #c9d9ef; color: #245b91; }
+.manage-reset:hover { background: #edf5ff; border-color: #245b91; }
 
 /* Delete confirmation icon */
 .confirm-icon--delete {
