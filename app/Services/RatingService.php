@@ -110,6 +110,10 @@ class RatingService
             $winningTeam,
             (bool) ($match->close_game ?? false)
         );
+        $multiplier = $this->combineMultipliers(
+            $closeGameMultiplier,
+            $this->calculateMarginMultiplier($match->team_1_score, $match->team_2_score)
+        );
 
         // Calculate per-player changes
         $changes = [];
@@ -121,7 +125,7 @@ class RatingService
                 $mp->player,
                 $playerExpected,
                 $playerWon,
-                $closeGameMultiplier
+                $multiplier
             );
 
             $changes[] = [
@@ -156,6 +160,42 @@ class RatingService
         return $favoriteWon
             ? (float) config('courtly.rating.close_game_favorite_multiplier', 0.75)
             : (float) config('courtly.rating.close_game_upset_multiplier', 1.25);
+    }
+
+    /**
+     * Scale rating movement by margin of victory, ramping linearly between the
+     * close and blowout thresholds. Unscored matches are left untouched.
+     */
+    public function calculateMarginMultiplier(?int $team1Score, ?int $team2Score): float
+    {
+        if ($team1Score === null || $team2Score === null) {
+            return 1.0;
+        }
+
+        $min = (float) config('courtly.rating.margin_multiplier_min', 0.75);
+        $max = (float) config('courtly.rating.margin_multiplier_max', 1.25);
+        $close = (float) config('courtly.rating.margin_close_threshold', 3);
+        $blowout = (float) config('courtly.rating.margin_blowout_threshold', 15);
+
+        if ($blowout <= $close) {
+            return 1.0;
+        }
+
+        $margin = (float) abs($team1Score - $team2Score);
+        $ratio = max(0.0, min(1.0, ($margin - $close) / ($blowout - $close)));
+
+        return round($min + ($max - $min) * $ratio, 4);
+    }
+
+    /**
+     * Combine the close-game and margin factors, clamped so they cannot compound wildly.
+     */
+    public function combineMultipliers(float $closeGameMultiplier, float $marginMultiplier): float
+    {
+        $min = (float) config('courtly.rating.margin_combined_min', 0.60);
+        $max = (float) config('courtly.rating.margin_combined_max', 1.50);
+
+        return round(max($min, min($max, $closeGameMultiplier * $marginMultiplier)), 4);
     }
 
     /**

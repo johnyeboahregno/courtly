@@ -677,11 +677,11 @@ textarea,
 }
 
 .court-card__player-box--team-1 {
-    background: #0084ff;
+    background: #7ebffc7e;
 }
 
 .court-card__player-box--team-2 {
-    background: #00c764;
+    background: #75f7b681;
 }
 
 /* Pending (court not yet full) — grayed-out player preview */
@@ -779,7 +779,7 @@ textarea,
     /* border: 1px solid #2f6fed; */
     color: #333333;
     line-height: 1;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); */
 }
 
 .court-card__divider {
@@ -943,8 +943,8 @@ textarea,
 }
 
 .player-card {
-    width: 150px;
-    flex: 0 0 150px;
+    width: 186px;
+    flex: 0 0 186px;
     padding: 10px 12px;
     display: flex;
     flex-direction: row;
@@ -1001,9 +1001,17 @@ textarea,
     max-width: 100%;
 }
 
+.player-card__name .rank-icon {
+    margin-right: 5px;
+}
+
 .player-card__rating {
     font-size: 1rem;
     color: var(--text-muted);
+}
+
+.player-card__rating .rating-value {
+    font-size: 1rem;
 }
 
 .player-card__wins {
@@ -1095,7 +1103,7 @@ textarea,
     .court-card__side { gap: 6px; }
     .court-card__divider span { font-size: 0.8rem; padding: 4px 12px; }
     .waiting-list { padding: 10px 12px; }
-    .player-card { width: 150px; flex: 0 0 150px; padding: 8px 10px; }
+    .player-card { width: 176px; flex: 0 0 176px; padding: 8px 10px; }
     .player-card__name { font-size: 0.9rem; }
 }
 
@@ -1361,13 +1369,25 @@ textarea,
     font-size: 1.05rem;
 }
 
-.rating-emoji {
-    position: absolute;
-    top: 0;
-    right: 0;
-    transform: translate(50%, -50%);
-    font-size: 0.5em;
-    line-height: 1;
+.rank-icon {
+    display: inline-block;
+    flex: none;
+    /* 28px art + 1px border each side: the image lands 1:1 with no resampling. */
+    box-sizing: border-box;
+    width: 30px;
+    height: 30px;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: #1b1b28;
+    border: 1px solid #d9a441;
+    border-radius: 7px;
+}
+
+.rank-icon img {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
 }
 
 .rating-value {
@@ -1375,11 +1395,11 @@ textarea,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     line-height: 1;
     color: #ffffff;
-    opacity: 0.5;
+    opacity: 0.6;
 }
 
 @media (max-width: 767px) {
@@ -1802,11 +1822,16 @@ textarea,
 /* NEXT UP header with the active mode on the right */
 .waiting-list__head {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: flex-start;
     gap: 12px;
+    margin-bottom: 10px;
+}
+.waiting-list__head .waiting-list__title {
+    margin-bottom: 0;
 }
 .waiting-list__mode {
+    margin-left: auto;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.03em;
@@ -1816,6 +1841,23 @@ textarea,
 }
 .waiting-list__mode--peg { color: #e0a91a; }
 .waiting-list__mode--smart { color: #5b9bd5; }
+
+.fill-courts-btn {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.fill-courts-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.fill-courts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
@@ -1976,4 +2018,209 @@ textarea,
     .court-card__player-box { padding: 8px 5px; }
 
     .court-card__player { font-size: 0.8rem; }
+}
+
+/* ==========================================================================
+   Score picker — full-screen roller deck
+   ========================================================================== */
+
+.score-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(4, 8, 18, .72);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+    animation: score-picker-fade .16s ease-out;
+}
+
+@keyframes score-picker-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.score-picker__panel {
+    width: min(420px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--stroke);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+    box-shadow: var(--shadow-card);
+}
+
+.score-picker__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.score-picker__court {
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    color: var(--text-muted);
+}
+
+.score-picker__close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.score-picker__close:hover { color: var(--text); }
+
+.score-picker__teams {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    text-align: center;
+}
+
+.score-picker__team {
+    padding: 7px 8px;
+    border: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-muted);
+}
+
+.score-picker__team--1 { background: rgba(0, 132, 255, .16); }
+.score-picker__team--2 { background: rgba(0, 199, 100, .16); }
+
+.score-picker__team--winner {
+    color: #fff;
+}
+
+.score-picker__team--winner.score-picker__team--1 {
+    background: #0084ff;
+    border-color: #0084ff;
+}
+
+.score-picker__team--winner.score-picker__team--2 {
+    background: #00c764;
+    border-color: #00c764;
+}
+
+.score-picker__deck {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 280px;
+}
+
+/* Centre highlight band — matches the selected row in both wheels. */
+.score-picker__band {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 112px;
+    height: 56px;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    pointer-events: none;
+}
+
+.score-picker__colon {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+.score-picker__wheel {
+    flex: 1;
+    height: 100%;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    text-align: center;
+    /* Fades the ends without per-item JS, which is what keeps the drag smooth. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 26%, #000 74%, transparent);
+    contain: content;
+}
+
+.score-picker__wheel::-webkit-scrollbar { display: none; }
+
+.score-picker__spacer {
+    height: 112px;
+}
+
+.score-picker__item {
+    height: 56px;
+    line-height: 56px;
+    scroll-snap-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    opacity: .55;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.score-picker__item--active {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: var(--text);
+    opacity: 1;
+}
+
+.score-picker__hint {
+    margin: 0;
+    min-height: 18px;
+    text-align: center;
+    font-size: .78rem;
+    color: var(--text-muted);
+}
+
+.score-picker__hint--error { color: #f87171; }
+
+.score-picker__actions {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 10px;
+}
+
+.score-picker__btn {
+    min-height: var(--min-touch);
+    border: 2px solid var(--stroke);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font-size: .9rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    cursor: pointer;
+}
+
+.score-picker__btn--confirm { color: #fff; }
+
+.score-picker__btn--team-1 { background: #0084ff; border-color: #0084ff; }
+.score-picker__btn--team-2 { background: #00c764; border-color: #00c764; }
+
+.score-picker__btn:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .score-picker__panel { width: 100%; }
 }

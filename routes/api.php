@@ -41,7 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/{session}/resume', [SessionController::class, 'resume']);
     Route::post('/sessions/{session}/finish', [SessionController::class, 'finish']);
     Route::post('/sessions/{session}/matchmaking-mode', [SessionController::class, 'setMatchmakingMode']);
-        Route::post('/sessions/{session}/manual-assignment', [SessionController::class, 'manualAssignment']);
+    Route::post('/sessions/{session}/fill', [SessionController::class, 'fill']);
+    Route::post('/sessions/{session}/manual-assignment', [SessionController::class, 'manualAssignment']);
     Route::patch('/sessions/{session}/courts', [SessionController::class, 'adjustCourts']);
     Route::get('/sessions/{session}/summary', [SessionController::class, 'summary']);
     Route::get('/sessions/{session}/events', SessionEventsController::class);

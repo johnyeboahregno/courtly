@@ -242,6 +242,28 @@ it('honours an organizer-chosen team split when manually assigning players', fun
     }
 });
 
+it('fills idle courts when an organizer requests it', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $court = Court::factory()->for($session)->create(['court_number' => 1, 'status' => CourtStatus::AVAILABLE->value]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/fill")
+        ->assertOk();
+
+    $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::PLAYING->value]);
+    $this->assertDatabaseHas('matches', [
+        'session_id' => $session->id,
+        'status' => MatchStatus::PLAYING->value,
+    ]);
+});
+
 it('automatically starts a regular session when its fourth player checks in', function () {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create();
