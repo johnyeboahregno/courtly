@@ -138,14 +138,11 @@ Route::get('/', function () {
         .manage-btn:disabled{opacity:.4;cursor:not-allowed}
         .manage-del:hover{color:var(--accent,#ff2d55)}
         h2.list-title{margin-top:28px;margin-bottom:12px}
-        .courtly-mark--light{display:none}
-        [data-theme="light"] .courtly-mark--dark{display:none}
-        [data-theme="light"] .courtly-mark--light{display:block}
-        @media (prefers-color-scheme: light){:root:not([data-theme]) .courtly-mark--dark{display:none}:root:not([data-theme]) .courtly-mark--light{display:block}}
+        .brand-word{font-family:"Manrope","Segoe UI",sans-serif;font-size:1.6rem;font-weight:800;letter-spacing:.01em;line-height:1;color:var(--text,#e4e4f0)}
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img class="courtly-mark courtly-mark--dark" src="'.$base.'/assets/courtly_dark_blue.png" alt="Courtly" style="height:64px;width:auto;object-fit:contain;display:block;"><img class="courtly-mark courtly-mark--light" src="'.$base.'/assets/courtly_light_blue.png" alt="Courtly" style="height:64px;width:auto;object-fit:contain;display:block;"></h1></div>
+            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start;gap:12px"><img src="'.$base.'/assets/courtly-mark.png" alt="Courtly" style="width:48px;height:48px;object-fit:contain;display:block;flex-shrink:0"><span class="brand-word">Courtly</span></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>

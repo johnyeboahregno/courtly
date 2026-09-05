@@ -37,7 +37,7 @@
 <div class="auth-page">
     <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     <div class="auth-card">
-        <div class="auth-wordmark"><img class="auth-wordmark__image--dark" src="/assets/courtly_dark_blue.png" alt="Courtly — Smarter games. Fairer courts."><img class="auth-wordmark__image--light" src="/assets/courtly_light_blue.png" alt="Courtly — Smarter games. Fairer courts."></div>
+        <div class="auth-brand"><img class="auth-brand__mark" src="/assets/courtly-mark.png" alt="Courtly"><span class="auth-brand__word">Courtly</span></div>
 
         @if ($errors->any())
             <div class="auth-error">{{ $errors->first() }}</div>
