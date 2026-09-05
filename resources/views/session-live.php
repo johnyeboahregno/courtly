@@ -18,10 +18,9 @@
         <div class="session-header__left">
             <a href="<?= $base ?? '/courtly' ?>/" class="back-btn" title="Back to dashboard">←</a>
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
-                <img src="<?= $base ?? '/courtly' ?>/assets/courtly_light.png" alt="Courtly" class="session-header__logo-img">
+                <img src="<?= $base ?? '/courtly' ?>/assets/favicon.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
-            <p class="session-header__tagline">Any court.<br>Any game.<br>Together.</p>
         </div>
         <div class="session-header__stats">
             <span>👥 {{ players.length }} Players</span>

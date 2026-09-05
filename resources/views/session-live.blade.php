@@ -17,10 +17,9 @@
     <header class="session-header">
         <div class="session-header__left">
             <a href="/" class="session-header__logo" title="Back to home">
-                <img src="/assets/courtly_light.png" alt="Courtly" class="session-header__logo-img">
+                <img src="/assets/favicon.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
-            <p class="session-header__tagline">Any court.<br>Any game.<br>Together.</p>
         </div>
         <div class="session-header__stats">
             <span>👥 {{ players.length }} Players</span>
