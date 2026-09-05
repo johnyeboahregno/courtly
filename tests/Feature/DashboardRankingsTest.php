@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\Player;
 use App\Models\User;
 
-it('shows the authenticated users rankings in rating order', function () {
+it('links to rankings from the dashboard and shows the users rankings page', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
 
@@ -38,10 +38,15 @@ it('shows the authenticated users rankings in rating order', function () {
         'wins' => 50,
     ]);
 
-    $response = $this->actingAs($user)->get('/');
+    $dashboard = $this->actingAs($user)->get('/');
 
-    $response->assertOk()
-        ->assertSee('Rankings')
+    $dashboard->assertOk()
+        ->assertSee('href="/rankings"', false)
+        ->assertDontSee('Player Rankings');
+
+    $this->get('/rankings')
+        ->assertOk()
+        ->assertSee('Player Rankings')
         ->assertSee('Alpha Player')
         ->assertSee('75%')
         ->assertSee('Gamma Player')
@@ -50,12 +55,12 @@ it('shows the authenticated users rankings in rating order', function () {
         ->assertSeeInOrder(['Alpha Player', 'Gamma Player', 'Beta Player']);
 });
 
-it('shows an empty state when the authenticated user has no players', function () {
+it('shows an empty state on the rankings page when the user has no players', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->get('/')
+        ->get('/rankings')
         ->assertOk()
-        ->assertSee('Rankings')
+        ->assertSee('Player Rankings')
         ->assertSee('No players yet.');
 });

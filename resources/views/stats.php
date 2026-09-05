@@ -11,6 +11,8 @@
         .stats-wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
         .stats-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
         .stats-head h1 { font-size: 1.4rem; margin: 0; }
+        .stats-nav-link { margin-left: auto; color: var(--text-muted); font-size: .82rem; text-decoration: none; }
+        .stats-nav-link:hover { color: var(--accent); text-decoration: underline; }
 
         .stats-select { margin-bottom: 24px; }
         .stats-select label { display: block; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
@@ -83,6 +85,7 @@
     <header class="stats-head">
         <a href="<?= e($base ?? '') ?>/" class="back-btn" title="Back to dashboard">←</a>
         <h1>Player Stats</h1>
+        <a href="<?= e($base ?? '') ?>/rankings" class="stats-nav-link">Rankings</a>
         <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     </header>
 

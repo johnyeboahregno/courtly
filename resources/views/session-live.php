@@ -79,19 +79,26 @@
                 <span class="court-card__number">COURT {{ court.court_number }}</span>
                 <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
             </div>
-            <div v-if="!court.match" class="court-card__body court-card__body--empty">
+            <div v-if="!court.match" class="court-card__body court-card__body--empty"
+                :class="{ 'court-card__body--drop': dragOverCourtId === court.id }"
+                @dragover.prevent="dragOverCourtId = court.id"
+                @dragleave="dragOverCourtId === court.id && (dragOverCourtId = null)"
+                @drop="dropPlayerOnCourt($event, court)">
                 <div class="court-card__lines"></div>
                 <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
                     <div class="court-card__pending-grid">
-                        <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending">
+                        <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending" @click="removePendingPlayer(court.id, sp.player_id)" title="Tap to return to NEXT UP">
                             <i class="court-card__rating"><span class="rating-value">{{ ratingBadge(sp.player.rating) }}</span></i>
                             <span class="court-card__player"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
                         </div>
                     </div>
                     <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
+                    <button v-if="pendingCourtPlayers[court.id].length >= 4" class="fill-courts-btn fill-courts-btn--start" type="button" @click="startCourtMatch(court.id)">START MATCH</button>
                 </div>
-                <span v-else class="court-empty-text">Waiting for players</span>
-                <span v-if="session.status === 'ACTIVE' && session.type !== 'tournament'" class="court-empty-countdown">{{ emptyCourtCountdown }}s</span>
+                <template v-else>
+                    <span class="court-empty-text">Waiting for players — drag from NEXT UP</span>
+                    <button class="fill-courts-btn" type="button" @click="openManualAssignment(court.id)">ASSIGN</button>
+                </template>
             </div>
             <div v-else class="court-card__body">
                 <div class="court-card__lines"></div>
@@ -134,7 +141,7 @@
         </div>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
-                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }">
+                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }" :draggable="sp.status === 'WAITING'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd">
                     <div class="player-card__col">
                         <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
@@ -180,19 +187,6 @@
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'resume' }" :disabled="sessionActionPending === 'resume'" @click="resumeSession">▶ RESUME</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession'" @click="startNewSession">▶ START NEW SESSION</button>
     </footer>
-
-    <div v-if="emptyCourtPrompt.show" class="modal-overlay" @click.self="waitForPlayers">
-        <div class="modal modal--confirm modal--empty-court">
-            <div class="confirm-icon">?</div>
-            <h3>{{ emptyCourtPrompt.courts.length }} court{{ emptyCourtPrompt.courts.length === 1 ? '' : 's' }} still open</h3>
-            <p class="confirm-note">There are enough players waiting to start a game. Keep waiting for smart matchmaking, close an unused court, or choose the players yourself.</p>
-            <div class="modal__actions">
-                <button class="btn btn--secondary" @click="waitForPlayers">Wait longer</button>
-                <button class="btn btn--warning" @click="closeEmptyCourt">Close empty court</button>
-                <button class="btn btn--primary" @click="openManualAssignment">Assign players</button>
-            </div>
-        </div>
-    </div>
 
     <div v-if="manualAssignment.show" class="modal-overlay" @click.self="closeManualAssignment">
         <div class="modal modal--wide modal--manual-assign">
@@ -411,7 +405,6 @@ createApp({
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
         const emptyCourts = computed(() => courts.value.filter(court => !court.match));
         const canFillCourts = computed(() => session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0);
-        const emptyCourtPrompt = reactive({ show: false, courts: [] });
         const manualAssignment = reactive({ show: false, court: null, playerIds: [], submitting: false, error: '' });
         const manualDraggedId = ref(null);
         const manualDragOverId = ref(null);
@@ -423,26 +416,18 @@ createApp({
                 ids.slice(2, 4).map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean),
             ];
         });
-        const EMPTY_COURT_WAIT_MS = 60000;
-        const emptyCourtCountdown = ref(EMPTY_COURT_WAIT_MS / 1000);
-        let emptyCourtTimer = null;
-        let emptyCourtClockTimer = null;
-        let emptyCourtSince = null;
-        let emptyCourtPromptSnoozedUntil = 0;
-        // Preview of players heading to each empty court. They render grayed
-        // out until the court reaches a full four — the server then forms the
-        // real match and the court switches to full colour. Sorted by name so
-        // the distribution stays stable across polls.
-        // Court "previews" are disabled: players stay in the NEXT UP list until
-        // the server actually forms a match (which then shows as PLAYING). Empty
-        // courts show "Waiting for players" rather than a misleading preview.
-        const pendingCourtPlayers = computed(() => ({}));
+        const dragOverCourtId = ref(null);
+        const draggedQueuePlayerId = ref(null);
+        // Players manually dragged from NEXT UP onto each empty court, keyed by
+        // court id. When a court reaches four, START MATCH submits them (the
+        // server auto-balances the teams).
+        const pendingCourtPlayers = reactive({});
 
         // Player ids currently shown on a court preview — hidden from NEXT UP
         // so a player never appears in two places at once.
         const previewedPlayerIds = computed(() => {
             const ids = new Set();
-            Object.values(pendingCourtPlayers.value).forEach(list => {
+            Object.values(pendingCourtPlayers).forEach(list => {
                 list.forEach(sp => ids.add(sp.player_id));
             });
             return ids;
@@ -705,7 +690,6 @@ createApp({
                     [...pendingExistingPlayerIds.value].filter(id => !confirmedIds.has(id))
                 );
                 connectionState.value = 'connected';
-                scheduleEmptyCourtPrompt();
         }
 
         async function fetchSession() {
@@ -910,60 +894,13 @@ createApp({
                 updatingCourts.value = false;
             }
         }
-        function scheduleEmptyCourtPrompt() {
-            clearTimeout(emptyCourtTimer);
-            updateEmptyCourtCountdown();
-            const canAssign = session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4;
-            if (!canAssign) {
-                emptyCourtPrompt.show = false;
-                return;
-            }
-            if (emptyCourtPrompt.show || manualAssignment.show || scorePicker.show) return;
-
-            const promptAt = Math.max(emptyCourtSince + EMPTY_COURT_WAIT_MS, emptyCourtPromptSnoozedUntil);
-            emptyCourtTimer = setTimeout(() => {
-                if (session.status === 'ACTIVE' && !scorePicker.show && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4) {
-                    emptyCourtPrompt.courts = [...emptyCourts.value];
-                    emptyCourtPrompt.show = true;
-                }
-            }, Math.max(0, promptAt - Date.now()));
-        }
-        function updateEmptyCourtCountdown() {
-            const hasActiveEmptyCourt = session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0;
-            if (!hasActiveEmptyCourt) {
-                emptyCourtSince = null;
-                emptyCourtCountdown.value = EMPTY_COURT_WAIT_MS / 1000;
-                clearInterval(emptyCourtClockTimer);
-                emptyCourtClockTimer = null;
-                return;
-            }
-
-            if (emptyCourtSince === null) emptyCourtSince = Date.now();
-            const update = () => {
-                emptyCourtCountdown.value = Math.max(0, Math.ceil((emptyCourtSince + EMPTY_COURT_WAIT_MS - Date.now()) / 1000));
-            };
-            update();
-            if (!emptyCourtClockTimer) emptyCourtClockTimer = setInterval(update, 1000);
-        }
-        function waitForPlayers() {
-            emptyCourtPrompt.show = false;
-            emptyCourtSince = Date.now();
-            emptyCourtPromptSnoozedUntil = emptyCourtSince + EMPTY_COURT_WAIT_MS;
-            scheduleEmptyCourtPrompt();
-        }
-        async function closeEmptyCourt() {
-            emptyCourtPrompt.show = false;
-            emptyCourtSince = Date.now();
-            emptyCourtPromptSnoozedUntil = emptyCourtSince + EMPTY_COURT_WAIT_MS;
-            await adjustCourts('remove');
-        }
-        function openManualAssignment() {
-            const court = emptyCourtPrompt.courts[0] || emptyCourts.value[0];
-            if (!court) return;
-            emptyCourtPrompt.show = false;
+        function openManualAssignment(courtId) {
+            const court = courts.value.find(c => c.id === courtId);
+            if (!court || court.match) return;
             manualAssignment.show = true;
             manualAssignment.court = court;
-            manualAssignment.playerIds = balanceManualTeam(waitingPlayers.value.slice(0, 4).map(sp => sp.player_id));
+            const ids = waitingPlayers.value.slice(0, 4).map(sp => sp.player_id);
+            manualAssignment.playerIds = ids.length === 4 ? balanceManualTeam(ids) : ids;
             manualAssignment.error = '';
         }
         function closeManualAssignment() {
@@ -974,7 +911,50 @@ createApp({
             manualDraggedId.value = null;
             manualDragOverId.value = null;
             manualTapId.value = null;
-            scheduleEmptyCourtPrompt();
+        }
+        function dragPlayerToCourtStart(sp, event) {
+            if (sp.status !== 'WAITING') return;
+            draggedQueuePlayerId.value = sp.player_id;
+            if (event && event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', String(sp.player_id));
+            }
+        }
+        function dragPlayerToCourtEnd() {
+            draggedQueuePlayerId.value = null;
+            dragOverCourtId.value = null;
+        }
+        function dropPlayerOnCourt(event, court) {
+            if (event) event.preventDefault();
+            const playerId = draggedQueuePlayerId.value;
+            dragOverCourtId.value = null;
+            draggedQueuePlayerId.value = null;
+            if (!playerId || court.match) return;
+            const sp = waitingPlayers.value.find(p => p.player_id === playerId);
+            if (!sp) return;
+            const alreadyPending = Object.values(pendingCourtPlayers).some(list => list.some(p => p.player_id === playerId));
+            if (alreadyPending) return;
+            const list = pendingCourtPlayers[court.id] || [];
+            if (list.length >= 4) return;
+            pendingCourtPlayers[court.id] = [...list, sp];
+        }
+        function removePendingPlayer(courtId, playerId) {
+            const list = pendingCourtPlayers[courtId] || [];
+            const next = list.filter(sp => sp.player_id !== playerId);
+            if (next.length === 0) delete pendingCourtPlayers[courtId];
+            else pendingCourtPlayers[courtId] = next;
+        }
+        async function startCourtMatch(courtId) {
+            const list = pendingCourtPlayers[courtId] || [];
+            if (list.length !== 4) return;
+            const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
+                court_id: courtId,
+                player_ids: list.map(sp => sp.player_id),
+            });
+            if (result.ok) {
+                delete pendingCourtPlayers[courtId];
+                await fetchSession();
+            }
         }
         function toggleManualPlayer(playerId) {
             const selected = manualAssignment.playerIds;
@@ -1155,12 +1135,10 @@ createApp({
             pollingStopped = true;
             if (pollTimer) clearTimeout(pollTimer);
             if (celebrationTimer) clearTimeout(celebrationTimer);
-            if (emptyCourtTimer) clearTimeout(emptyCourtTimer);
-            if (emptyCourtClockTimer) clearInterval(emptyCourtClockTimer);
         });
 
         // Lock body scroll when any modal is open
-        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || emptyCourtPrompt.show || manualAssignment.show || scorePicker.show);
+        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || manualAssignment.show || scorePicker.show);
         watch(modalOpen, (val) => { document.body.style.overflow = val ? 'hidden' : ''; });
 
         function formatName(name) {
@@ -1205,7 +1183,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, emptyCourtPrompt, emptyCourtCountdown, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, waitForPlayers, closeEmptyCourt, openManualAssignment, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>
