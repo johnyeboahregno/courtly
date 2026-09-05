@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title>Player Stats — Courtly</title>
     <link rel="icon" type="image/png" href="<?= e($base ?? '') ?>/assets/favicon.png?v=3">
-    <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=16">
+    <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=24">
     <style>
         .stats-wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
         .stats-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
