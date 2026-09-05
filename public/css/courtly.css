@@ -2047,6 +2047,27 @@ textarea,
 .fill-courts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .fill-courts-btn--start { background: var(--accent); color: #fff; }
 
+.fill-courts-btn.is-busy,
+.player-card__pause.is-busy {
+    color: transparent !important;
+    position: relative;
+    pointer-events: none;
+}
+
+.fill-courts-btn.is-busy::after,
+.player-card__pause.is-busy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, .3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin .6s linear infinite;
+}
+
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
     html { font-size: 100%; }
