@@ -758,11 +758,11 @@ textarea,
 }
 
 .court-card__player-box--team-1 {
-    background: transparent;
+    background: #7ebffc7e;
 }
 
 .court-card__player-box--team-2 {
-    background: transparent;
+    background: #75f7b681;
 }
 
 /* Pending (court not yet full) — grayed-out player preview */
@@ -855,10 +855,10 @@ textarea,
     font-weight: 800;
     padding: 1px 6px;
     border-radius: 999px;
-    background: var(--rating-badge-bg);
-    color: var(--rating-badge-text);
+    background: transparent;
+    color: var(--rating-value-color);
     line-height: 1;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
 }
 
 .court-card__divider {
