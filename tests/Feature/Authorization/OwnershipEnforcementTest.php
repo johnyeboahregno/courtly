@@ -84,3 +84,36 @@ it('forbids viewing a player owned by another user', function () {
         ->assertForbidden()
         ->assertJsonPath('message', 'You do not have access to this player.');
 });
+
+it('resets an owned player rating to the configured defaults', function () {
+    $user = User::factory()->create();
+    $player = Player::factory()->for($user)->create([
+        'rating' => 82.50,
+        'rating_status' => 'ESTABLISHED',
+        'rating_confidence' => 0.90,
+        'rated_games_count' => 12,
+        'total_games' => 12,
+        'wins' => 8,
+        'losses' => 4,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $response = $this->postJson("/api/players/{$player->id}/reset-rating");
+
+    $response->assertOk()
+        ->assertJsonPath('data.rating_status', 'PROVISIONAL')
+        ->assertJsonPath('data.rated_games_count', 0);
+
+    expect((float) $response->json('data.rating'))
+        ->toBe((float) config('courtly.rating.default_rating'));
+
+    $player->refresh();
+
+    expect((float) $player->rating)->toBe((float) config('courtly.rating.default_rating'))
+        ->and($player->rating_status->value)->toBe('PROVISIONAL')
+        ->and($player->rated_games_count)->toBe(0)
+        ->and($player->total_games)->toBe(12)
+        ->and($player->wins)->toBe(8)
+        ->and($player->losses)->toBe(4);
+});
