@@ -18,6 +18,7 @@ use App\Models\Player;
 use App\Models\RatingHistory;
 use App\Models\Session;
 use App\Models\SessionPlayer;
+use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
 use App\Services\TournamentService;
@@ -30,6 +31,7 @@ class SessionController extends Controller
     use AuthorizesOwnership;
 
     public function __construct(
+        private readonly MatchmakingService $matchmaking,
         private readonly RealtimeEventService $events,
         private readonly SessionAnalyticsService $analytics,
         private readonly TournamentService $tournament,
@@ -55,6 +57,7 @@ class SessionController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'sport' => ['nullable', 'string', 'in:badminton,tennis,pickleball,padel,squash'],
             'date' => ['nullable', 'date'],
             'start_time' => ['nullable', 'date_format:H:i'],
             'number_of_courts' => ['required', 'integer', 'min:1', 'max:8'],
@@ -64,6 +67,7 @@ class SessionController extends Controller
 
         $session = Session::create([
             'name' => $validated['name'],
+            'sport' => $validated['sport'] ?? 'badminton',
             'date' => $validated['date'] ?? now()->toDateString(),
             'start_time' => $validated['start_time'] ?? null,
             'number_of_courts' => $validated['number_of_courts'],
@@ -175,9 +179,11 @@ class SessionController extends Controller
             'status' => 'ACTIVE',
         ]);
 
-        // Run initial matchmaking asynchronously after the status change is
-        // visible to live browsers.
-        AllocateSessionMatches::dispatch($session->id);
+        // Starting a normal session must populate courts in the same request.
+        // Queue workers are optional in small/self-hosted deployments.
+        if (! $session->isTournament()) {
+            $this->matchmaking->allocateMatches($session);
+        }
 
         return response()->json([
             'data' => [

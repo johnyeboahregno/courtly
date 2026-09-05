@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Enums\SessionPlayerStatus;
+use App\Enums\SessionStatus;
 use App\Jobs\AllocateSessionMatches;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
+use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ class SessionPlayerController extends Controller
     use AuthorizesOwnership;
 
     public function __construct(
+        private readonly MatchmakingService $matchmaking,
         private readonly RealtimeEventService $events,
     ) {}
 
@@ -122,10 +125,27 @@ class SessionPlayerController extends Controller
                 ['type' => 'waiting_list.updated', 'data' => []],
             ]);
 
-            // Upcoming sessions cannot form matches yet, so avoid queueing a
-            // matchmaking job until the session is active.
+            // Regular sessions start as soon as a full court is checked in;
+            // tournaments retain their explicit setup flow.
+            if (! $session->isTournament()
+                && $session->status === SessionStatus::UPCOMING
+                && $session->sessionPlayers()->where('status', SessionPlayerStatus::WAITING->value)->count() >= 4) {
+                $session->update([
+                    'status' => SessionStatus::ACTIVE,
+                    'started_at' => now(),
+                ]);
+                $session->sessionPlayers()
+                    ->where('status', SessionPlayerStatus::WAITING->value)
+                    ->whereNull('waiting_since')
+                    ->update(['waiting_since' => now()]);
+            }
+
             if ($session->isActive()) {
-                AllocateSessionMatches::dispatch($session->id)->afterResponse();
+                if ($session->isTournament()) {
+                    AllocateSessionMatches::dispatch($session->id)->afterResponse();
+                } else {
+                    $this->matchmaking->allocateMatches($session);
+                }
             }
         }
 
