@@ -209,6 +209,69 @@ textarea,
     font-size: .72rem;
 }
 
+.sport-picker {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 -2px 18px;
+    padding: 14px 8px 10px;
+    border-top: 1px solid var(--stroke);
+    border-bottom: 1px solid var(--stroke);
+}
+
+.sport-picker__label {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+}
+
+.sport-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 8px 4px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(245,249,255,.88);
+    cursor: pointer;
+    font: 700 .64rem/1.1 "Manrope", "Segoe UI", sans-serif;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    transition: border-color .15s, background .15s, color .15s, transform .15s;
+}
+
+.sport-option svg {
+    width: 36px;
+    height: 36px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.sport-option:hover,
+.sport-option:focus-visible {
+    border-color: var(--court-cyan);
+    color: var(--text);
+    outline: none;
+}
+
+.sport-option.is-selected {
+    border-color: var(--court-cyan);
+    background: rgba(0,229,255,.1);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.sport-option.is-selected svg { color: #fff; }
+
 .session-header__stats {
     display: flex;
     align-items: center;
@@ -938,6 +1001,7 @@ textarea,
     .session-header__name { font-size: 1.05rem; }
     .session-header__tagline,
     .dashboard-brand-copy { display: none; }
+    .sport-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .session-header__stats { font-size: 0.8rem; gap: 8px; }
     .court-card__number { font-size: 1.15rem; }
     .court-card__player { font-size: 1rem; }

@@ -17,6 +17,7 @@ class SessionFactory extends Factory
     {
         return [
             'name' => fake()->words(2, true),
+            'sport' => 'badminton',
             'date' => fake()->date(),
             'number_of_courts' => fake()->numberBetween(1, 4),
             'status' => SessionStatus::UPCOMING->value,

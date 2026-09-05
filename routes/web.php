@@ -29,7 +29,7 @@ Route::get('/', function () {
 
     $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
 
-    $sessions = \App\Models\Session::select('id', 'name', 'date', 'number_of_courts', 'status', 'matchmaking_mode')
+    $sessions = \App\Models\Session::select('id', 'name', 'sport', 'date', 'number_of_courts', 'status', 'matchmaking_mode')
         ->where('created_by', \Illuminate\Support\Facades\Auth::id())
         ->orderByDesc('date')->get();
 
@@ -51,7 +51,7 @@ Route::get('/', function () {
         $row = '<div class="session-row">'
             .'<a class="session-link" href="'.$base.'/sessions/'.$session->id.'/live">'
                 .'<span class="session-link__name">'.e($session->name).'</span>'
-                .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span> '.$modeTag.'</span>'
+                .'<span class="session-link__meta">'.e($session->date->format('d M Y')).' · '.ucfirst((string) $session->sport->value).' · '.$session->number_of_courts.' courts · <span class="tag tag--'.strtolower($status).'">'.$status.'</span> '.$modeTag.'</span>'
             .'</a>'
             .'<button type="button" class="session-delete" data-id="'.$session->id.'" title="Delete session">✕</button>'
             .'</div>';
@@ -160,6 +160,25 @@ Route::get('/', function () {
             <h2>New Session</h2>
             <form id="createForm">
                 <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
+                <div class="sport-picker" id="sportPicker" role="radiogroup" aria-label="Choose a court sport">
+                    <span class="sport-picker__label">Built for every court</span>
+                    <button type="button" class="sport-option is-selected" data-sport="badminton" aria-pressed="true">
+                        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 5l8 8M20 5l-3 10M20 5l-8 8M17 15l-5 17M20 15l-1 18M23 15l5 17M17 15h6M12 32h16M14 36h12"/><path d="M25 10l7 7"/></svg><span>Badminton</span>
+                    </button>
+                    <button type="button" class="sport-option" data-sport="tennis" aria-pressed="false">
+                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><path d="M10 8c6 4 8 9 7 15s-4 10-9 12M30 8c-6 4-8 9-7 15s4 10 9 12"/></svg><span>Tennis</span>
+                    </button>
+                    <button type="button" class="sport-option" data-sport="pickleball" aria-pressed="false">
+                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><circle cx="14" cy="14" r="1" fill="currentColor"/><circle cx="25" cy="13" r="1" fill="currentColor"/><circle cx="28" cy="22" r="1" fill="currentColor"/><circle cx="17" cy="27" r="1" fill="currentColor"/><circle cx="11" cy="23" r="1" fill="currentColor"/></svg><span>Pickleball</span>
+                    </button>
+                    <button type="button" class="sport-option" data-sport="padel" aria-pressed="false">
+                        <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="17" cy="14" rx="8" ry="11" transform="rotate(35 17 14)"/><path d="M21 22l9 12M13 9l8 6M11 13l8 6M10 17l7 5"/></svg><span>Padel</span>
+                    </button>
+                    <button type="button" class="sport-option" data-sport="squash" aria-pressed="false">
+                        <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><circle cx="16" cy="16" r="1" fill="currentColor"/><circle cx="25" cy="24" r="1" fill="currentColor"/><path d="M20 5c-2 7-2 14 0 30"/></svg><span>Squash</span>
+                    </button>
+                </div>
+                <input id="fSport" type="hidden" value="badminton">
                 <div class="field"><label>Number of courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>
                 <div class="field"><label>Session type</label><select id="fType" onchange="document.getElementById(\'fFormatField\').style.display = this.value === \'tournament\' ? \'block\' : \'none\'"><option value="casual" selected>Casual</option><option value="tournament">Tournament</option></select></div>
                 <div class="field" id="fFormatField" style="display:none"><label>Tournament format</label><select id="fFormat"><option value="round_robin" selected>Round Robin (everyone plays everyone)</option><option value="ladder">Ladder (challenge the rank above you)</option></select></div>
@@ -191,6 +210,18 @@ Route::get('/', function () {
         </div>
     </div>
     <script>
+    var sportInput = document.getElementById("fSport");
+    document.querySelectorAll(".sport-option").forEach(function(option) {
+        option.addEventListener("click", function() {
+            sportInput.value = option.dataset.sport;
+            document.querySelectorAll(".sport-option").forEach(function(item) {
+                var selected = item === option;
+                item.classList.toggle("is-selected", selected);
+                item.setAttribute("aria-pressed", selected ? "true" : "false");
+            });
+        });
+    });
+
     document.getElementById("createForm").addEventListener("submit", async function(e){
         e.preventDefault();
         var err = document.getElementById("err");
@@ -201,6 +232,7 @@ Route::get('/', function () {
                 headers: {"Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": "'.csrf_token().'"},
                 body: JSON.stringify({
                     name: document.getElementById("fName").value.trim(),
+                    sport: document.getElementById("fSport").value,
                     number_of_courts: parseInt(document.getElementById("fCourts").value, 10),
                     type: document.getElementById("fType").value,
                     tournament_format: document.getElementById("fFormat").value

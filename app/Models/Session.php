@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SessionStatus;
 use App\Enums\SessionType;
+use App\Enums\Sport;
 use App\Enums\TournamentFormat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ class Session extends Model
 
     protected $fillable = [
         'name',
+        'sport',
         'date',
         'start_time',
         'number_of_courts',
@@ -35,6 +37,7 @@ class Session extends Model
     {
         return [
             'date' => 'date',
+            'sport' => Sport::class,
             'start_time' => 'datetime',
             'number_of_courts' => 'integer',
             'status' => SessionStatus::class,
