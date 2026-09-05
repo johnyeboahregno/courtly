@@ -50,8 +50,9 @@ body {
     font-family: "Manrope", "Segoe UI", sans-serif !important;
     background: var(--bg);
     background-image: linear-gradient(rgba(15,23,42,.82), rgba(15,23,42,.9)), url('/assets/court-background.png') !important;
-    background-position: center top;
-    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     background-attachment: fixed;
     color: var(--text);
     caret-color: transparent;
@@ -59,7 +60,7 @@ body {
 }
 
 .auth-page {
-    background: linear-gradient(rgba(15,23,42,.78), rgba(15,23,42,.9)), url('/assets/court-background.png') center top / cover fixed !important;
+    background: linear-gradient(rgba(15,23,42,.78), rgba(15,23,42,.9)), url('/assets/court-background.png') center center / 100% 100% no-repeat fixed !important;
     font-family: "Manrope", "Segoe UI", sans-serif !important;
 }
 
@@ -187,8 +188,8 @@ textarea,
 }
 
 .session-header__logo-img {
-    width: 42px;
-    height: 42px;
+    width: 84px;
+    height: 84px;
     object-fit: contain;
     display: block;
 }
