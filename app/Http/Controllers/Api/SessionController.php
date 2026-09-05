@@ -258,8 +258,10 @@ class SessionController extends Controller
             'status' => 'ACTIVE',
         ]);
 
-        // Re-run matchmaking asynchronously to fill available courts.
-        AllocateSessionMatches::dispatch($session->id);
+        // Re-run matchmaking synchronously to fill available courts immediately.
+        if (! $session->isTournament()) {
+            $this->matchmaking->allocateMatches($session);
+        }
 
         return response()->json([
             'data' => [

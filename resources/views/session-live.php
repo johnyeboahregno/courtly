@@ -175,13 +175,31 @@
     </div>
 
     <details class="match-history">
-        <summary class="match-history__summary">MATCH HISTORY</summary>
+        <summary class="match-history__summary">
+            <span class="match-history__summary-label">MATCH HISTORY</span>
+            <span class="match-history__summary-count">{{ history.length }} games</span>
+        </summary>
         <div class="match-history__search-wrap">
             <input v-model="historySearch" class="match-history__search" type="search" placeholder="Search players..." @click.stop>
         </div>
         <div v-if="filteredHistory.length" class="match-history__list">
-            <div v-for="row in filteredHistory" :key="row.id" class="match-history__item">
-                <strong :class="{ 'match-history__winner': row.winner }">{{ row.pair }}</strong>
+            <div v-for="match in filteredHistory" :key="match.id" class="match-history__match">
+                <div class="match-history__meta">
+                    <span class="match-history__game">#{{ match.gameNumber }}</span>
+                    <span v-if="match.courtNumber" class="match-history__court">Court {{ match.courtNumber }}</span>
+                </div>
+                <div class="match-history__teams">
+                    <div class="match-history__team" :class="{ 'match-history__team--win': match.winner === 1 }">
+                        <span class="match-history__team-name">{{ match.team1 }}</span>
+                        <span v-if="match.team1Rating != null" class="match-history__team-rating">{{ match.team1Rating }}</span>
+                        <span v-if="match.winner === 1" class="match-history__badge">WINNER</span>
+                    </div>
+                    <div class="match-history__team" :class="{ 'match-history__team--win': match.winner === 2 }">
+                        <span class="match-history__team-name">{{ match.team2 }}</span>
+                        <span v-if="match.team2Rating != null" class="match-history__team-rating">{{ match.team2Rating }}</span>
+                        <span v-if="match.winner === 2" class="match-history__badge">WINNER</span>
+                    </div>
+                </div>
             </div>
         </div>
         <p v-else class="match-history__empty">{{ history.length ? 'No matching players.' : 'No completed matches yet.' }}</p>
@@ -400,14 +418,18 @@ createApp({
         const historySearch = ref('');
         const filteredHistory = computed(() => {
             const query = historySearch.value.trim().toLowerCase();
-            return history.value.flatMap(match => [1, 2]
-                .map(team => ({
-                    id: match.id + '-' + team,
-                    pair: historyTeam(match, team),
-                    winner: match.winning_team === team,
+            return history.value
+                .map(match => ({
+                    id: match.id,
+                    gameNumber: match.game_number,
+                    courtNumber: match.court ? match.court.court_number : null,
+                    team1: historyTeam(match, 1),
+                    team2: historyTeam(match, 2),
+                    winner: match.winning_team,
+                    team1Rating: match.team_1_rating != null ? Math.round(Number(match.team_1_rating)) : null,
+                    team2Rating: match.team_2_rating != null ? Math.round(Number(match.team_2_rating)) : null,
                 }))
-                .filter(row => !query || row.pair.toLowerCase().includes(query))
-            );
+                .filter(m => !query || (m.team1 + ' ' + m.team2).toLowerCase().includes(query));
         });
         const pendingAddedPlayers = ref([]);
         const waitingPlayers = computed(() => players.value.filter(p => p.status === 'WAITING'));

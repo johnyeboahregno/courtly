@@ -133,13 +133,7 @@ class MatchResultService
                 $this->tournamentService->handleMatchCompleted($session, $match);
             }
 
-            // 5. Match completion is intentionally a narrow cross-screen update.
-            // The next allocation happens on an explicit session/player action,
-            // preventing one display's result from rearranging another display.
-            $nextMatches = [];
-
-            // 6. Publish only the completed court. Receiving displays clear that
-            // court directly rather than reloading their entire session state.
+            // 5. Publish match completion event
             $events = [
                 ['type' => 'match.completed', 'data' => [
                     'match_id' => $match->id,
@@ -155,7 +149,7 @@ class MatchResultService
                 'match_id' => $match->id,
                 'winning_team' => $winningTeam,
                 'close_game' => $closeGame,
-                'next_matches' => count($nextMatches),
+                'session_id' => $session->id,
             ]);
 
             return [
@@ -166,15 +160,27 @@ class MatchResultService
                     'change' => $c['change'],
                     'new_rating' => $c['rating_after'],
                 ], $ratingChanges),
-                'next_matches' => $nextMatches,
+                'session_id' => $session->id,
+                'is_tournament' => $session->isTournament(),
             ];
         }, 3); // Retry up to 3 times on deadlock
 
-        // The completed match frees its court. Refill it asynchronously after
-        // the transaction commits so the next round cannot be stranded.
-        AllocateSessionMatches::dispatch($match->session_id)->afterResponse();
+        // After the transaction commits, refill available courts synchronously
+        // to ensure no idle courts. This happens after the transaction so we don't
+        // nest two transactions and cause potential deadlock.
+        $nextMatches = [];
+        if (! $result['is_tournament']) {
+            $session = Session::find($result['session_id']);
+            if ($session?->isActive()) {
+                $nextMatches = $this->matchmakingService->allocateMatches($session);
+            }
+        }
 
-        return $result;
+        return [
+            'match' => $result['match'],
+            'rating_changes' => $result['rating_changes'],
+            'next_matches' => $nextMatches,
+        ];
     }
 
     /**
