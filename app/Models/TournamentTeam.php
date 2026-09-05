@@ -16,7 +16,15 @@ class TournamentTeam extends Model
     protected $fillable = [
         'session_id',
         'name',
+        'rank',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'rank' => 'integer',
+        ];
+    }
 
     public function session(): BelongsTo
     {

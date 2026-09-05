@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SessionStatus;
 use App\Enums\SessionType;
+use App\Enums\TournamentFormat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,7 @@ class Session extends Model
         'status',
         'matchmaking_mode',
         'type',
+        'tournament_format',
         'created_by',
         'started_at',
         'finished_at',
@@ -37,6 +39,7 @@ class Session extends Model
             'number_of_courts' => 'integer',
             'status' => SessionStatus::class,
             'type' => SessionType::class,
+            'tournament_format' => TournamentFormat::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
             'tournament_finished_at' => 'datetime',
@@ -86,6 +89,11 @@ class Session extends Model
     public function isTournament(): bool
     {
         return $this->type === SessionType::TOURNAMENT;
+    }
+
+    public function usesLadderFormat(): bool
+    {
+        return $this->tournament_format === TournamentFormat::LADDER;
     }
 
     /**

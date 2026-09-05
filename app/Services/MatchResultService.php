@@ -129,7 +129,7 @@ class MatchResultService
             $match->court->update(['status' => CourtStatus::AVAILABLE]);
 
             if ($session->isTournament()) {
-                $this->tournamentService->markFixtureCompleted($match);
+                $this->tournamentService->handleMatchCompleted($session, $match);
             }
 
             // 5. Match completion is intentionally a narrow cross-screen update.

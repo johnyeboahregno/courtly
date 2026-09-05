@@ -16,12 +16,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-function tournamentSessionWithPlayers(int $playerCount, int $courts = 2, string $status = 'ACTIVE'): Session
+function tournamentSessionWithPlayers(int $playerCount, int $courts = 2, string $status = 'ACTIVE', string $format = 'round_robin'): Session
 {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create([
         'status' => $status,
         'type' => 'tournament',
+        'tournament_format' => $format,
     ]);
 
     for ($i = 1; $i <= $courts; $i++) {
@@ -207,3 +208,78 @@ it('rejects swapping players once the tournament has started', function () {
     expect(fn () => app(TournamentService::class)->swapPlayers($session, $playerA, $playerB))
         ->toThrow(TournamentSetupException::class);
 });
+
+it('seeds the ladder with ranks by average team rating and initial challenge matches', function () {
+    $session = tournamentSessionWithPlayers(8, courts: 2, format: 'ladder');
+
+    app(TournamentService::class)->setupTournament($session);
+
+    $teams = $session->tournamentTeams()->orderBy('rank')->get();
+    expect($teams)->toHaveCount(4);
+    expect($teams->pluck('rank')->all())->toBe([1, 2, 3, 4]);
+
+    // Rank 1 (highest rated pairing) should never rate lower than rank 4.
+    $ratingOf = fn ($team) => $team->teamPlayers->map(fn ($tp) => (float) $tp->player->rating)->avg();
+    expect($ratingOf($teams->firstWhere('rank', 1)))->toBeGreaterThanOrEqual($ratingOf($teams->firstWhere('rank', 4)));
+
+    // 2 courts -> 2 initial challenge matches: rank4-vs-rank3 and rank2-vs-rank1.
+    expect(\App\Models\GameMatch::where('session_id', $session->id)->where('status', 'PLAYING')->count())->toBe(2);
+
+    $fixtures = \App\Models\TournamentFixture::whereIn(
+        'tournament_round_id',
+        $session->tournamentRounds()->pluck('id')
+    )->get();
+    expect($fixtures)->toHaveCount(2);
+    foreach ($fixtures as $fixture) {
+        // Home is always the better-ranked (defender), away the challenger.
+        expect($fixture->homeTeam->rank)->toBeLessThan($fixture->awayTeam->rank);
+    }
+});
+
+it('swaps ranks when the ladder challenger upsets the defender', function () {
+    $session = tournamentSessionWithPlayers(4, courts: 1, format: 'ladder');
+    app(TournamentService::class)->setupTournament($session);
+
+    $fixture = \App\Models\TournamentFixture::whereIn(
+        'tournament_round_id',
+        $session->tournamentRounds()->pluck('id')
+    )->firstOrFail();
+
+    [$defenderRank, $challengerRank] = [$fixture->homeTeam->rank, $fixture->awayTeam->rank];
+
+    // Challenger (away/team 2) wins the upset.
+    $fixture->match->update(['winning_team' => 2, 'status' => 'COMPLETED']);
+    app(TournamentService::class)->handleMatchCompleted($session, $fixture->match->fresh());
+
+    expect($fixture->homeTeam->fresh()->rank)->toBe($challengerRank);
+    expect($fixture->awayTeam->fresh()->rank)->toBe($defenderRank);
+});
+
+it('keeps ranks unchanged when the ladder defender wins', function () {
+    $session = tournamentSessionWithPlayers(4, courts: 1, format: 'ladder');
+    app(TournamentService::class)->setupTournament($session);
+
+    $fixture = \App\Models\TournamentFixture::whereIn(
+        'tournament_round_id',
+        $session->tournamentRounds()->pluck('id')
+    )->firstOrFail();
+
+    [$defenderRank, $challengerRank] = [$fixture->homeTeam->rank, $fixture->awayTeam->rank];
+
+    $fixture->match->update(['winning_team' => 1, 'status' => 'COMPLETED']);
+    app(TournamentService::class)->handleMatchCompleted($session, $fixture->match->fresh());
+
+    expect($fixture->homeTeam->fresh()->rank)->toBe($defenderRank);
+    expect($fixture->awayTeam->fresh()->rank)->toBe($challengerRank);
+});
+
+it('orders ladder standings by rank rather than wins', function () {
+    $session = tournamentSessionWithPlayers(4, courts: 1, format: 'ladder');
+    app(TournamentService::class)->setupTournament($session);
+
+    $standings = app(TournamentService::class)->standings($session);
+    $ranks = collect($standings)->pluck('rank')->all();
+
+    expect($ranks)->toBe([1, 2]);
+});
+

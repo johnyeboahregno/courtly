@@ -11,6 +11,7 @@ use App\Enums\SessionStatus;
 use App\Enums\TournamentFixtureStatus;
 use App\Enums\TournamentRoundStatus;
 use App\Exceptions\TournamentSetupException;
+use App\Models\Court;
 use App\Models\GameMatch;
 use App\Models\Session;
 use App\Models\TournamentFixture;
@@ -48,8 +49,36 @@ class TournamentService
             $teams = $this->formTeams($session, $waiting);
         }
 
+        if ($session->usesLadderFormat()) {
+            $this->assignInitialRanks($teams);
+            $this->fillLadderMatches($session);
+
+            return;
+        }
+
         $this->generateSchedule($session, $teams);
         $this->activateRound($session, 1);
+    }
+
+    /**
+     * Seed the ladder: rank teams 1..N by average player rating, best first.
+     *
+     * @param  Collection<int, TournamentTeam>  $teams
+     */
+    private function assignInitialRanks(Collection $teams): void
+    {
+        $ranked = $teams->sortByDesc(fn (TournamentTeam $team) => $this->averageTeamRating($team))->values();
+
+        foreach ($ranked as $index => $team) {
+            $team->update(['rank' => $index + 1]);
+        }
+    }
+
+    private function averageTeamRating(TournamentTeam $team): float
+    {
+        $ratings = $team->teamPlayers->map(fn ($tp) => (float) $tp->player->rating);
+
+        return $ratings->isEmpty() ? 0.0 : $ratings->avg();
     }
 
     /**
@@ -269,6 +298,10 @@ class TournamentService
                 return [];
             }
 
+            if ($locked->usesLadderFormat()) {
+                return $this->fillLadderMatches($locked);
+            }
+
             $round = $locked->tournamentRounds()
                 ->where('status', TournamentRoundStatus::ACTIVE->value)
                 ->first();
@@ -315,54 +348,172 @@ class TournamentService
         $now = now();
 
         foreach ($pendingFixtures as $i => $fixture) {
-            $court = $availableCourts[$i];
-
-            $match = GameMatch::create([
-                'session_id' => $session->id,
-                'court_id' => $court->id,
-                'game_number' => $nextGameNumber++,
-                'status' => MatchStatus::PLAYING,
-                'algorithm_version' => $algoVersion,
-                'started_at' => $now,
-            ]);
-
-            $matchPlayerRows = [];
-            foreach ($fixture->homeTeam->teamPlayers as $pos => $tp) {
-                $matchPlayerRows[] = [
-                    'match_id' => $match->id,
-                    'player_id' => $tp->player_id,
-                    'team' => 1,
-                    'position' => $pos + 1,
-                    'rating_before' => $tp->player->rating,
-                    'rating_confidence_before' => $tp->player->rating_confidence,
-                ];
-            }
-            foreach ($fixture->awayTeam->teamPlayers as $pos => $tp) {
-                $matchPlayerRows[] = [
-                    'match_id' => $match->id,
-                    'player_id' => $tp->player_id,
-                    'team' => 2,
-                    'position' => $pos + 1,
-                    'rating_before' => $tp->player->rating,
-                    'rating_confidence_before' => $tp->player->rating_confidence,
-                ];
-            }
-            DB::table('match_players')->insert($matchPlayerRows);
-
-            $court->update(['status' => CourtStatus::PLAYING]);
-            $fixture->update(['status' => TournamentFixtureStatus::PLAYING->value, 'match_id' => $match->id]);
-
-            $playerIds = array_merge(
-                $fixture->homeTeam->teamPlayers->pluck('player_id')->all(),
-                $fixture->awayTeam->teamPlayers->pluck('player_id')->all(),
+            $matches[] = $this->createFixtureMatch(
+                $session,
+                $availableCourts[$i],
+                $fixture,
+                $fixture->homeTeam,
+                $fixture->awayTeam,
+                $nextGameNumber,
+                $algoVersion,
+                $now,
             );
-            $session->sessionPlayers()->whereIn('player_id', $playerIds)
-                ->update(['status' => SessionPlayerStatus::PLAYING->value]);
-
-            $matches[] = $match;
         }
 
         return $matches;
+    }
+
+    /**
+     * Ladder mode: pair each free team with the free team directly above it
+     * ("challenge the rung above you"), one challenge match per free court.
+     * Each challenge gets its own single-fixture TournamentRound so it can
+     * reuse the same round/fixture schema as round-robin.
+     *
+     * @return array<int, GameMatch>
+     */
+    private function fillLadderMatches(Session $session): array
+    {
+        $availableCourts = $session->courts()
+            ->where('status', CourtStatus::AVAILABLE->value)
+            ->get()
+            ->values();
+
+        if ($availableCourts->isEmpty()) {
+            return [];
+        }
+
+        $teams = $session->tournamentTeams()
+            ->whereNotNull('rank')
+            ->orderBy('rank')
+            ->with('teamPlayers.player')
+            ->get()
+            ->values();
+
+        if ($teams->count() < 2) {
+            return [];
+        }
+
+        $playingPlayerIds = $session->sessionPlayers()
+            ->where('status', SessionPlayerStatus::PLAYING->value)
+            ->pluck('player_id')
+            ->flip();
+
+        $busyTeamIds = [];
+        foreach ($teams as $team) {
+            foreach ($team->teamPlayers as $tp) {
+                if ($playingPlayerIds->has($tp->player_id)) {
+                    $busyTeamIds[$team->id] = true;
+                    break;
+                }
+            }
+        }
+
+        $matches = [];
+        $nextGameNumber = ($session->matches()->max('game_number') ?? 0) + 1;
+        $algoVersion = config('courtly.matchmaking.tournament_algorithm_version', 'courtly-tournament-v1.0');
+        $nextRoundNumber = ($session->tournamentRounds()->max('round_number') ?? 0) + 1;
+        $now = now();
+        $courtIndex = 0;
+
+        // Walk from the bottom of the ladder up so the teams with the most
+        // ground to make up get first crack at an available court.
+        for ($i = $teams->count() - 1; $i > 0 && $courtIndex < $availableCourts->count(); $i--) {
+            $challenger = $teams[$i];
+            $defender = $teams[$i - 1];
+
+            if (isset($busyTeamIds[$challenger->id]) || isset($busyTeamIds[$defender->id])) {
+                continue;
+            }
+
+            $round = TournamentRound::create([
+                'session_id' => $session->id,
+                'round_number' => $nextRoundNumber++,
+                'status' => TournamentRoundStatus::ACTIVE->value,
+            ]);
+
+            $fixture = TournamentFixture::create([
+                'tournament_round_id' => $round->id,
+                'home_team_id' => $defender->id,
+                'away_team_id' => $challenger->id,
+                'status' => TournamentFixtureStatus::PENDING->value,
+            ]);
+
+            $matches[] = $this->createFixtureMatch(
+                $session,
+                $availableCourts[$courtIndex],
+                $fixture,
+                $defender,
+                $challenger,
+                $nextGameNumber,
+                $algoVersion,
+                $now,
+            );
+
+            $busyTeamIds[$challenger->id] = true;
+            $busyTeamIds[$defender->id] = true;
+            $courtIndex++;
+        }
+
+        return $matches;
+    }
+
+    /**
+     * Shared match/fixture creation: home team -> match team 1, away team ->
+     * match team 2. Used by both the round-robin schedule and ladder challenges.
+     */
+    private function createFixtureMatch(
+        Session $session,
+        Court $court,
+        TournamentFixture $fixture,
+        TournamentTeam $homeTeam,
+        TournamentTeam $awayTeam,
+        int &$nextGameNumber,
+        string $algoVersion,
+        $now,
+    ): GameMatch {
+        $match = GameMatch::create([
+            'session_id' => $session->id,
+            'court_id' => $court->id,
+            'game_number' => $nextGameNumber++,
+            'status' => MatchStatus::PLAYING,
+            'algorithm_version' => $algoVersion,
+            'started_at' => $now,
+        ]);
+
+        $matchPlayerRows = [];
+        foreach ($homeTeam->teamPlayers as $pos => $tp) {
+            $matchPlayerRows[] = [
+                'match_id' => $match->id,
+                'player_id' => $tp->player_id,
+                'team' => 1,
+                'position' => $pos + 1,
+                'rating_before' => $tp->player->rating,
+                'rating_confidence_before' => $tp->player->rating_confidence,
+            ];
+        }
+        foreach ($awayTeam->teamPlayers as $pos => $tp) {
+            $matchPlayerRows[] = [
+                'match_id' => $match->id,
+                'player_id' => $tp->player_id,
+                'team' => 2,
+                'position' => $pos + 1,
+                'rating_before' => $tp->player->rating,
+                'rating_confidence_before' => $tp->player->rating_confidence,
+            ];
+        }
+        DB::table('match_players')->insert($matchPlayerRows);
+
+        $court->update(['status' => CourtStatus::PLAYING]);
+        $fixture->update(['status' => TournamentFixtureStatus::PLAYING->value, 'match_id' => $match->id]);
+
+        $playerIds = array_merge(
+            $homeTeam->teamPlayers->pluck('player_id')->all(),
+            $awayTeam->teamPlayers->pluck('player_id')->all(),
+        );
+        $session->sessionPlayers()->whereIn('player_id', $playerIds)
+            ->update(['status' => SessionPlayerStatus::PLAYING->value]);
+
+        return $match;
     }
 
     /**
@@ -403,13 +554,39 @@ class TournamentService
     }
 
     /**
-     * Marks the fixture tied to a completed match, so standings/round
-     * progression can be derived without re-inspecting every match.
+     * Marks the fixture tied to a completed match, closes out its round, and
+     * (ladder only) swaps ranks when the challenger upsets the defender.
      */
-    public function markFixtureCompleted(GameMatch $match): void
+    public function handleMatchCompleted(Session $session, GameMatch $match): void
     {
-        TournamentFixture::where('match_id', $match->id)
-            ->update(['status' => TournamentFixtureStatus::COMPLETED->value]);
+        $fixture = TournamentFixture::with('round')->where('match_id', $match->id)->first();
+
+        if (! $fixture) {
+            return;
+        }
+
+        $fixture->update(['status' => TournamentFixtureStatus::COMPLETED->value]);
+
+        if ($session->usesLadderFormat()) {
+            $fixture->round?->update(['status' => TournamentRoundStatus::COMPLETED->value]);
+
+            // Challenger is always the away/team-2 side; an upset swaps ranks.
+            if ((int) $match->winning_team === 2) {
+                $home = TournamentTeam::find($fixture->home_team_id);
+                $away = TournamentTeam::find($fixture->away_team_id);
+
+                if ($home && $away) {
+                    [$homeRank, $awayRank] = [$home->rank, $away->rank];
+                    $home->update(['rank' => $awayRank]);
+                    $away->update(['rank' => $homeRank]);
+                }
+            }
+
+            return;
+        }
+
+        // Round-robin: leave the round-advance decision to the async
+        // allocation job so one display's result can't rearrange another's.
     }
 
     /**
@@ -469,15 +646,21 @@ class TournamentService
 
         $rows = array_values($stats);
         $pointDiff = fn ($row) => $row['points_for'] - $row['points_against'];
-        usort($rows, fn ($a, $b) => $b['wins'] <=> $a['wins']
-            ?: $pointDiff($b) <=> $pointDiff($a)
-            ?: $a['losses'] <=> $b['losses']
-            ?: $a['team']->id <=> $b['team']->id);
+
+        if ($session->usesLadderFormat()) {
+            usort($rows, fn ($a, $b) => ($a['team']->rank ?? PHP_INT_MAX) <=> ($b['team']->rank ?? PHP_INT_MAX));
+        } else {
+            usort($rows, fn ($a, $b) => $b['wins'] <=> $a['wins']
+                ?: $pointDiff($b) <=> $pointDiff($a)
+                ?: $a['losses'] <=> $b['losses']
+                ?: $a['team']->id <=> $b['team']->id);
+        }
 
         return array_map(fn ($row) => [
             'team_id' => $row['team']->id,
             'name' => $row['team']->name,
             'players' => $row['team']->teamPlayers->map(fn ($tp) => $tp->player->name)->all(),
+            'rank' => $row['team']->rank,
             'points_for' => $row['points_for'],
             'points_against' => $row['points_against'],
             'point_diff' => $row['points_for'] - $row['points_against'],
@@ -489,9 +672,14 @@ class TournamentService
 
     /**
      * Round progress + the active round's fixtures, for the session payload.
+     * Not applicable to the ladder format, which has no fixed round schedule.
      */
     public function roundProgress(Session $session): ?array
     {
+        if ($session->usesLadderFormat()) {
+            return null;
+        }
+
         $totalRounds = $session->tournamentRounds()->count();
 
         if ($totalRounds === 0) {
@@ -530,6 +718,7 @@ class TournamentService
     {
         return $teams->map(fn (TournamentTeam $team) => [
             'team_id' => $team->id,
+            'rank' => $team->rank,
             'players' => $team->teamPlayers->map(fn ($tp) => [
                 'player_id' => $tp->player_id,
                 'name' => $tp->player->name,

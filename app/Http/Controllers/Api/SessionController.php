@@ -59,6 +59,7 @@ class SessionController extends Controller
             'start_time' => ['nullable', 'date_format:H:i'],
             'number_of_courts' => ['required', 'integer', 'min:1', 'max:8'],
             'type' => ['nullable', 'string', 'in:casual,tournament'],
+            'tournament_format' => ['nullable', 'string', 'in:round_robin,ladder'],
         ]);
 
         $session = Session::create([
@@ -68,6 +69,7 @@ class SessionController extends Controller
             'number_of_courts' => $validated['number_of_courts'],
             'status' => SessionStatus::UPCOMING,
             'type' => $validated['type'] ?? 'casual',
+            'tournament_format' => $validated['tournament_format'] ?? 'round_robin',
             'created_by' => $request->user()->id,
         ]);
 
@@ -107,6 +109,7 @@ class SessionController extends Controller
 
         if ($session->isTournament()) {
             $data['tournament'] = [
+                'format' => $session->tournament_format->value,
                 // Each entry already carries the team's player names + W/L record.
                 'standings' => $this->tournament->standings($session),
                 'round_progress' => $this->tournament->roundProgress($session),
