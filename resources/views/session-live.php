@@ -41,7 +41,6 @@
 <div id="courtly-app">
     <header class="session-header">
         <div class="session-header__left">
-            <a href="<?= $base ?? '/courtly' ?>/" class="back-btn" title="Back to dashboard">←</a>
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
                 <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
             </a>
@@ -65,6 +64,7 @@
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
             <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
+            <a href="<?= $base ?? '/courtly' ?>/" class="session-header__back" title="Back to dashboard">DASHBOARD</a>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
     </header>
