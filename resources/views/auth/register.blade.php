@@ -7,30 +7,30 @@
     <link rel="icon" type="image/png" href="/assets/favicon.png?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/courtly.css?v=3">
     <style>
-        .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: #12121f; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; }
-        .auth-card { width: 100%; max-width: 540px; background: #1e1e32; border-radius: 8px; padding: 48px 44px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid #2e2e4a; }
+        .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); font-family: "Manrope", "Segoe UI", sans-serif; }
+        .auth-card { width: 100%; max-width: 540px; background: var(--surface); border-radius: 8px; padding: 48px 44px; box-shadow: var(--shadow-card); border: 1px solid var(--stroke); }
         .auth-logo { text-align: center; margin-bottom: 32px; }
         .auth-logo img { height: 128px; }
-        .auth-card h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; text-align: center; color: #e4e4f0; }
-        .auth-card .sub { color: #8888a8; text-align: center; margin-bottom: 32px; font-size: 1.1rem; }
+        .auth-card h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; text-align: center; color: var(--text); }
+        .auth-card .sub { color: var(--text-muted); text-align: center; margin-bottom: 32px; font-size: 1.1rem; }
         .auth-field { margin-bottom: 20px; }
-        .auth-field label { display: block; font-size: 1rem; font-weight: 700; color: #8888a8; margin-bottom: 6px; }
-        .auth-field input { width: 100%; padding: 14px 16px; border: 1px solid #2e2e4a; border-radius: 6px; font-size: 1.15rem; box-sizing: border-box; font-family: inherit; background: #12121f; color: #e4e4f0; }
-        .auth-field input:focus { outline: none; border-color: #ff2d55; }
+        .auth-field label { display: block; font-size: 1rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+        .auth-field input { width: 100%; padding: 14px 16px; border: 1px solid var(--stroke); border-radius: 6px; font-size: 1.15rem; box-sizing: border-box; font-family: inherit; background: var(--bg); color: var(--text); }
+        .auth-field input:focus { outline: none; border-color: var(--court-cyan); }
         .auth-btn { width: 100%; padding: 16px; border: none; border-radius: 6px; font-size: 1.15rem; font-weight: 700; cursor: pointer; margin-bottom: 16px; font-family: inherit; }
-        .auth-btn--primary { background: #ff2d55; color: #fff; }
+        .auth-btn--primary { background: var(--court-blue); color: #fff; }
         .auth-btn--primary:hover { filter: brightness(1.1); }
         .auth-divider { display: flex; align-items: center; gap: 14px; margin: 24px 0; color: #8888a8; font-size: 1rem; }
-        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #2e2e4a; }
-        .social-btn { width: 100%; padding: 14px; border: 1px solid #2e2e4a; border-radius: 6px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #252540; color: #e4e4f0; text-decoration: none; font-family: inherit; }
-        .social-btn:hover { background: #2e2e4a; }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--stroke); }
+        .social-btn { width: 100%; padding: 14px; border: 1px solid var(--stroke); border-radius: 6px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--surface-2); color: var(--text); text-decoration: none; font-family: inherit; }
+        .social-btn:hover { background: var(--bg-accent); }
         .social-btn svg { width: 22px; height: 22px; }
-        .auth-footer { text-align: center; font-size: 1.05rem; color: #8888a8; margin-top: 12px; }
-        .auth-footer a { color: #ff2d55; font-weight: 700; text-decoration: none; }
-        .auth-error { background: #3a1020; color: #ff2d55; padding: 14px 18px; border-radius: 6px; font-size: 1rem; margin-bottom: 20px; border: 1px solid #4a1525; }
+        .auth-footer { text-align: center; font-size: 1.05rem; color: var(--text-muted); margin-top: 12px; }
+        .auth-footer a { color: var(--court-cyan); font-weight: 700; text-decoration: none; }
+        .auth-error { background: rgba(255,104,104,.12); color: #ff8d98; padding: 14px 18px; border-radius: 6px; font-size: 1rem; margin-bottom: 20px; border: 1px solid rgba(255,141,152,.35); }
     </style>
 </head>
 <body>
@@ -38,7 +38,7 @@
     <div class="auth-card">
         <div class="auth-logo"><a href="/"><img src="/assets/courtly_light.png" alt="Courtly"></a></div>
         <h2>Create your account</h2>
-        <p class="sub">Join the badminton community</p>
+        <p class="sub">Play. Connect. Rotate. Improve.<br>Join the badminton community.</p>
 
         @if ($errors->any())
             <div class="auth-error">{{ $errors->first() }}</div>
