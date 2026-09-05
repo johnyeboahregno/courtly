@@ -29,12 +29,13 @@ it('creates a session with courts for the authenticated user', function () {
         ->assertCreated()
         ->assertJsonPath('data.name', 'Saturday Doubles')
         ->assertJsonPath('data.sport', 'tennis')
-        ->assertJsonPath('data.status', SessionStatus::UPCOMING->value)
+        ->assertJsonPath('data.status', SessionStatus::ACTIVE->value)
         ->assertJsonCount(3, 'data.courts');
 
     $session = Session::query()->where('name', 'Saturday Doubles')->firstOrFail();
 
-    expect($session->created_by)->toBe($user->id);
+    expect($session->created_by)->toBe($user->id)
+        ->and($session->started_at)->not->toBeNull();
 
     $this->assertDatabaseCount('courts', 3);
     $this->assertDatabaseHas('courts', [
@@ -42,6 +43,20 @@ it('creates a session with courts for the authenticated user', function () {
         'court_number' => 1,
         'status' => CourtStatus::AVAILABLE->value,
     ]);
+});
+
+it('creates tournaments as upcoming for explicit setup', function () {
+    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/sessions', [
+        'name' => 'Club Ladder',
+        'number_of_courts' => 2,
+        'type' => 'tournament',
+        'tournament_format' => 'ladder',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.status', SessionStatus::UPCOMING->value);
 });
 
 it('allows courts to be added and removed while a session is being set up', function () {
@@ -167,6 +182,30 @@ it('creates a match immediately when starting a session with four waiting player
     $this->postJson("/api/sessions/{$session->id}/start")
         ->assertOk();
 
+    $this->assertDatabaseHas('matches', [
+        'session_id' => $session->id,
+        'status' => MatchStatus::PLAYING->value,
+    ]);
+});
+
+it('automatically starts a regular session when its fourth player checks in', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->create();
+    Court::factory()->for($session)->create(['court_number' => 1]);
+    $players = Player::factory()->count(4)->for($user)->create();
+
+    $players->take(3)->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/players", [
+        'player_ids' => [$players->last()->id],
+    ])->assertCreated();
+
+    expect($session->fresh()->status)->toBe(SessionStatus::ACTIVE);
     $this->assertDatabaseHas('matches', [
         'session_id' => $session->id,
         'status' => MatchStatus::PLAYING->value,
