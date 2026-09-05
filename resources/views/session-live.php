@@ -65,6 +65,10 @@
 
     <div v-if="session.status !== 'FINISHED'" class="courts-toolbar">
         <button class="court-toolbar-btn" type="button" :disabled="courts.length >= 8 || updatingCourts" @click="adjustCourts('add')" title="Add a court">+ ADD COURT</button>
+        <div class="courts-toolbar__actions">
+            <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
+            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
+        </div>
     </div>
 
     <div class="courts-grid" :class="'courts-' + courts.length">
@@ -135,8 +139,6 @@
         <div class="waiting-list__head">
             <h3 class="waiting-list__title">NEXT UP</h3>
             <button class="fill-courts-btn" :class="{ 'is-busy': uiPending.fill }" type="button" :disabled="!canFillCourts || uiPending.fill" @click="fillCourts">FILL COURTS</button>
-            <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
-            <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <span class="waiting-list__players">👥 {{ players.length }} Players</span>
             <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
         </div>
