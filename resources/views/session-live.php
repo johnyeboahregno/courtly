@@ -59,7 +59,7 @@
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'ladder'" class="session-header__badge session-header__badge--tournament">LADDER</span>
             <span class="session-header__badge" :class="'session-header__badge--' + session.status.toLowerCase()">{{ session.status }}</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
-            <button class="mode-switch" :class="'mode-switch--' + matchmakingMode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
+            <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
@@ -92,7 +92,7 @@
                         </div>
                     </div>
                     <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
-                    <button v-if="pendingCourtPlayers[court.id].length >= 4" class="fill-courts-btn fill-courts-btn--start" type="button" @click="startCourtMatch(court.id)">START MATCH</button>
+                    <button v-if="pendingCourtPlayers[court.id].length >= 4" class="fill-courts-btn fill-courts-btn--start" :class="{ 'is-busy': uiPending.court[court.id] }" type="button" :disabled="uiPending.court[court.id]" @click="startCourtMatch(court.id)">START MATCH</button>
                 </div>
                 <template v-else>
                     <span class="court-empty-text">Waiting for players — drag from NEXT UP</span>
@@ -135,7 +135,7 @@
     <div class="waiting-list">
         <div class="waiting-list__head">
             <h3 class="waiting-list__title">NEXT UP</h3>
-            <button class="fill-courts-btn" type="button" :disabled="!canFillCourts" @click="fillCourts">FILL COURTS</button>
+            <button class="fill-courts-btn" :class="{ 'is-busy': uiPending.fill }" type="button" :disabled="!canFillCourts || uiPending.fill" @click="fillCourts">FILL COURTS</button>
             <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
         </div>
         <div class="waiting-list__cards">
@@ -146,7 +146,7 @@
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
-                        <button class="player-card__pause" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
+                        <button class="player-card__pause" :class="{ 'is-busy': uiPending.player[sp.id] }" :disabled="uiPending.player[sp.id]" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
                     </div>
                 </div>
             </TransitionGroup>
@@ -239,7 +239,7 @@
             <div class="add-section">
                 <div class="add-section__new">
                     <input ref="playerNameInput" v-model="newPlayerName" placeholder="Player name" class="modal__input" @keyup.enter="addPlayers" @focus="showSuggestionsNow" @blur="hideSuggestionsLater">
-                    <button class="btn btn--primary" @click="addPlayers" :disabled="!newPlayerName.trim()">Add</button>
+                    <button class="btn btn--primary" :class="{ 'is-busy': uiPending.add }" @click="addPlayers" :disabled="!newPlayerName.trim() || uiPending.add">Add</button>
                 </div>
 
                 <!-- Autocomplete suggestions: top 10 on focus, matches while typing -->
@@ -383,6 +383,7 @@ createApp({
         const courts = ref([]);
         const updatingCourts = ref(false);
         const sessionActionPending = ref(null);
+        const uiPending = reactive({ mode: false, fill: false, add: false, player: {}, court: {} });
         const players = ref([]);
         const tournament = ref(null);
         const history = ref([]);
@@ -867,13 +868,29 @@ createApp({
             }
         }
         async function toggleMode() {
+            if (uiPending.mode) return;
             const next = matchmakingMode.value === 'peg' ? 'smart' : 'peg';
-
-            postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+            const previous = matchmakingMode.value;
+            matchmakingMode.value = next;
+            uiPending.mode = true;
+            try {
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+                if (!result.ok) matchmakingMode.value = previous;
+            } catch {
+                matchmakingMode.value = previous;
+            } finally {
+                uiPending.mode = false;
+            }
         }
         async function fillCourts() {
-            const result = await postApi('/api/sessions/' + SESSION_ID + '/fill');
-            if (result.ok) await fetchSession();
+            if (uiPending.fill) return;
+            uiPending.fill = true;
+            try {
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/fill');
+                if (result.ok) await fetchSession();
+            } finally {
+                uiPending.fill = false;
+            }
         }
         async function adjustCourts(action) {
             if (updatingCourts.value) return;
@@ -944,14 +961,19 @@ createApp({
         }
         async function startCourtMatch(courtId) {
             const list = pendingCourtPlayers[courtId] || [];
-            if (list.length !== 4) return;
-            const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
-                court_id: courtId,
-                player_ids: list.map(sp => sp.player_id),
-            });
-            if (result.ok) {
-                delete pendingCourtPlayers[courtId];
-                await fetchSession();
+            if (list.length !== 4 || uiPending.court[courtId]) return;
+            uiPending.court[courtId] = true;
+            try {
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
+                    court_id: courtId,
+                    player_ids: list.map(sp => sp.player_id),
+                });
+                if (result.ok) {
+                    delete pendingCourtPlayers[courtId];
+                    await fetchSession();
+                }
+            } finally {
+                delete uiPending.court[courtId];
             }
         }
         function toggleManualPlayer(playerId) {
@@ -1048,10 +1070,15 @@ createApp({
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
-            if (!name) return;
-
-            postApi('/api/sessions/' + SESSION_ID + '/players', { name });
+            if (!name || uiPending.add) return;
+            uiPending.add = true;
             newPlayerName.value = '';
+            try {
+                await postApi('/api/sessions/' + SESSION_ID + '/players', { name });
+                await fetchSession();
+            } finally {
+                uiPending.add = false;
+            }
         }
 
         async function addExistingPlayer(id) {
@@ -1088,13 +1115,25 @@ createApp({
         }
 
         async function pausePlayer(spId) {
-            if (typeof spId === 'number') {
-                postApi('/api/session-players/' + spId + '/pause');
-            }
+            updatePlayerStatus(spId, 'PAUSED', 'pause');
         }
         async function resumePlayer(spId) {
-            if (typeof spId === 'number') {
-                postApi('/api/session-players/' + spId + '/resume');
+            updatePlayerStatus(spId, 'WAITING', 'resume');
+        }
+        async function updatePlayerStatus(spId, status, action) {
+            if (typeof spId !== 'number' || uiPending.player[spId]) return;
+            const player = players.value.find(item => item.id === spId);
+            if (!player) return;
+            const previous = player.status;
+            player.status = status;
+            uiPending.player[spId] = true;
+            try {
+                const result = await postApi('/api/session-players/' + spId + '/' + action);
+                if (!result.ok) player.status = previous;
+            } catch {
+                player.status = previous;
+            } finally {
+                delete uiPending.player[spId];
             }
         }
 
@@ -1181,7 +1220,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
     }
 }).mount('#courtly-app');
 </script>
