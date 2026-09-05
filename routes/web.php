@@ -129,6 +129,7 @@ Route::get('/', function () {
         .field select:focus{outline:none;border-color:var(--accent)}
         .row{display:flex;gap:12px}
         .row .field{flex:1}
+        @media(max-width:520px){.row{flex-direction:column;gap:0}}
         .create-btn{width:100%;padding:12px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;transition:filter .15s}
         .create-btn:hover{filter:brightness(1.1)}
         .err{color:var(--accent);font-size:.85rem;margin-top:8px;display:none}
@@ -167,26 +168,11 @@ Route::get('/', function () {
             <h2>New Session</h2>
             <form id="createForm">
                 <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
-                <div class="sport-picker" id="sportPicker" role="radiogroup" aria-label="Choose a court sport">
-                    <button type="button" class="sport-option is-selected" data-sport="badminton" aria-pressed="true">
-                        <span class="sport-icon sport-icon--badminton" aria-hidden="true"></span><span>Badminton</span>
-                    </button>
-                    <button type="button" class="sport-option" data-sport="tennis" aria-pressed="false">
-                        <span class="sport-icon sport-icon--tennis" aria-hidden="true"></span><span>Tennis</span>
-                    </button>
-                    <button type="button" class="sport-option" data-sport="pickleball" aria-pressed="false">
-                        <span class="sport-icon sport-icon--pickleball" aria-hidden="true"></span><span>Pickleball</span>
-                    </button>
-                    <button type="button" class="sport-option" data-sport="padel" aria-pressed="false">
-                        <span class="sport-icon sport-icon--padel" aria-hidden="true"></span><span>Padel</span>
-                    </button>
-                    <button type="button" class="sport-option" data-sport="squash" aria-pressed="false">
-                        <span class="sport-icon sport-icon--squash" aria-hidden="true"></span><span>Squash</span>
-                    </button>
+                <div class="row">
+                    <div class="field"><label>Sport</label><select id="fSport"><option value="badminton" selected>Badminton</option><option value="tennis">Tennis</option><option value="pickleball">Pickleball</option><option value="padel">Padel</option><option value="squash">Squash</option></select></div>
+                    <div class="field"><label>Courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>
+                    <div class="field"><label>Session type</label><select id="fType" onchange="document.getElementById(\'fFormatField\').style.display = this.value === \'tournament\' ? \'block\' : \'none\'"><option value="casual" selected>Casual</option><option value="tournament">Tournament</option></select></div>
                 </div>
-                <input id="fSport" type="hidden" value="badminton">
-                <div class="field"><label>Number of courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>
-                <div class="field"><label>Session type</label><select id="fType" onchange="document.getElementById(\'fFormatField\').style.display = this.value === \'tournament\' ? \'block\' : \'none\'"><option value="casual" selected>Casual</option><option value="tournament">Tournament</option></select></div>
                 <div class="field" id="fFormatField" style="display:none"><label>Tournament format</label><select id="fFormat"><option value="round_robin" selected>Round Robin (everyone plays everyone)</option><option value="ladder">Ladder (challenge the rank above you)</option></select></div>
                 <button type="submit" class="create-btn">Create Session</button>
                 <div id="err" class="err"></div>
@@ -237,18 +223,6 @@ Route::get('/', function () {
         if (stored === "light" || stored === "dark") document.documentElement.setAttribute("data-theme", stored);
         courtlyUpdateThemeIcon();
     })();
-
-    var sportInput = document.getElementById("fSport");
-    document.querySelectorAll(".sport-option").forEach(function(option) {
-        option.addEventListener("click", function() {
-            sportInput.value = option.dataset.sport;
-            document.querySelectorAll(".sport-option").forEach(function(item) {
-                var selected = item === option;
-                item.classList.toggle("is-selected", selected);
-                item.setAttribute("aria-pressed", selected ? "true" : "false");
-            });
-        });
-    });
 
     document.getElementById("createForm").addEventListener("submit", async function(e){
         e.preventDefault();
