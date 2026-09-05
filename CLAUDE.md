@@ -120,6 +120,7 @@ Courtly is a real-time badminton session management system. It is **multi-tenant
 | id | bigint PK | |
 | user_id | FK → users | NOT NULL, CASCADE on delete |
 | name | varchar(255) | unique per user |
+| gender | varchar(255) | nullable; MALE or FEMALE |
 | rating | decimal(5,2) | default: 50.00 |
 | rating_status | varchar(255) | PROVISIONAL / ESTABLISHED |
 | rating_confidence | decimal(3,2) | default: 0.10 |
@@ -587,6 +588,7 @@ The core algorithm that allocates 4-player matches to available courts.
 6. Create Match + MatchPlayer records, update court + session player statuses
 
 **Hard Constraints:**
+- Gender must be set for every active session player before matching. With 2 men and 2 women, mixed teams are required when available; a 2-women vs 2-men split is allowed only within `max_balance_difference`. For an unavoidable 3-to-1 group, the minority-gender player is paired with the strongest opposite-gender player.
 - A player in an active PLAYING match cannot be re-allocated (MM-005)
 - Exact same 4-player group as any court's last round is blocked (100k cost); repeat guards check each court's own last round, not just the globally-latest match (config: `matchmaking.per_court_repeat_guards`)
 - Consecutive matchup (same 2v2) is blocked (10k cost)

@@ -52,12 +52,14 @@ UPCOMING → ACTIVE ⇄ PAUSED → FINISHED
 Open the **+ PLAYERS** dialog from the live view.
 
 ### Add a new player
-Type a name in the input and press **Add** (or Enter). Courtly creates the player and adds them to the waiting queue.
+Type a name, choose **Male** or **Female**, and press **Add**. Courtly creates the player and adds them to the waiting queue.
 
 ### Add an existing player
 The dialog shows your roster. Tap a name to add them. As you type, suggestions appear.
 
 ### Manage a player
+Use the gender selector beside a roster suggestion to correct or complete an existing player's gender. The small dot beside each player name is black for male and white for female; a gray dot means gender has not been set.
+
 In the waiting list, each player card has a **⏸ / ▶** button:
 
 - **⏸ Pause** — take a player out of the rotation (they stay in the session but won't be allocated to courts).
@@ -107,7 +109,11 @@ Courtly balances **fairness** and **competitiveness**:
 - **Fewest games + longest wait** play first.
 - Players who **sat out** the last round get priority.
 - Players with **similar ratings** are grouped together, then split into the most **balanced teams**.
+- With two men and two women, Courtly uses **one man and one woman per team**. A two-women-versus-two-men split is only allowed when the team ratings are within the configured balance threshold.
+- If a mixed group cannot be divided evenly by gender, the minority-gender player is paired with the strongest opposite-gender player.
 - The same four players won't immediately repeat, and the exact same 2v2 matchup is avoided.
+
+Gender must be set for every active session player before the session can start or matches can be allocated. Existing roster players can be completed from the Players dialog.
 
 ---
 

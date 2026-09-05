@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
+use App\Enums\PlayerGender;
 use App\Jobs\AllocateSessionMatches;
 use App\Models\Player;
 use App\Models\Session;
@@ -17,6 +18,7 @@ use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SessionPlayerController extends Controller
 {
@@ -50,6 +52,8 @@ class SessionPlayerController extends Controller
         $playerIds = $request->input('player_ids', []);
         $names = $request->input('names', []);
         $newName = $request->input('name');
+        $newGender = $request->input('gender');
+        $genders = $request->input('genders', []);
 
         if ($request->has('player_id')) {
             $playerIds = [$request->input('player_id')];
@@ -71,6 +75,17 @@ class SessionPlayerController extends Controller
             if ($newName !== '' && ! in_array($newName, $names, true)) {
                 $names[] = $newName;
             }
+        }
+
+        if (count($names) === 1) {
+            $request->validate([
+                'gender' => ['required', Rule::enum(PlayerGender::class)],
+            ]);
+        } elseif (count($names) > 1) {
+            $request->validate([
+                'genders' => ['required', 'array', 'size:' . count($names)],
+                'genders.*' => [Rule::enum(PlayerGender::class)],
+            ]);
         }
 
         if (empty($playerIds) && empty($names)) {
@@ -100,7 +115,7 @@ class SessionPlayerController extends Controller
         // 2. Create and add brand-new players (or reuse the user's existing
         //    players when a name matches within this user's roster). Batched so
         //    one request can check in many players and run matchmaking once.
-        foreach ($names as $newName) {
+        foreach ($names as $nameIndex => $newName) {
             $player = Player::where('name', $newName)
                 ->where('user_id', $this->currentUser()->id)
                 ->first();
@@ -109,6 +124,7 @@ class SessionPlayerController extends Controller
                 $player = Player::create([
                     'user_id' => $this->currentUser()->id,
                     'name' => $newName,
+                    'gender' => count($names) === 1 ? $newGender : ($genders[$nameIndex] ?? null),
                     'rating' => config('courtly.rating.default_rating', 0.00),
                     'rating_status' => 'PROVISIONAL',
                     'rating_confidence' => 0.10,
@@ -129,7 +145,11 @@ class SessionPlayerController extends Controller
             // tournaments retain their explicit setup flow.
             if (! $session->isTournament()
                 && $session->status === SessionStatus::UPCOMING
-                && $session->sessionPlayers()->where('status', SessionPlayerStatus::WAITING->value)->count() >= 4) {
+                && $session->sessionPlayers()->where('status', SessionPlayerStatus::WAITING->value)->count() >= 4
+                && ! $session->sessionPlayers()
+                    ->where('status', '!=', SessionPlayerStatus::LEFT->value)
+                    ->whereHas('player', fn ($query) => $query->whereNull('gender'))
+                    ->exists()) {
                 $session->update([
                     'status' => SessionStatus::ACTIVE,
                     'started_at' => now(),
