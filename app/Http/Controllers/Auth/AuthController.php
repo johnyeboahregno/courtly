@@ -20,9 +20,11 @@ class AuthController extends Controller
     private function googleDriver()
     {
         // Use the configured redirect URI if set (for subdirectory deployments),
-        // otherwise derive it dynamically from the current request.
+        // otherwise derive it dynamically from the current request so the
+        // redirect_uri always matches the host the user is browsing (avoids
+        // Google's "redirect_uri_mismatch" error).
         $redirectUri = config('services.google.redirect')
-            ?? url('/auth/google/callback');
+            ?: url('/auth/google/callback');
 
         $driver = Socialite::driver('google')
             ->redirectUrl($redirectUri)
