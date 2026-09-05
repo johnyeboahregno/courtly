@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Courtly — {{ $sessionName }}</title>
-    <link rel="icon" type="image/png" href="/assets/favicon.png?v=3">
+    <link rel="icon" type="image/png" href="/assets/favicon.png?v={{ config('courtly.app.version', '1.0.0') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="/css/courtly.css?v=24">
+    <link rel="stylesheet" href="/css/courtly.css?v={{ config('courtly.app.version', '1.0.0') }}">
 </head>
 <body>
 @verbatim

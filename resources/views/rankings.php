@@ -10,8 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title>Rankings - Courtly</title>
-    <link rel="icon" type="image/png" href="<?= e($base ?? '') ?>/assets/favicon.png?v=3">
-    <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=24">
+    <link rel="icon" type="image/png" href="<?= e($base ?? '') ?>/assets/favicon.png?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
+    <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <style>
         .rankings-wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
         .rankings-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }

@@ -424,6 +424,7 @@ class SessionController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', 'string', 'in:add,remove'],
+            'court_number' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $session = DB::transaction(function () use ($session, $validated) {
@@ -463,10 +464,16 @@ class SessionController extends Controller
                     abort(422, "A session must have at least {$minimum} court.");
                 }
 
-                $court = $lockedSession->courts()
-                    ->where('status', '!=', CourtStatus::INACTIVE->value)
-                    ->orderByDesc('court_number')
-                    ->firstOrFail();
+                $courtQuery = $lockedSession->courts()
+                    ->where('status', '!=', CourtStatus::INACTIVE->value);
+
+                if (!empty($validated['court_number'])) {
+                    $courtQuery->where('court_number', $validated['court_number']);
+                } else {
+                    $courtQuery->orderByDesc('court_number');
+                }
+
+                $court = $courtQuery->firstOrFail();
 
                 $match = $lockedSession->matches()
                     ->where('court_id', $court->id)

@@ -768,7 +768,7 @@ File: `resources/views/session-live.php`
 
 ## CSS Theme System
 
-File: `public/css/courtly.css` (single file, versioned via `?v=N`)
+File: `public/css/courtly.css` (single file, cache-busted via `?v=` — the suffix comes from `config('courtly.app.version')` in `config/courtly.php`; bump `app.version` on user-visible releases to invalidate stale CSS/favicon caches)
 
 ### Theme Variables
 ```css
