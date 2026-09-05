@@ -43,9 +43,9 @@
         .stats-player { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
         .stats-player h2 { margin: 0; font-size: 1.5rem; }
         .tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-        .tag--rating { background: #10243a; color: #5b9bd5; }
-        .tag--provisional { background: #3a2c10; color: #e0a91a; }
-        .tag--established { background: #1a3a2a; color: #3cae67; }
+        .tag--rating { background: var(--tag-rating-bg); color: var(--tag-rating-text); }
+        .tag--provisional { background: var(--tag-provisional-bg); color: var(--tag-provisional-text); }
+        .tag--established { background: var(--tag-established-bg); color: var(--tag-established-text); }
 
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
         .stat-card {
@@ -54,8 +54,8 @@
         }
         .stat-card__label { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
         .stat-card__value { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
-        .stat-card__value--good { color: var(--court-green-light, #3cae67); }
-        .stat-card__value--bad { color: #d47a8a; }
+        .stat-card__value--good { color: var(--status-active-text); }
+        .stat-card__value--bad { color: var(--status-passed-text); }
         .stat-card__sub { font-size: .78rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
 
         .form-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
@@ -63,8 +63,8 @@
             width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
             border-radius: 6px; font-size: .72rem; font-weight: 800;
         }
-        .form-chip--w { background: #1a3a2a; color: #3cae67; }
-        .form-chip--l { background: #3a2024; color: #d47a8a; }
+        .form-chip--w { background: var(--win-chip-bg); color: var(--win-chip-text); }
+        .form-chip--l { background: var(--loss-chip-bg); color: var(--loss-chip-text); }
 
         .chart-card {
             background: var(--surface); border: 1px solid var(--stroke);
