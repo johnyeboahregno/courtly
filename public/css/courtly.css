@@ -581,6 +581,11 @@ textarea,
     border-radius: 0;
 }
 
+.court-card__body--drop {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent) inset;
+}
+
 .court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
 .court-card__celebration strong {
     position: absolute; left: var(--origin-x); top: var(--origin-y);
@@ -642,18 +647,6 @@ textarea,
     color: var(--text-muted);
     font-size: 1rem;
     font-weight: 700;
-}
-
-.court-empty-countdown {
-    position: relative;
-    z-index: 10;
-    margin: 0;
-    color: var(--text);
-    font-size: 3.28rem;
-    font-weight: 800;
-    line-height: 1;
-    text-align: center;
-    opacity: 0.5;
 }
 
 /* Individual player box */
@@ -1858,6 +1851,7 @@ textarea,
 }
 .fill-courts-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
 .fill-courts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.fill-courts-btn--start { background: var(--accent); color: #fff; }
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {

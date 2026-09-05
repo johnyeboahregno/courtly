@@ -33,33 +33,6 @@ Route::get('/', function () {
         ->where('created_by', \Illuminate\Support\Facades\Auth::id())
         ->orderByDesc('date')->get();
 
-    $rankedPlayers = \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
-        ->where('user_id', \Illuminate\Support\Facades\Auth::id())
-        ->orderByDesc('rating')
-        ->orderByDesc('total_games')
-        ->orderBy('name')
-        ->orderBy('id')
-        ->get();
-
-    $rankingRows = '';
-    foreach ($rankedPlayers as $rank => $player) {
-        $winPercentage = $player->total_games > 0
-            ? round(($player->wins / $player->total_games) * 100, 1)
-            : 0;
-
-        $rankingRows .= '<tr>'
-            .'<td class="ranking-table__rank">'.($rank + 1).'</td>'
-            .'<th scope="row">'.e($player->name).'</th>'
-            .'<td>'.number_format((float) $player->rating, 1).'</td>'
-            .'<td>'.$player->total_games.'</td>'
-            .'<td>'.$winPercentage.'%</td>'
-            .'</tr>';
-    }
-
-    if ($rankingRows === '') {
-        $rankingRows = '<tr><td colspan="5" class="ranking-table__empty">No players yet.</td></tr>';
-    }
-
     $today = now()->startOfDay();
     $currentRows = '';
     $pastRows = '';
@@ -165,21 +138,14 @@ Route::get('/', function () {
         .manage-btn:disabled{opacity:.4;cursor:not-allowed}
         .manage-del:hover{color:var(--accent,#ff2d55)}
         h2.list-title{margin-top:28px;margin-bottom:12px}
-        .rankings-card{margin-bottom:28px}
-        .rankings-card__intro{color:var(--text-muted,#8888a8);font-size:.8rem;margin:-6px 0 14px}
-        .ranking-table-wrap{overflow-x:auto}
-        .ranking-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:440px}
-        .ranking-table th,.ranking-table td{padding:10px 8px;border-bottom:1px solid var(--stroke,#2e2e4a);text-align:right;white-space:nowrap}
-        .ranking-table th:first-of-type,.ranking-table td:first-child{text-align:left}
-        .ranking-table thead th{color:var(--text-muted,#8888a8);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
-        .ranking-table tbody th{font-weight:700;color:var(--text,#e4e4f0)}
-        .ranking-table tbody tr:last-child th,.ranking-table tbody tr:last-child td{border-bottom:0}
-        .ranking-table__rank{color:var(--accent,#ff2d55);font-weight:800;width:34px}
-        .ranking-table__empty{text-align:left!important;color:var(--text-muted,#8888a8);padding:14px 8px!important}
+        .courtly-mark--light{display:none}
+        [data-theme="light"] .courtly-mark--dark{display:none}
+        [data-theme="light"] .courtly-mark--light{display:block}
+        @media (prefers-color-scheme: light){:root:not([data-theme]) .courtly-mark--dark{display:none}:root:not([data-theme]) .courtly-mark--light{display:block}}
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly-mark-transparent.png" style="width:72px;height:72px;object-fit:contain;display:block;"></h1></div>
+            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img class="courtly-mark courtly-mark--dark" src="'.$base.'/assets/courtly_dark_blue.png" alt="Courtly" style="height:64px;width:auto;object-fit:contain;display:block;"><img class="courtly-mark courtly-mark--light" src="'.$base.'/assets/courtly_light_blue.png" alt="Courtly" style="height:64px;width:auto;object-fit:contain;display:block;"></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
@@ -192,19 +158,10 @@ Route::get('/', function () {
         <div class="dashboard-subhead" style="display:flex;justify-content:flex-end;align-items:baseline;margin:0 0 24px;gap:12px">
             <div class="dashboard-subhead__actions" style="display:flex;gap:16px;align-items:center">
                 <a href="'.$base.'/stats" class="manage-link">Player Stats</a>
+                    <a href="'.$base.'/rankings" class="manage-link">Rankings</a>
                 <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
             </div>
         </div>
-        <section class="card rankings-card" aria-labelledby="rankings-heading">
-            <h2 id="rankings-heading">Rankings</h2>
-            <p class="rankings-card__intro">Your roster, ordered by rating.</p>
-            <div class="ranking-table-wrap">
-                <table class="ranking-table">
-                    <thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Rating</th><th scope="col">Games</th><th scope="col">Win rate</th></tr></thead>
-                    <tbody>'.$rankingRows.'</tbody>
-                </table>
-            </div>
-        </section>
         <div class="card">
             <h2>New Session</h2>
             <form id="createForm">
@@ -543,6 +500,27 @@ Route::get('/stats', function () {
 
     return response(ob_get_clean());
 })->middleware('auth')->name('stats');
+
+// Player rankings — all players in the authenticated user's roster
+Route::get('/rankings', function () {
+    $data = [
+        'base' => rtrim(request()->getBasePath(), '/'),
+        'players' => \App\Models\Player::select('name', 'rating', 'total_games', 'wins')
+            ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->orderByDesc('rating')
+            ->orderByDesc('total_games')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->get(),
+    ];
+
+    $__path = resource_path('views/rankings.php');
+    extract($data, EXTR_SKIP);
+    ob_start();
+    include $__path;
+
+    return response(ob_get_clean());
+})->middleware('auth')->name('rankings');
 
 // Session live view — the tablet UI (owner only)
 Route::get('/sessions/{session}/live', function ($session) {
