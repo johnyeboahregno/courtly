@@ -487,6 +487,7 @@ textarea,
 .session-header__stats {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 14px;
     font-size: 0.93rem;
