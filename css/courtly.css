@@ -599,7 +599,7 @@ textarea,
     flex-direction: column;
     gap: 8px;
     position: relative;
-    flex: 0 1 30vw;
+    flex: 0 1 25vw;
 }
 
 /* Court header: name + status */

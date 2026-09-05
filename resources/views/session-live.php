@@ -35,7 +35,7 @@
             }
         });
     </script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=50">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=51">
 </head>
 <body>
 <div id="courtly-app">
