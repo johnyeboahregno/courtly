@@ -758,11 +758,11 @@ textarea,
 }
 
 .court-card__player-box--team-1 {
-    background: #7ebffc7e;
+    background: transparent;
 }
 
 .court-card__player-box--team-2 {
-    background: #75f7b681;
+    background: transparent;
 }
 
 /* Pending (court not yet full) — grayed-out player preview */
