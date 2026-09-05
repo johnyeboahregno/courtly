@@ -26,6 +26,7 @@ Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallbac
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
     $base = rtrim(request()->getBasePath(), '/');
+    $version = config('courtly.app.version', '1.0.0');
 
     $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
 
@@ -150,6 +151,7 @@ Route::get('/', function () {
             <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start;gap:12px"><img class="brand-mark" src="'.$base.'/assets/courtly-mark.png" alt="" style="width:48px;height:48px;object-fit:contain;display:block;flex-shrink:0"><span class="brand-word">Courtly</span></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
+                <span class="version-chip" title="Courtly version">'.$version.'</span>
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
                 <form method="POST" action="/logout" style="margin:0">
                     <input type="hidden" name="_token" value="'.csrf_token().'">
