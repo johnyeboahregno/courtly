@@ -10,9 +10,9 @@ return [
     |--------------------------------------------------------------------------
     */
     'app' => [
-        // Displayed in the session header. Bump on user-visible releases
-        // (MAJOR.MINOR.PATCH-beta).
-        'version' => '0.0.0-beta',
+        // Single source of truth for the app version. Displayed in the
+        // session header and used as the cache-busting (?v=) suffix for CSS/favicon assets.
+        'version' => '1.0.0',
     ],
 
     /*

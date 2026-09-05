@@ -578,19 +578,65 @@ textarea,
     font-weight: 600;
 }
 
+/* Courts toolbar — add-court plus button pinned to the top right of the courts box */
+.courts-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin: 0 auto 10px;
+    padding: 0 12px;
+    max-width: 1400px;
+}
+
+.court-toolbar-btn {
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+    font: 800 0.78rem/1 inherit;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.court-toolbar-btn:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.court-toolbar-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
 /* Courts grid */
 .courts-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
+    display: grid;
+    gap: 14px;
     margin: 0 auto 14px;
     padding: 0 12px;
     max-width: 1400px;
-    justify-content: center;
+}
+
+@media (min-width: 1024px) {
+    .courts-grid { grid-template-columns: repeat(2, 1fr); }
+    .courts-1 { grid-template-columns: minmax(400px, 600px); justify-content: center; }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+    .courts-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 639px) {
-    .courts-grid { gap: 10px; margin: 0 auto 14px; padding: 0 4px; }
+    .courts-grid { grid-template-columns: 1fr; gap: 10px; margin: 0 8px 14px; padding: 0 4px; }
 }
 
 /* Court card — no container, courts shown directly */
@@ -599,7 +645,6 @@ textarea,
     flex-direction: column;
     gap: 8px;
     position: relative;
-    flex: 0 1 25vw;
 }
 
 /* Court header: name + status */
@@ -630,64 +675,44 @@ textarea,
 .court-card__status--playing { color: #3cae67; }
 .court-card__status--available { color: var(--text-muted); }
 
-.court-card__head-right {
-    display: flex;
+.court-card__head-actions {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
 }
 
-.court-card__remove {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
+.court-remove-btn {
+    width: 24px;
+    height: 24px;
     border: 1px solid var(--stroke);
-    background: transparent;
+    border-radius: 50%;
+    background: var(--surface-2);
     color: var(--text-muted);
-    font-size: 0.8rem;
-    font-weight: 800;
-    line-height: 1;
     cursor: pointer;
+    font: 700 0.9rem/1 inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
-    font-family: inherit;
-    transition: border-color 0.15s, color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 
-.court-card__remove:hover:not(:disabled) { border-color: var(--auth-error-text, #ff5d73); color: var(--auth-error-text, #ff5d73); }
-.court-card__remove:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.court-card__add {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid var(--stroke);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 1.2rem;
-    font-weight: 800;
-    line-height: 1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    padding: 0;
-    font-family: inherit;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+.court-remove-btn:hover:not(:disabled) {
+    background: #ff2d55;
+    border-color: #ff2d55;
+    color: #fff;
+    transform: scale(1.08);
 }
 
-.court-card__add:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.court-card__add:disabled { opacity: 0.4; cursor: not-allowed; }
+.court-remove-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
 
 /* Court body: dark surface, colors driven by --court-* vars set per sport */
 .court-card__body {
     position: relative;
-    width: 100%;
-    aspect-ratio: 1.8 / 1;
     background: var(--court-surface, #161626);
-    border: 1px solid color-mix(in srgb, var(--court-line, var(--stroke)) 50%, transparent);
+    border: 1px solid var(--court-line, var(--stroke));
     border-radius: 0;
     box-shadow: var(--shadow-card), var(--court-wall-shadow, none);
     padding: 14px 12px;
@@ -704,7 +729,6 @@ textarea,
     inset: 0;
     pointer-events: none;
     z-index: 1;
-    opacity: 0.15;
     background-image: var(--court-zone-bands, none);
 }
 
@@ -736,68 +760,14 @@ textarea,
 
 /* Sport-specific court coloring and line styling */
 .court-card--badminton {
-    --court-surface: rgba(15, 154, 75, 0.05);
-    --court-surface-empty: rgba(14, 138, 67, 0.05);
-    --court-line: #ffffff;
-}
-
-/* Regulation badminton court, landscape orientation:
-   net runs vertically (left/right halves), back boundaries at the ends,
-   sidelines along top/bottom, service lines parallel to the net */
-.court-card--badminton .court-card__lines {
-    background-image:
-        linear-gradient(var(--court-line), var(--court-line)), /* back boundary L */
-        linear-gradient(var(--court-line), var(--court-line)), /* short-service L */
-        linear-gradient(var(--court-line), var(--court-line)), /* short-service R */
-        linear-gradient(var(--court-line), var(--court-line)), /* back boundary R */
-        linear-gradient(var(--court-line), var(--court-line)), /* doubles sideline top */
-        linear-gradient(var(--court-line), var(--court-line)); /* doubles sideline bottom */
-    background-repeat: no-repeat;
-    background-position:
-        4% 0,
-        36.4% 0,
-        63.6% 0,
-        96% 0,
-        0 12.3%,
-        0 87.7%;
-    background-size:
-        2px 100%,
-        2px 100%,
-        2px 100%,
-        2px 100%,
-        100% 2px,
-        100% 2px;
-}
-
-/* Net runs vertically between the two halves, top sideline to bottom sideline */
-.court-card--badminton .court-card__lines::before {
-    display: block;
-    left: 50%;
-    right: auto;
-    top: 12.3%;
-    bottom: 12.3%;
-    width: 3px;
-    height: auto;
-    background: var(--court-line);
-    transform: translateX(-50%);
-}
-
-/* Dashed center service line, horizontal, from net to short-service line */
-.court-card--badminton .court-card__lines::after {
-    top: 50%;
-    bottom: auto;
-    left: 36.4%;
-    right: 36.4%;
-    width: auto;
-    height: 0;
-    background: none;
-    border-top: 2px dashed var(--court-line);
-    transform: translateY(-50%);
+    --court-surface: #161626;
+    --court-surface-empty: #1a1a2a;
+    --court-line: var(--stroke);
 }
 
 .court-card--tennis {
-    --court-surface: rgba(28, 92, 60, 0.05);
-    --court-surface-empty: rgba(26, 82, 54, 0.05);
+    --court-surface: #1c5c3c;
+    --court-surface-empty: #1a5236;
     --court-line: #f2f7f0;
     --court-line-opacity: 0.85;
     --court-baseline-inset: 6%;
@@ -805,8 +775,8 @@ textarea,
 }
 
 .court-card--pickleball {
-    --court-surface: rgba(27, 77, 107, 0.05);
-    --court-surface-empty: rgba(26, 71, 98, 0.05);
+    --court-surface: #1b4d6b;
+    --court-surface-empty: #1a4762;
     --court-line: #f4d35e;
     --court-baseline-inset: 8%;
     --court-sideline-inset: 6%;
@@ -814,8 +784,8 @@ textarea,
 }
 
 .court-card--padel {
-    --court-surface: rgba(13, 107, 110, 0.05);
-    --court-surface-empty: rgba(12, 98, 101, 0.05);
+    --court-surface: #0d6b6e;
+    --court-surface-empty: #0c6265;
     --court-line: #eafffd;
     --court-line-opacity: 0.9;
     --court-baseline-inset: 4%;
@@ -824,8 +794,8 @@ textarea,
 }
 
 .court-card--squash {
-    --court-surface: rgba(122, 50, 50, 0.05);
-    --court-surface-empty: rgba(113, 45, 45, 0.05);
+    --court-surface: #7a3232;
+    --court-surface-empty: #712d2d;
     --court-line: #ffffff;
     --court-baseline-inset: 4%;
     --court-sideline-inset: 30%;
@@ -869,8 +839,9 @@ textarea,
     gap: 8px;
     align-items: center;
     justify-content: center;
+    min-height: 140px;
     background: var(--court-surface-empty, #1a1a2a);
-    border: 1px solid color-mix(in srgb, var(--court-line, var(--stroke)) 50%, transparent);
+    border: 1px solid var(--court-line, var(--stroke));
     border-radius: 0;
 }
 
@@ -938,31 +909,32 @@ textarea,
 
 .court-empty-text {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 1rem;
     font-weight: 700;
 }
 
-/* Empty-court placeholder text floats over the court, centered */
-.court-card__body--empty > .court-empty-text {
+/* Floating centered message over an empty court */
+.court-card__empty {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 3;
-    text-align: center;
-    white-space: nowrap;
-    padding: 4px 12px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.35);
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    pointer-events: none;
 }
 
-/* Anchor the ASSIGN button to the bottom of the empty court */
-.court-card__body--empty > .fill-courts-btn {
+.court-card__empty .court-empty-text {
+    text-align: center;
+}
+
+.court-card__empty .fill-courts-btn {
     position: absolute;
     bottom: 12px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 3;
+    pointer-events: auto;
 }
 
 /* Individual player box */
@@ -2244,6 +2216,16 @@ textarea,
 .waiting-list__head .waiting-list__title {
     margin-bottom: 0;
 }
+.waiting-list__players {
+    margin-left: auto;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.waiting-list__players + .waiting-list__mode {
+    margin-left: 0;
+}
 .waiting-list__mode {
     margin-left: auto;
     font-size: 0.72rem;
@@ -2362,6 +2344,20 @@ textarea,
     .waiting-list,
     .match-history,
     .session-controls { width: 100%; }
+
+    .waiting-list__head {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .waiting-list__head .waiting-list__players {
+        margin-left: 0;
+    }
+
+    .waiting-list__head .waiting-list__mode {
+        margin-left: 0;
+        width: 100%;
+    }
 
     .modal-overlay { padding: 12px; }
 

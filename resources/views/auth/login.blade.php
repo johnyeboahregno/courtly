@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Courtly</title>
-    <link rel="icon" type="image/png" href="/assets/favicon.png?v=3">
+    <link rel="icon" type="image/png" href="/assets/favicon.png?v={{ config('courtly.app.version', '1.0.0') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/courtly.css?v=24">
+    <link rel="stylesheet" href="/css/courtly.css?v={{ config('courtly.app.version', '1.0.0') }}">
     <style>
         .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); font-family: "Manrope", "Segoe UI", sans-serif; }
         .auth-card { width: 100%; max-width: 540px; background: var(--surface); border-radius: 8px; padding: 48px 44px; box-shadow: var(--shadow-card); border: 1px solid var(--stroke); }

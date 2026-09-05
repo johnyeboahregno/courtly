@@ -73,8 +73,8 @@ Route::get('/', function () {
     }
 
     return '<!DOCTYPE html><html><head><title>Courtly</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="'.csrf_token().'">
-    <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=3">
-    <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=9">
+    <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=' . config('courtly.app.version', '1.0.0') . '">
+    <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=' . config('courtly.app.version', '1.0.0') . '">
     <style>
         body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;margin:0;padding:40px 20px}
         .wrap{max-width:560px;margin:0 auto}
@@ -559,7 +559,7 @@ Route::get('/sessions/{session}/live', function ($session) {
         'sessionName' => $sessionName,
         'sessionStatus' => $sessionStatus,
         'base' => rtrim(request()->getBasePath(), '/'),
-        'appVersion' => config('courtly.app.version', 'v2.0.0'),
+        'appVersion' => config('courtly.app.version', '1.0.0'),
         'syncConfig' => config('courtly.sync'),
     ];
 
