@@ -83,6 +83,7 @@
     <header class="stats-head">
         <a href="<?= e($base ?? '') ?>/" class="back-btn" title="Back to dashboard">←</a>
         <h1>Player Stats</h1>
+        <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     </header>
 
     <div class="stats-select">
@@ -112,6 +113,27 @@
 </div>
 
 <script>
+function courtlyUpdateThemeIcon() {
+    var button = document.getElementById('themeSwitch');
+    if (!button) return;
+    var light = document.documentElement.getAttribute('data-theme') === 'light';
+    button.textContent = light ? '☾' : '☀';
+    button.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+    button.setAttribute('aria-label', button.title);
+}
+function toggleCourtlyTheme() {
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    var next = isLight ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('courtly-theme', next);
+    courtlyUpdateThemeIcon();
+}
+(function() {
+    var stored = localStorage.getItem('courtly-theme');
+    if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+    courtlyUpdateThemeIcon();
+})();
+
 (function () {
     'use strict';
 

@@ -10,6 +10,31 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+        (function () {
+            var stored = localStorage.getItem('courtly-theme');
+            if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+        })();
+        function toggleCourtlyTheme() {
+            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            var next = isLight ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('courtly-theme', next);
+            var button = document.getElementById('themeSwitch');
+            if (button) {
+                button.textContent = isLight ? '☀' : '☾';
+                button.title = isLight ? 'Switch to light theme' : 'Switch to dark theme';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            var button = document.getElementById('themeSwitch');
+            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            if (button) {
+                button.textContent = isLight ? '☾' : '☀';
+                button.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+            }
+        });
+    </script>
     <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=21">
 </head>
 <body>
@@ -39,6 +64,7 @@
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
+            <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
             <span class="session-header__version" title="Courtly version"><?= htmlspecialchars($appVersion ?? 'v2.0.0') ?></span>
         </div>
     </header>

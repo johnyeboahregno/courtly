@@ -35,10 +35,9 @@
 </head>
 <body>
 <div class="auth-page">
+    <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     <div class="auth-card">
-        <div class="auth-logo"><a href="/"><img src="/assets/favicon.png" alt="Courtly"></a></div>
-        <h2>Welcome back</h2>
-        <p class="sub">Smarter games. Fairer courts.<br>Sign in to manage sessions.</p>
+        <div class="auth-wordmark"><img class="auth-wordmark__image--dark" src="/assets/courtly_dark_blue.png" alt="Courtly — Smarter games. Fairer courts."><img class="auth-wordmark__image--light" src="/assets/courtly_light_blue.png" alt="Courtly — Smarter games. Fairer courts."></div>
 
         @if ($errors->any())
             <div class="auth-error">{{ $errors->first() }}</div>
@@ -72,5 +71,26 @@
         <p class="auth-footer">Don't have an account? <a href="/register">Sign up</a></p>
     </div>
 </div>
+<script>
+function courtlyUpdateThemeIcon() {
+    var button = document.getElementById('themeSwitch');
+    if (!button) return;
+    var light = document.documentElement.getAttribute('data-theme') === 'light';
+    button.textContent = light ? '☾' : '☀';
+    button.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+    button.setAttribute('aria-label', button.title);
+}
+function toggleCourtlyTheme() {
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+    localStorage.setItem('courtly-theme', isLight ? 'dark' : 'light');
+    courtlyUpdateThemeIcon();
+}
+(function() {
+    var stored = localStorage.getItem('courtly-theme');
+    if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+    courtlyUpdateThemeIcon();
+})();
+</script>
 </body>
 </html>
