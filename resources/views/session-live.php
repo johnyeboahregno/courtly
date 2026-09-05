@@ -149,6 +149,7 @@
                     </div>
                     <div class="player-card__actions">
                         <button class="player-card__pause" :class="{ 'is-busy': uiPending.player[sp.id] }" :disabled="uiPending.player[sp.id]" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
+                        <button class="player-card__remove" type="button" @click="openRemove(sp)" title="Remove from session">×</button>
                     </div>
                 </div>
             </TransitionGroup>
