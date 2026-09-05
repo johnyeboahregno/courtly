@@ -113,7 +113,51 @@ it('resets an owned player rating to the configured defaults', function () {
     expect((float) $player->rating)->toBe((float) config('courtly.rating.default_rating'))
         ->and($player->rating_status->value)->toBe('PROVISIONAL')
         ->and($player->rated_games_count)->toBe(0)
-        ->and($player->total_games)->toBe(12)
-        ->and($player->wins)->toBe(8)
-        ->and($player->losses)->toBe(4);
+        ->and($player->total_games)->toBe(0)
+        ->and($player->wins)->toBe(0)
+        ->and($player->losses)->toBe(0)
+        ->and($player->consecutive_wins)->toBe(0);
+});
+
+it('resets all players in the roster to defaults and leaves other users alone', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+
+    $stats = [
+        'rating' => 77.00,
+        'rating_status' => 'ESTABLISHED',
+        'rating_confidence' => 0.80,
+        'rated_games_count' => 9,
+        'total_games' => 9,
+        'wins' => 6,
+        'losses' => 3,
+        'consecutive_wins' => 2,
+    ];
+
+    $ownedA = Player::factory()->for($user)->create($stats);
+    $ownedB = Player::factory()->for($user)->create($stats);
+    $otherPlayer = Player::factory()->for($otherUser)->create($stats);
+
+    Sanctum::actingAs($user);
+
+    $response = $this->postJson('/api/players/reset-all');
+
+    $response->assertOk()
+        ->assertJsonPath('data.reset', 2);
+
+    $default = (float) config('courtly.rating.default_rating');
+
+    foreach ([$ownedA, $ownedB] as $player) {
+        $player->refresh();
+        expect((float) $player->rating)->toBe($default)
+            ->and($player->rating_status->value)->toBe('PROVISIONAL')
+            ->and($player->total_games)->toBe(0)
+            ->and($player->wins)->toBe(0)
+            ->and($player->losses)->toBe(0)
+            ->and($player->consecutive_wins)->toBe(0);
+    }
+
+    $otherPlayer->refresh();
+    expect((float) $otherPlayer->rating)->toBe(77.00)
+        ->and($otherPlayer->total_games)->toBe(9);
 });
