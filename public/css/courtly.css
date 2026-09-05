@@ -221,7 +221,7 @@ body {
 .auth-btn--primary { background: var(--court-blue) !important; }
 .auth-footer a { color: var(--court-cyan) !important; }
 .social-btn { background: var(--surface-2) !important; color: var(--text) !important; border-color: var(--stroke) !important; }
-.auth-error { background: rgba(255,104,104,.12) !important; color: #ff8d98 !important; border-color: rgba(255,141,152,.35) !important; }
+.auth-error { background: var(--auth-error-bg) !important; color: var(--auth-error-text) !important; border-color: var(--auth-error-stroke) !important; }
 
 input,
 textarea,
