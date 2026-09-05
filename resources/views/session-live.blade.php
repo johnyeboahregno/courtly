@@ -17,7 +17,7 @@
     <header class="session-header">
         <div class="session-header__left">
             <a href="/" class="session-header__logo" title="Back to home">
-                <img src="/assets/favicon.png" alt="Courtly" class="session-header__logo-img">
+                <img src="/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>

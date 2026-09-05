@@ -124,6 +124,30 @@ body {
     :root:not([data-theme]) .auth-wordmark__image--light { display: block; }
 }
 
+.auth-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 0 auto 30px;
+}
+
+.auth-brand__mark {
+    width: 58px;
+    height: 58px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.auth-brand__word {
+    font-family: "Space Grotesk", "Manrope", "Segoe UI", sans-serif;
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    color: var(--text, #e4e4f0);
+}
+
 .auth-card {
     background: var(--surface) !important;
     border-color: var(--stroke) !important;
