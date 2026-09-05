@@ -233,7 +233,7 @@ textarea,
 .courts-grid,
 .waiting-list,
 .session-controls {
-    max-width: 1400px;
+    width: 100%;
 }
 
 /* Header */
@@ -322,11 +322,12 @@ textarea,
     flex-direction: column;
     align-items: center;
     width: 100%;
+    padding: 0 16px;
 }
 
 #courtly-app > * {
     width: 100%;
-    max-width: 1400px;
+    max-width: none;
     margin-left: auto;
     margin-right: auto;
 }
@@ -497,7 +498,7 @@ textarea,
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0;
+    gap: 0.5rem;
     font-size: 0.93rem;
     color: var(--text-muted);
 }
@@ -592,9 +593,20 @@ textarea,
     display: flex;
     justify-content: flex-start;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     margin: 0 auto 10px;
-    padding: 0 12px;
-    max-width: 1400px;
+    padding: 0 12px 10px;
+    border-bottom: 1px solid var(--stroke);
+    width: 100%;
+}
+
+.courts-toolbar__actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .court-toolbar-btn {
@@ -632,12 +644,12 @@ textarea,
     gap: 14px;
     margin: 0 auto 14px;
     padding: 0 12px;
-    max-width: 1400px;
+    width: 100%;
 }
 
 @media (min-width: 1024px) {
-    .courts-grid { grid-template-columns: repeat(2, 1fr); }
-    .courts-1 { grid-template-columns: minmax(400px, 600px); justify-content: center; }
+    .courts-grid { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+    .courts-1 { grid-template-columns: minmax(400px, 640px); justify-content: center; }
 }
 
 @media (min-width: 640px) and (max-width: 1023px) {
@@ -769,8 +781,8 @@ textarea,
 
 /* Sport-specific court coloring and line styling */
 .court-card--badminton {
-    --court-surface: #161626;
-    --court-surface-empty: #1a1a2a;
+    --court-surface: rgba(22, 22, 38, 0.5);
+    --court-surface-empty: rgba(26, 26, 42, 0.5);
     --court-line: var(--stroke);
 }
 
