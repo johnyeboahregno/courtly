@@ -35,7 +35,7 @@
             }
         });
     </script>
-    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=25">
+    <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=50">
 </head>
 <body>
 <div id="courtly-app">
@@ -75,7 +75,7 @@
     </div>
 
     <div class="courts-grid" :class="'courts-' + courts.length">
-        <div v-for="court in courts" :key="court.id" class="court-card">
+        <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')">
             <div class="court-card__head">
                 <span class="court-card__number">COURT {{ court.court_number }}</span>
                 <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
