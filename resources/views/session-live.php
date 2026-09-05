@@ -42,7 +42,8 @@
     <header class="session-header">
         <div class="session-header__left">
             <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
-                <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img">
+                <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img session-header__logo-img--light">
+                <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark-dark.png" alt="Courtly" class="session-header__logo-img session-header__logo-img--dark">
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
@@ -615,7 +616,7 @@ createApp({
             }
         }
         let pollTimer = null;
-        let pollSince = null;
+        let lastEventId = 0;
         let pollDelay = 3000;
         let pollingStopped = false;
         // Fetch the full player list from the server.
@@ -711,8 +712,8 @@ createApp({
 
         async function pollEvents() {
             try {
-                const query = pollSince
-                    ? '?since=' + encodeURIComponent(pollSince)
+                const query = lastEventId > 0
+                    ? '?last_event_id=' + lastEventId
                     : '?snapshot=1';
                 const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/events' + query, {
                     credentials: 'include',
@@ -726,7 +727,7 @@ createApp({
                 } else if ((payload.events || []).length > 0) {
                     await fetchSession();
                 }
-                pollSince = payload.server_time;
+                lastEventId = payload.last_event_id || lastEventId;
                 pollDelay = 3000;
                 connectionState.value = 'connected';
             } catch {

@@ -27,8 +27,9 @@ class SessionEventsController extends Controller
      * Primary real-time mechanism: HTTP polling (works on Apache without Redis).
      *
      * Query params:
-     *   ?since=2026-08-09T14:30:00  — only events after this timestamp
-     *   ?stream=1                     — use SSE streaming (if available)
+     *   ?last_event_id=123         — only events after this ID (recommended; no race condition)
+     *   ?since=2026-08-09T14:30:00 — only events after this timestamp (legacy; can skip events)
+     *   ?stream=1                  — use SSE streaming (if available)
      */
     public function __invoke(Request $request, Session $session): JsonResponse|StreamedResponse
     {
@@ -40,12 +41,18 @@ class SessionEventsController extends Controller
         }
 
         // Default: polling response
-        $since = $request->query('since');
-        $events = $this->eventService->getEvents($session->id, $since);
+        // Prefer ID-based cursor over timestamp to avoid race conditions.
+        $lastEventId = (int) $request->query('last_event_id', 0);
+        if ($lastEventId > 0) {
+            $events = $this->eventService->getEventsAfterId($session->id, $lastEventId);
+        } else {
+            $since = $request->query('since');
+            $events = $this->eventService->getEvents($session->id, $since);
+        }
 
         $data = [
             'events' => $events,
-            'server_time' => now()->toIso8601String(),
+            'last_event_id' => $events ? (int) end($events)['id'] : $lastEventId,
         ];
 
         if ($request->boolean('snapshot')) {

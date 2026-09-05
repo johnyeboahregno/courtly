@@ -278,6 +278,15 @@ textarea,
     display: block;
 }
 
+.session-header__logo-img--dark { display: none; }
+[data-theme="light"] .session-header__logo-img--light { display: none; }
+[data-theme="light"] .session-header__logo-img--dark { display: block; }
+
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .session-header__logo-img--light { display: none; }
+    :root:not([data-theme]) .session-header__logo-img--dark { display: block; }
+}
+
 .session-header__logo:hover {
     color: var(--court-green);
 }
