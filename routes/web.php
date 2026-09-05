@@ -141,7 +141,7 @@ Route::get('/', function () {
     </style>
     </head><body><div class="wrap">
         <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/favicon.png" style="width:72px;height:72px;object-fit:contain;display:block;"></h1></div>
+            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start"><img src="'.$base.'/assets/courtly-mark-transparent.png" style="width:72px;height:72px;object-fit:contain;display:block;"></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>

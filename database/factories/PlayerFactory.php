@@ -31,7 +31,7 @@ class PlayerFactory extends Factory
     public function provisional(): static
     {
         return $this->state(fn () => [
-            'rating' => 50.00,
+            'rating' => 15.00,
             'rating_status' => RatingStatus::PROVISIONAL->value,
             'rating_confidence' => 0.10,
             'rated_games_count' => 0,

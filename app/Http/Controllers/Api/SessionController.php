@@ -353,6 +353,46 @@ class SessionController extends Controller
     }
 
     /**
+     * Start a match chosen by the organizer on an available court.
+     */
+    public function manualAssignment(Request $request, Session $session): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        $validated = $request->validate([
+            'court_id' => ['required', 'integer'],
+            'player_ids' => ['required', 'array', 'size:4'],
+            'player_ids.*' => ['required', 'integer', 'distinct'],
+            'team_1_ids' => ['sometimes', 'array', 'size:2'],
+            'team_1_ids.*' => ['required', 'integer', 'distinct'],
+            'team_2_ids' => ['sometimes', 'array', 'size:2'],
+            'team_2_ids.*' => ['required', 'integer', 'distinct'],
+        ]);
+
+        $team1Ids = isset($validated['team_1_ids']) ? array_map('intval', $validated['team_1_ids']) : null;
+        $team2Ids = isset($validated['team_2_ids']) ? array_map('intval', $validated['team_2_ids']) : null;
+
+        try {
+            $match = $this->matchmaking->createManualMatch(
+                $session,
+                (int) $validated['court_id'],
+                array_map('intval', $validated['player_ids']),
+                $team1Ids,
+                $team2Ids,
+            );
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $this->events->publish($session->id, 'session.updated', [
+            'session_id' => $session->id,
+            'court_id' => $match->court_id,
+        ]);
+
+        return response()->json(['data' => $match]);
+    }
+
+    /**
      * Adjust the court count and return players from a removed court to the queue.
      */
     public function adjustCourts(Request $request, Session $session): JsonResponse

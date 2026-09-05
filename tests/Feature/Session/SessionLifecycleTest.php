@@ -188,6 +188,60 @@ it('creates a match immediately when starting a session with four waiting player
     ]);
 });
 
+it('allows an organizer to manually assign four waiting players to an available court', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $court = Court::factory()->for($session)->create(['court_number' => 1]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/manual-assignment", [
+        'court_id' => $court->id,
+        'player_ids' => $players->pluck('id')->all(),
+    ])->assertOk()->assertJsonPath('data.court_id', $court->id);
+
+    $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::PLAYING->value]);
+    $this->assertDatabaseCount('match_players', 4);
+    $this->assertDatabaseCount('session_players', 4);
+    $this->assertDatabaseMissing('session_players', ['session_id' => $session->id, 'status' => SessionPlayerStatus::WAITING->value]);
+});
+
+it('honours an organizer-chosen team split when manually assigning players', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $court = Court::factory()->for($session)->create(['court_number' => 1]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    $ids = $players->pluck('id')->all();
+    $team1 = [$ids[0], $ids[3]];
+    $team2 = [$ids[1], $ids[2]];
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/manual-assignment", [
+        'court_id' => $court->id,
+        'player_ids' => $ids,
+        'team_1_ids' => $team1,
+        'team_2_ids' => $team2,
+    ])->assertOk()->assertJsonPath('data.court_id', $court->id);
+
+    foreach ($team1 as $playerId) {
+        $this->assertDatabaseHas('match_players', ['player_id' => $playerId, 'team' => 1]);
+    }
+    foreach ($team2 as $playerId) {
+        $this->assertDatabaseHas('match_players', ['player_id' => $playerId, 'team' => 2]);
+    }
+});
+
 it('automatically starts a regular session when its fourth player checks in', function () {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create();
