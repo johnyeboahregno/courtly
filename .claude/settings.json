@@ -3,7 +3,8 @@
     "allow": [
       "Bash(php -l app/Http/Controllers/Api/SessionEventsController.php)",
       "Bash(php artisan *)",
-      "Bash(php -l app/Services/MatchResultService.php)"
+      "Bash(php -l app/Services/MatchResultService.php)",
+      "Bash(export SSH_PASS=*)"
     ]
   }
 }
