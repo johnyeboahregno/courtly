@@ -87,7 +87,7 @@ Route::get('/', function () {
         .session-link{display:block;background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;color:var(--text);box-shadow:var(--shadow-card);transition:border-color .15s}
         .session-link:hover{border-color:var(--accent)}
         .session-link__name{font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:9px;margin-bottom:4px}
-        .session-row-sport{width:28px;height:28px;flex:0 0 28px;background:#fff;-webkit-mask-image:var(--session-row-sport-image);mask-image:var(--session-row-sport-image);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-mode:luminance;mask-mode:luminance}
+        .session-row-sport{width:28px;height:28px;flex:0 0 28px;background:var(--text);-webkit-mask-image:var(--session-row-sport-image);mask-image:var(--session-row-sport-image);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-mode:luminance;mask-mode:luminance}
         .session-link__meta{font-size:.85rem;color:var(--text-muted)}
         .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.7rem;font-weight:700}
         .tag--active{background:var(--status-active-bg);color:var(--status-active-text)}.tag--upcoming{background:var(--status-upcoming-bg);color:var(--status-upcoming-text)}.tag--paused{background:var(--status-paused-bg);color:var(--status-paused-text)}.tag--finished{background:var(--status-finished-bg);color:var(--status-finished-text)}

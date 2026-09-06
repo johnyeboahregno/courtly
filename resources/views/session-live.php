@@ -272,7 +272,7 @@
 
     <!-- Players dialog: add new/select existing + manage roster -->
     <div v-if="showPlayers" class="modal-overlay" @click.self="showPlayers = false">
-        <div class="modal modal--wide">
+        <div class="modal modal--wide modal--players">
             <div class="modal__head">
                 <h3>Players</h3>
                 <button class="modal__close" @click="showPlayers = false">✕</button>

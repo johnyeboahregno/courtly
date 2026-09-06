@@ -341,7 +341,7 @@ textarea,
     width: 34px;
     height: 34px;
     flex: 0 0 34px;
-    background: #fff;
+    background: var(--text);
     -webkit-mask-image: var(--session-sport-image);
     mask-image: var(--session-sport-image);
     -webkit-mask-repeat: no-repeat;
@@ -1172,17 +1172,17 @@ textarea,
 }
 
 .gender-dot--male {
-    color: #fff;
+    color: var(--text);
     -webkit-mask-image: url('../assets/icons/gender-male.svg');
     mask-image: url('../assets/icons/gender-male.svg');
 }
 .gender-dot--female {
-    color: #fff;
+    color: var(--text);
     -webkit-mask-image: url('../assets/icons/gender-female.svg');
     mask-image: url('../assets/icons/gender-female.svg');
 }
 .gender-dot--missing {
-    color: #9ca3af;
+    color: var(--text-muted);
     -webkit-mask-image: url('../assets/icons/gender-unknown.svg');
     mask-image: url('../assets/icons/gender-unknown.svg');
 }
@@ -1858,6 +1858,31 @@ textarea,
     flex-direction: column;
 }
 
+/* Players dialog — fixed height, list grows to fill */
+.modal--players {
+    height: 60vh;
+}
+
+.modal--players .add-section {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.modal--players .add-section__existing {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.modal--players .existing-list {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+}
+
 /* Styled confirmation dialog */
 .modal--confirm {
     width: min(380px, 90vw);
@@ -2370,10 +2395,10 @@ textarea,
 /* ── Light Theme ─────────────────────────────────────────────────────── */
 
 [data-theme="light"] {
-    --bg: #f8fafc;
+    --bg: #ffffff;
     --bg-accent: #e2e8f0;
-    --bg-overlay-1: rgba(241, 245, 249, 0.85);
-    --bg-overlay-2: rgba(248, 250, 252, 0.92);
+    --bg-overlay-1: #ffffff;
+    --bg-overlay-2: #ffffff;
     --surface: rgba(255, 255, 255, 0.95);
     --surface-2: rgba(226, 232, 240, 0.8);
     --text: #0f172a;
@@ -2454,10 +2479,10 @@ textarea,
 /* System preference: light */
 @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
-        --bg: #f8fafc;
+        --bg: #ffffff;
         --bg-accent: #e2e8f0;
-        --bg-overlay-1: rgba(241, 245, 249, 0.85);
-        --bg-overlay-2: rgba(248, 250, 252, 0.92);
+        --bg-overlay-1: #ffffff;
+        --bg-overlay-2: #ffffff;
         --surface: rgba(255, 255, 255, 0.95);
         --surface-2: rgba(226, 232, 240, 0.8);
         --text: #0f172a;
@@ -2515,6 +2540,8 @@ textarea,
     :root:not([data-theme]) body { font-family: "Manrope", "Segoe UI", sans-serif; }
     :root:not([data-theme]) .court-card__body { background: #ffffff; }
     :root:not([data-theme]) .court-card__body--empty { background: #f5f8f7; }
+    :root:not([data-theme]) .court-card__lines::before,
+    :root:not([data-theme]) .court-card__lines::after { background: #d7e1de; }
     :root:not([data-theme]) .court-card__divider span { background: #f0f4f2; color: #8fa39b; }
     :root:not([data-theme]) .player-card__pause { background: #dbe9e4; }
     :root:not([data-theme]) .player-card__pause:hover { background: #ffefc8; color: #8a5200; }
