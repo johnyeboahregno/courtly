@@ -77,7 +77,7 @@ class GameMatch extends Model
 
     public function matchmakingLog(): HasOne
     {
-        return $this->hasOne(MatchmakingLog::class);
+        return $this->hasOne(MatchmakingLog::class, 'match_id');
     }
 
     public function feedback(): HasMany

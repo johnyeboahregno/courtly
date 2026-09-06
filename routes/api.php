@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sessions/{session}/manual-assignment', [SessionController::class, 'manualAssignment']);
     Route::patch('/sessions/{session}/courts', [SessionController::class, 'adjustCourts']);
     Route::get('/sessions/{session}/summary', [SessionController::class, 'summary']);
+    Route::get('/sessions/{session}/matchmaking-insights', [SessionController::class, 'matchmakingInsights']);
     Route::get('/sessions/{session}/events', SessionEventsController::class);
 
     // Tournament mode: teams can be previewed/edited before Start
@@ -62,10 +63,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Matches
     Route::post('/matches/{match}/result', [MatchController::class, 'recordResult']);
     Route::post('/matches/{match}/correct', [MatchController::class, 'correctResult']);
+    Route::get('/matches/{match}/explanation', [MatchController::class, 'explain']);
+    Route::post('/matches/{match}/feedback', [MatchController::class, 'feedback']);
 
     // Players
     Route::get('/players', [PlayerController::class, 'index']);
     Route::get('/players/{player}/stats', [PlayerController::class, 'stats']);
+    Route::get('/players/{player}/insights', [PlayerController::class, 'insights']);
     Route::get('/players/{player}/history', [PlayerController::class, 'history']);
     Route::get('/players/{player}', [PlayerController::class, 'show']);
     Route::patch('/players/{player}', [PlayerController::class, 'update']);

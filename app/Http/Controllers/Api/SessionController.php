@@ -18,6 +18,7 @@ use App\Models\Player;
 use App\Models\RatingHistory;
 use App\Models\Session;
 use App\Models\SessionPlayer;
+use App\Services\AI\MatchmakingCriticService;
 use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
@@ -101,16 +102,42 @@ class SessionController extends Controller
     {
         $this->authorizeSession($session);
 
-        // The live view only needs the matches currently in play — loading every
-        // match in the session (potentially hundreds) on each poll is wasteful
-        // against the high-latency remote DB.
-        $session = $session->fresh()->load([
+        // The live view only needs the matches currently in play — load courts,
+        // session players, and active matches in minimal queries.
+        $session->load([
             'courts',
             'sessionPlayers.player',
             'matches' => fn ($q) => $q
                 ->where('status', MatchStatus::PLAYING->value)
-                ->with('matchPlayers.player'),
+                ->with('matchPlayers'),
         ]);
+
+        $playersMap = $session->sessionPlayers->pluck('player', 'player_id');
+
+        // Players still on court may not belong to the live roster (e.g. a
+        // player removed mid-game) — pull those from the DB so the response
+        // always includes their names.
+        $missingIds = [];
+        foreach ($session->matches as $match) {
+            foreach ($match->matchPlayers as $mp) {
+                if (! $playersMap->has($mp->player_id)) {
+                    $missingIds[] = $mp->player_id;
+                }
+            }
+        }
+        if ($missingIds) {
+            $playersMap = $playersMap->union(
+                \App\Models\Player::whereIn('id', array_unique($missingIds))->get()->keyBy('id')
+            );
+        }
+
+        foreach ($session->matches as $match) {
+            foreach ($match->matchPlayers as $mp) {
+                if ($player = $playersMap->get($mp->player_id)) {
+                    $mp->setRelation('player', $player);
+                }
+            }
+        }
 
         $data = $session->toArray();
 
@@ -366,6 +393,18 @@ class SessionController extends Controller
 
         return response()->json([
             'data' => $this->analytics->calculateSummary($session),
+        ]);
+    }
+
+    /**
+     * AI-generated matchmaking quality analysis for this session.
+     */
+    public function matchmakingInsights(Session $session, MatchmakingCriticService $critic): JsonResponse
+    {
+        $this->authorizeSession($session);
+
+        return response()->json([
+            'data' => $critic->analyze($session),
         ]);
     }
 

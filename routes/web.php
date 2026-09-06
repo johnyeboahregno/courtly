@@ -26,7 +26,6 @@ Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallbac
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
     $base = rtrim(request()->getBasePath(), '/');
-    $version = config('courtly.app.version', '1.0.0');
 
     $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
 
@@ -83,6 +82,8 @@ Route::get('/', function () {
         .sub{color:var(--text-muted);margin:0 0 24px}
         .manage-link{font-family:inherit;font-size:inherit;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:inherit}
         .manage-link:hover{color:var(--accent);text-decoration:underline}
+        .pill-link{display:inline-flex;align-items:center;font-size:.85rem;font-weight:800;letter-spacing:.04em;padding:8px 16px;border-radius:999px;border:1px solid var(--stroke);color:var(--text-muted);background:transparent;text-decoration:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s,border-color .15s}
+        .pill-link:hover{border-color:var(--accent);color:var(--text)}
         .session-link{display:block;background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;color:var(--text);box-shadow:var(--shadow-card);transition:border-color .15s}
         .session-link:hover{border-color:var(--accent)}
         .session-link__name{font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:9px;margin-bottom:4px}
@@ -158,25 +159,24 @@ Route::get('/', function () {
             <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start;gap:12px"><img class="brand-mark" src="'.$base.'/assets/courtly-mark.png" alt="" style="width:48px;height:48px;object-fit:contain;display:block;flex-shrink:0"><span class="brand-word">Courtly</span></h1></div>
             <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
                 '.$userChip.'
-                <span class="version-chip" title="Courtly version">'.$version.'</span>
                 <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
-                <form method="POST" action="/logout" style="margin:0">
-                    <input type="hidden" name="_token" value="'.csrf_token().'">
-                    <button type="submit" style="background:transparent;border:1px solid var(--stroke,#2e2e4a);padding:8px 18px;border-radius:6px;font-size:.85rem;font-weight:700;cursor:pointer;color:var(--text-muted,#8888a8)">Logout</button>
-                </form>
             </div>
         </div>
-        <div class="dashboard-subhead" style="display:flex;justify-content:flex-end;align-items:baseline;margin:0 0 24px;gap:12px">
-            <div class="dashboard-subhead__actions" style="display:flex;gap:16px;align-items:center">
-                <a href="'.$base.'/stats" class="manage-link">Player Stats</a>
-                    <a href="'.$base.'/rankings" class="manage-link">Rankings</a>
-                <button type="button" onclick="openManage()" class="manage-link">Manage Players</button>
+        <div class="dashboard-subhead" style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
+            <div class="dashboard-subhead__actions" style="display:flex;gap:8px;align-items:center">
+                <a href="'.$base.'/stats" class="pill-link">Player Stats</a>
+                <a href="'.$base.'/rankings" class="pill-link">Rankings</a>
+                <button type="button" onclick="openManage()" class="pill-link">Manage Players</button>
             </div>
+            <form method="POST" action="/logout" style="margin:0">
+                <input type="hidden" name="_token" value="'.csrf_token().'">
+                <button type="submit" class="pill-link">Logout</button>
+            </form>
         </div>
         <div class="card">
             <h2>New Session</h2>
             <form id="createForm">
-                <div class="field"><label>Session name</label><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
+                <div class="field"><input id="fName" type="text" placeholder="e.g. Tuesday Night Social" required></div>
                 <div class="row">
                     <div class="field"><label>Sport</label><select id="fSport"><option value="badminton" selected>Badminton</option><option value="tennis">Tennis</option><option value="pickleball">Pickleball</option><option value="padel">Padel</option><option value="squash">Squash</option></select></div>
                     <div class="field"><label>Courts</label><input id="fCourts" type="number" min="1" max="8" value="3" required></div>

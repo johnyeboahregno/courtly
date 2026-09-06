@@ -19,12 +19,15 @@ class AuthController extends Controller
     /** Get the Socialite driver with SSL workaround for local dev. */
     private function googleDriver()
     {
-        // Use the configured redirect URI if set (for subdirectory deployments),
-        // otherwise derive it dynamically from the current request so the
-        // redirect_uri always matches the host the user is browsing (avoids
-        // Google's "redirect_uri_mismatch" error).
-        $redirectUri = config('services.google.redirect')
-            ?: url('/auth/google/callback');
+        // Always derive the redirect URI from the current request host so it
+        // exactly matches the URL the user is browsing (prevents Google's
+        // "redirect_uri_mismatch" error). HTTPS is forced on secure requests
+        // and on Laravel Cloud, where TLS terminates at the proxy.
+        $redirectUri = url(
+            '/auth/google/callback',
+            [],
+            request()->isSecure() || laravel_cloud()
+        );
 
         $driver = Socialite::driver('google')
             ->redirectUrl($redirectUri)

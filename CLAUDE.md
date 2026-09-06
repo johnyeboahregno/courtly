@@ -90,11 +90,11 @@ Courtly is a real-time badminton session management system. It is **multi-tenant
 - `players.user_id` and `sessions.created_by` are non-nullable owner columns; player names are unique per user.
 - The dashboard `/` and live view `/sessions/{id}/live` require web auth and scope queries to `Auth::id()`.
 
-### Key Invariant: "A court must never sit idle"
-- `MatchResultService::recordResult()` calls `allocateMatches()` inside the DB transaction after freeing a court
-- `SessionController::show()` calls `allocateMatches()` on every poll to ensure no court is idle
-- `SessionPlayerController::store()` and `resume()` also trigger matchmaking when new players join
-- The POST `/api/matches/{id}/result` response includes `next_matches` so the frontend can populate courts immediately without a second GET roundtrip
+### Key Invariant: Synchronized rounds — no new match until every court is free
+- `MatchmakingService::allocateMatchesLocked()` hard-gates on this: if any of the session's active (non-`INACTIVE`) courts is still `PLAYING`, it returns immediately without creating matches, however many players are WAITING. A freed court can sit idle for the rest of the round by design — the whole waiting pool is only remixed once every court finishes.
+- Every allocation entry point funnels through this one gate: `MatchResultService::recordResult()` (after freeing a court, inside its DB transaction), `SessionController::show()` (every poll), `SessionController::start()/resume()/fill()`, and `SessionPlayerController::store()/resume()`.
+- **Manual assignment is the escape hatch**: `MatchmakingService::createManualMatch()` (backing `POST /api/sessions/{session}/manual-assignment`) does not go through this gate — an organizer can always fill one specific court immediately, overriding the round sync.
+- The POST `/api/matches/{id}/result` response includes `next_matches` so the frontend can populate courts immediately without a second GET roundtrip (empty unless the result just completed the round and the rest of the courts got reallocated too).
 
 ---
 
@@ -593,7 +593,7 @@ The core algorithm that allocates 4-player matches to available courts.
 - Exact same 4-player group as any court's last round is blocked (100k cost); repeat guards check each court's own last round, not just the globally-latest match (config: `matchmaking.per_court_repeat_guards`)
 - Consecutive matchup (same 2v2) is blocked (10k cost)
 - Winners are rotated off the court they just won on: groups are penalised for returning winners to their previous court and courts are assigned greedily to minimise it (config: `matchmaking.winner_return_penalty`)
-- While any court is still playing, the players who just came off an available court are excluded, so they join the "next up" queue and wait for the remaining courts to free before the whole pool is mixed back in
+- **Synchronized rounds (hard gate)**: `allocateMatchesLocked()` only proceeds when every active court on the session is `AVAILABLE` — if any court is still `PLAYING`, it returns `[]` immediately rather than trickling a new match onto the one court that just freed up. See [Key Invariant](#architecture--data-flow).
 - Fewer than 4 WAITING players → no allocation
 
 ### `MatchResultService`
@@ -729,6 +729,10 @@ File: `resources/views/session-live.php`
 | `confirmDelete` | `ref({ show, playerId, name })` | Delete confirmation dialog |
 | `confirmNewSession` | `ref({ show })` | New session confirmation dialog |
 | `theme` | `ref(string)` | `light` / `dark` / `system` |
+| `offlineMode` | `ref(bool)` | True while mutating actions are queued to `localStorage` instead of sent to the server |
+| `offlineQueue` | `ref(Array)` | Queued `{method, url, body, label, producesMatchId?}` actions, persisted to `localStorage` (`courtly-offline-queue-{sessionId}`) |
+| `offlinePreference` | `ref(string)` | `auto` / `offline` / `online` — manual override for `offlineMode`, persisted to `localStorage` (`courtly-offline-preference`) |
+| `syncPrompt` | `reactive({ show, syncing, error })` | Modal asking whether to sync or discard queued offline changes once the server is reachable again |
 
 ### Computed Properties
 - `waitingPlayers` — filtered to `status === 'WAITING'`
@@ -736,12 +740,14 @@ File: `resources/views/session-live.php`
 - `activePlayers` — all except LEFT
 - `availablePlayers` — all known players not already in session
 - `modalOpen` — true if any modal is visible (locks body scroll)
+- `scoreWinner` — `1` / `2` / `null`, derived from the score picker's two wheel values (`t1` vs `t2`). **The entered score determines the winner, not whichever team was originally tapped to open the picker** — scrolling the other side's score higher flips who wins, and re-colors the winning team's box live.
+- `offlineStatus` — `'online'` / `'offline'` / `'pending'`, drives the header indicator's color/pulse
 
 ### Key Methods
 | Method | Purpose |
 |--------|---------|
 | `fetchSession()` | GET `/api/sessions/{id}`, maps response to `courts`, `players`, `session` |
-| `recordResult(matchId, team)` | Optimistic UI clear → POST result → populate courts from `next_matches` in response → background `fetchSession()` |
+| `recordResult(matchId, team, scores)` | Optimistic UI clear → POST result (`team` = `scoreWinner`, the score-derived winner) → background `fetchSession()` |
 | `startSession()` | POST `/api/sessions/{id}/start` → refresh |
 | `pauseSession()` / `resumeSession()` / `finishSession()` | POST lifecycle endpoints → refresh |
 | `addPlayers()` | Optimistic add → POST `/api/sessions/{id}/players` with name |
@@ -753,18 +759,29 @@ File: `resources/views/session-live.php`
 | `setTheme(t)` | Sets theme in localStorage + DOM attribute |
 | `formatName(name)` | Abbreviates last name to initial + period |
 | `courtAccent(n)` | Returns hex color for court number (1-8) |
+| `apiRequest(method, url, body, label)` | Central request wrapper used by every mutating call — sends over the network normally, or (while `offlineMode`) queues the action and returns a synthetic `{ok:true, queued:true}` so the caller's optimistic UI still runs |
+| `autoFillCourtsOffline()` | Offline-only local approximation of `allocateMatches()` — obeys the same synchronized-rounds gate (does nothing while any court still has a match) before rating-balancing the next 4 waiting players onto each empty court |
+| `syncOfflineQueue()` / `discardOfflineQueue()` | Replays (or drops) `offlineQueue` in order once back online. A locally-created match's placeholder id (`offline-match-...`) is swapped for the real one the moment its queued `manual-assignment` action actually runs, so a later queued result recording still resolves |
+| `setOfflinePreference('auto'\|'offline'\|'online')` | Manual override from the offline indicator's menu |
+
+### Offline Mode
+- **Trigger**: automatic by default — entered the instant a poll request fails, exited only once the user resolves the sync prompt. Can be forced via the header indicator's menu (Automatic / Offline / Online).
+- **Local optimism while offline**: simple state changes (pause/resume/leave/delete player, session lifecycle, matchmaking-mode toggle, feedback) apply immediately. Recording a match result frees the court and returns its 4 players to WAITING locally. Manual and auto court assignment build a temporary local match card via the same rating-balance heuristic (`balanceManualTeam`) used for manual assignment online.
+- **Excluded from offline queuing**: `Start New Session` (creates a new resource and redirects to its real id — can't be queued), a court added while already offline (fake `offline-court-...` id), and tournament sessions (not simulated locally). `FILL COURTS`, tournament team swap/regenerate, and the matchmaking-mode toggle still queue for real replay, but don't fake a board update the local code can't compute accurately.
+- **Returning online**: the poll loop detects reachability but withholds applying the server snapshot until the user picks **Sync now** (replays the queue in order, stopping and reporting on the first failure) or **Discard** (drops the queue and re-pulls real server state).
 
 ### Polling
 - Initial fetch + 3-second interval (adaptive: increases to 15s max on connection failure)
 - 8-second abort timeout per request
 
 ### UI Sections
-1. **Header**: Back link, logo, session name, stats (players, courts, timer), status badge, connection dot, theme toggle (☀ ☾ ◐)
+1. **Header**: Back link, logo, session name, stats (players, courts, timer), status badge, connection dot, offline-mode indicator (simple line icon — banned/network/refresh for forced-offline/forced-online/automatic; click opens the Automatic/Offline/Online menu), theme toggle (☀ ☾ ◐)
 2. **Courts Grid**: Card per court showing either "Waiting for players" (empty) or 2v2 match layout with WIN buttons per team
 3. **Waiting List ("NEXT UP")**: Animated queue of WAITING and PAUSED players with pause/resume buttons
 4. **Footer Controls**: START/PAUSE/RESUME/FINISH buttons, +PLAYERS, 👥MANAGE
 5. **Players Modal**: New player input + existing players list (tap to add, 🗑 to delete)
 6. **Confirmation Dialogs**: Remove from session, Delete permanently, Start new session
+7. **Sync Prompt**: Shown automatically once back online with queued offline changes — lists them and offers Sync now / Discard
 
 ---
 

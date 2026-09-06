@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
+use App\Services\AI\PlayerCoachService;
 use App\Services\PlayerAnalyticsService;
 use App\Enums\PlayerGender;
 use App\Enums\MatchStatus;
@@ -104,6 +105,19 @@ class PlayerController extends Controller
 
         return response()->json([
             'data' => $service->build($player),
+        ]);
+    }
+
+    /**
+     * AI-generated coaching summary (falls back to deterministic when AI is
+     * disabled or unavailable).
+     */
+    public function insights(Player $player, PlayerCoachService $service): JsonResponse
+    {
+        $this->authorizePlayer($player);
+
+        return response()->json([
+            'data' => $service->coach($player),
         ]);
     }
 

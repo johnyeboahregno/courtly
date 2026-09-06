@@ -96,7 +96,7 @@ html {
 body {
     font-family: "Manrope", "Segoe UI", sans-serif !important;
     background: var(--bg);
-    background-image: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.png') !important;
+    background-image: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') !important;
     background-position: center center;
     background-repeat: no-repeat;
     background-size: cover;
@@ -107,7 +107,7 @@ body {
 }
 
 .auth-page {
-    background: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.png') center center / 100% 100% no-repeat fixed !important;
+    background: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') center center / 100% 100% no-repeat fixed !important;
     font-family: "Manrope", "Segoe UI", sans-serif !important;
 }
 
@@ -115,15 +115,15 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    width: 43.2px;
+    height: 43.2px;
     padding: 0;
     border: 1px solid var(--stroke);
     border-radius: 50%;
     background: var(--surface-2);
     color: var(--text);
     cursor: pointer;
-    font: 700 1.05rem/1 "Manrope", "Segoe UI", sans-serif;
+    font: 700 0.95rem/1 "Manrope", "Segoe UI", sans-serif;
     transition: border-color .15s, background .15s, transform .15s;
 }
 
@@ -576,6 +576,96 @@ textarea,
     50% { opacity: 0.35; }
 }
 
+/* Offline mode control — sits left of the theme toggle. A simple line icon
+   for the chosen mode (banned = forced offline, network = forced online,
+   refresh = automatic); click opens a menu to switch between them. Border
+   color/pulse reflects whether it's actually queuing or awaiting a sync
+   decision right now. */
+.offline-control {
+    position: relative;
+    display: inline-flex;
+}
+.offline-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--stroke);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.offline-icon-svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.offline-indicator--offline {
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: connection-pulse 1.4s ease-in-out infinite;
+}
+.offline-indicator--pending {
+    border-color: #d4a017;
+    color: #d4a017;
+    animation: connection-pulse 1.4s ease-in-out infinite;
+}
+
+.offline-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.offline-menu__item {
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+.offline-menu__item:hover { background: var(--surface-2); }
+.offline-menu__item--active { color: var(--accent); }
+
+.offline-queue-list {
+    margin: 0 0 16px;
+    padding: 0;
+    list-style: none;
+    max-height: 160px;
+    overflow-y: auto;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    border: 1px solid var(--stroke);
+    border-radius: 8px;
+}
+.offline-queue-list li {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--stroke);
+}
+.offline-queue-list li:last-child { border-bottom: none; }
+
+.confirm-icon--sync { background: #1f3a52; color: #4da6ff; }
+
 /* Error banner for permanent auth failures (e.g. session owned by another account) */
 .sync-error-banner {
     margin: 12px 16px 0;
@@ -727,6 +817,40 @@ textarea,
 .court-remove-btn:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+}
+
+.court-why-btn {
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--accent);
+    cursor: pointer;
+    font: 700 0.72rem/1 inherit;
+    letter-spacing: 0.06em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.court-why-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    transform: scale(1.05);
+}
+
+.court-why-btn:disabled { cursor: wait; opacity: 0.5; }
+
+.court-card__explanation {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px dashed var(--stroke);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 /* Court body: dark surface, colors driven by --court-* vars set per sport */
@@ -951,10 +1075,6 @@ textarea,
 }
 
 .court-card__empty .fill-courts-btn {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
     pointer-events: auto;
 }
 
@@ -1042,14 +1162,21 @@ textarea,
     vertical-align: middle;
 }
 
-.gender-dot--male { background: #000; }
-.gender-dot--female { background: #fff; }
+.gender-dot--male { background: #003399; }
+.gender-dot--female { background: #990000; }
 .gender-dot--missing { background: #9ca3af; }
+
+.court-card__player-box .gender-dot {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    margin: 0;
+}
 
 .court-card__player-meta {
     position: absolute;
     left: 6px;
-    right: 6px;
+    right: 18px;
     bottom: 5px;
     display: flex;
     align-items: center;
@@ -1072,12 +1199,21 @@ textarea,
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* Winning-streak flame (2+ consecutive wins) */
+/* Winning-streak flame (2+ consecutive wins) — gold badge */
 .court-card__streak {
     font-style: normal;
     font-size: 0.72rem;
     font-weight: 800;
     white-space: nowrap;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--win-badge-bg);
+    color: var(--win-badge-text);
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.court-card__streak::before {
+    content: '🔥 ';
 }
 
 /* Individual rating badge (1-100) — left edge of the player box */
@@ -1358,6 +1494,55 @@ textarea,
     padding: 3px 8px;
     border-radius: 999px;
 }
+
+.match-history__feedback {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-left: 12px;
+    border-left: 1px solid var(--stroke);
+}
+
+.match-history__feedback-label {
+    font-size: .58rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.fb-btn {
+    border: 1px solid var(--stroke);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font: 700 .6rem/1 inherit;
+    letter-spacing: .04em;
+    padding: 5px 9px;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+}
+
+.fb-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.fb-btn--active { color: #fff; }
+.fb-btn--poor.fb-btn--active { background: #ff2d55; border-color: #ff2d55; }
+.fb-btn--good.fb-btn--active { background: #f59e0b; border-color: #f59e0b; }
+.fb-btn--great.fb-btn--active { background: #00c764; border-color: #00c764; }
+
+.mode-switch--insights { color: var(--accent); }
+
+.insights-summary { font-size: 1rem; line-height: 1.55; margin: 0 0 14px; }
+.insights-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.insights-item { padding: 10px 12px; border: 1px solid var(--stroke); border-radius: 8px; background: var(--surface-2); }
+.insights-item__issue { display: block; font-weight: 700; font-size: .9rem; margin-bottom: 4px; }
+.insights-item__suggestion { display: block; font-size: .82rem; color: var(--text-muted); }
+.insights-weights { margin-bottom: 14px; }
+.insights-weights h4 { margin: 0 0 8px; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.insights-weight { display: flex; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--stroke); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.insights-weights__note { margin: 8px 0 0; font-size: .74rem; color: var(--text-muted); }
+.insights-source { margin: 14px 0 0; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
 
 .match-history__empty {
     margin: 0;
@@ -1854,14 +2039,14 @@ textarea,
     height: 28px;
     margin-right: 6px;
     vertical-align: middle;
-    border-radius: 7px;
+    border-radius: 50%;
 }
 
 .rank-icon img {
     display: block;
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: 50%;
 }
 
 .rating-value {
@@ -2099,6 +2284,7 @@ textarea,
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    margin-top: 0.5rem;
 }
 
 /* ── Transition animations for Next Up queue ── */
