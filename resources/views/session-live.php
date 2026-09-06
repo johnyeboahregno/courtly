@@ -87,11 +87,9 @@
     <div class="courts-grid" :class="'courts-' + courts.length">
         <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')">
             <div class="court-card__head">
-                <span class="court-card__number">{{ court.name || ('COURT ' + court.court_number) }}</span>
+                <span class="court-card__number" :class="{ 'court-card__number--editable': session.status !== 'FINISHED' && !updatingCourts }" @click="openCourtRename(court, $event)" :title="session.status !== 'FINISHED' ? ('Rename ' + (court.name || ('Court ' + court.court_number))) : null">{{ court.name || ('COURT ' + court.court_number) }}</span>
                 <span class="court-card__head-actions">
                     <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
-                    <button v-if="court.match" class="court-why-btn" type="button" :class="{ 'is-busy': explaining[court.match.id] }" :disabled="explaining[court.match.id]" @click="toggleExplanation(court)" title="Why this match?">WHY</button>
-                    <button v-if="session.status !== 'FINISHED'" class="court-rename-btn" type="button" :disabled="updatingCourts" @click="adjustCourts('rename', court.court_number)" :title="'Rename ' + (court.name || ('court ' + court.court_number))" :aria-label="'Rename ' + (court.name || ('court ' + court.court_number))">✎</button>
                     <button v-if="session.status !== 'FINISHED'" class="court-remove-btn" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove', court.court_number)" title="Remove this court" :aria-label="'Remove court ' + court.court_number">×</button>
                 </span>
             </div>
@@ -139,7 +137,6 @@
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[1].gender)" :title="genderLabel(court.match.t2[1].gender)"></span>{{ formatName(court.match.t2[1].name) }}</span>
                             <span v-if="court.match.t2[1].wins || court.match.t2[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
-                    <div v-if="explanations[court.match.id]" class="court-card__explanation">{{ explanations[court.match.id] }}</div>
                     </div>
                 </div>
             </div>
@@ -459,6 +456,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Court rename popover — inline roller deck of court numbers 1–20 -->
+    <div v-if="courtRename.show" class="court-name-picker" :style="{ left: courtRename.x + 'px', top: courtRename.y + 'px' }" @click.stop>
+        <div class="court-name-picker__deck">
+            <div class="court-name-picker__band" aria-hidden="true"></div>
+            <div class="court-name-picker__wheel" ref="courtWheel" @scroll.passive="onCourtWheelScroll">
+                <div class="court-name-picker__spacer"></div>
+                <div v-for="value in courtRenameValues" :key="value" class="court-name-picker__item" :class="{ 'court-name-picker__item--active': courtRename.value === value }" @click="selectCourtName(value)">Court {{ value }}</div>
+                <div class="court-name-picker__spacer"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -548,8 +557,6 @@ createApp({
                 .slice(0, 4)
                 .map(p => p.player_id)
         );
-        const explanations = reactive({});
-        const explaining = reactive({});
         const submitting = reactive({});
         const matchFeedback = reactive({});
         const insights = reactive({ show: false, loading: false, data: null, error: '' });
@@ -565,6 +572,23 @@ createApp({
         const wheelT2 = ref(null);
         const wheelFrames = { t1: 0, t2: 0 };
         let scorePickerSpot = null;
+
+        // Court rename popover — a compact roller deck of court numbers 1–20.
+        const courtValues = Object.freeze(Array.from({ length: 20 }, (_, index) => index + 1));
+        const COURT_ITEM_HEIGHT = 44;
+        const courtRename = reactive({ show: false, court: null, value: null, x: 0, y: 0 });
+        const courtRenameValues = computed(() => {
+            const taken = new Set();
+            courts.value.forEach(c => {
+                if (courtRename.court && c.court_number === courtRename.court.court_number) return;
+                const label = c.name || ('Court ' + c.court_number);
+                const matched = /(\d+)/.exec(label || '');
+                if (matched) taken.add(parseInt(matched[1], 10));
+            });
+            return courtValues.filter(v => !taken.has(v));
+        });
+        const courtWheel = ref(null);
+        let courtWheelFrame = 0;
         const celebration = ref(null);
         const celebrationParticles = Array.from({ length: 28 }, (_, index) => index);
         let celebrationTimer = null;
@@ -1126,6 +1150,69 @@ createApp({
             recordResult(payload.matchId, payload.team, null, payload.spot);
         }
 
+        function openCourtRename(court, event) {
+            if (!court || updatingCourts.value || session.status === 'FINISHED') return;
+            const label = court.name || ('Court ' + court.court_number);
+            const matched = /(\d+)/.exec(label || '');
+            const initial = matched ? parseInt(matched[1], 10) : court.court_number;
+            const rect = event?.currentTarget?.getBoundingClientRect();
+            const width = 240;
+            const height = 230;
+            const left = rect ? Math.min(Math.max(8, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - 8) : 8;
+            const top = (rect && rect.bottom + 8 + height > window.innerHeight)
+                ? Math.max(8, (rect.top || 8) - 8 - height)
+                : (rect ? rect.bottom + 8 : 8);
+            courtRename.court = court;
+            const available = courtRenameValues.value;
+            courtRename.value = available.includes(initial) ? initial : (available[0] ?? courtValues[0]);
+            courtRename.x = left;
+            courtRename.y = top;
+            courtRename.show = true;
+            nextTick(() => {
+                if (courtWheel.value) {
+                    const index = Math.max(0, courtRenameValues.value.indexOf(courtRename.value));
+                    courtWheel.value.scrollTop = index * COURT_ITEM_HEIGHT;
+                }
+            });
+        }
+
+        function closeCourtRename() {
+            courtRename.show = false;
+            courtRename.court = null;
+            courtRename.value = null;
+        }
+
+        function closeCourtRenameOnOutsideClick(event) {
+            if (courtRename.show
+                && !event.target.closest('.court-name-picker')
+                && !event.target.closest('.court-card__number--editable')) {
+                closeCourtRename();
+            }
+        }
+
+        function onCourtWheelScroll(event) {
+            if (courtWheelFrame) return;
+            const el = event.target;
+            courtWheelFrame = requestAnimationFrame(() => {
+                courtWheelFrame = 0;
+                const values = courtRenameValues.value;
+                const index = Math.max(0, Math.min(values.length - 1, Math.round(el.scrollTop / COURT_ITEM_HEIGHT)));
+                const value = values[index];
+                if (value != null && courtRename.value !== value) {
+                    courtRename.value = value;
+                    if (navigator.vibrate) navigator.vibrate(5);
+                }
+            });
+        }
+
+        function selectCourtName(value) {
+            if (!courtRename.court || !value) return;
+            const courtNumber = courtRename.court.court_number;
+            const name = 'Court ' + value;
+            closeCourtRename();
+            adjustCourts('rename', courtNumber, name);
+        }
+
         async function recordResult(matchId, team, scores = null, spot = null) {
             const submissionKey = matchId + '_' + team;
             if (pendingResultMatchIds.has(matchId)) return;
@@ -1228,7 +1315,7 @@ createApp({
                 uiPending.fill = false;
             }
         }
-        async function adjustCourts(action, courtNumber = null) {
+        async function adjustCourts(action, courtNumber = null, courtName = null) {
             if (updatingCourts.value) return;
 
             updatingCourts.value = true;
@@ -1238,19 +1325,16 @@ createApp({
                 let label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
 
                 if (action === 'rename') {
-                    const court = courts.value.find(c => c.court_number === courtNumber);
-                    const defaultName = 'Court ' + courtNumber;
-                    const currentName = (court?.name || '').trim();
-                    const entered = window.prompt('Rename court ' + courtNumber, currentName || defaultName);
-
-                    if (entered === null) {
-                        return;
-                    }
-
-                    body.court_name = entered.trim();
+                    body.court_name = (courtName || '').trim();
                     label = body.court_name
                         ? 'Rename court ' + courtNumber + ' to "' + body.court_name + '"'
                         : 'Reset court ' + courtNumber + ' name';
+
+                    // Optimistic: update the board instantly so the user sees
+                    // the new name before the server responds.
+                    courts.value = courts.value.map(c =>
+                        c.court_number === courtNumber ? { ...c, name: body.court_name || null } : c
+                    );
                 }
 
                 if (offlineMode.value) {
@@ -1671,31 +1755,6 @@ createApp({
             }
         }
 
-        async function toggleExplanation(court) {
-            if (!court || !court.match) return;
-            const matchId = court.match.id;
-            if (explanations[matchId]) {
-                delete explanations[matchId];
-                return;
-            }
-            if (explaining[matchId]) return;
-            explaining[matchId] = true;
-            try {
-                const res = await fetch(BASE_URL + '/api/matches/' + matchId + '/explanation', {
-                    credentials: 'include',
-                    headers: { 'Accept': 'application/json' },
-                });
-                const json = await res.json();
-                if (res.ok && json.data && json.data.explanation) {
-                    explanations[matchId] = json.data.explanation;
-                }
-            } catch {
-                // network error — leave the explanation collapsed
-            } finally {
-                delete explaining[matchId];
-            }
-        }
-
         async function submitFeedback(matchId, rating) {
             if (!matchId) return;
             const previous = matchFeedback[matchId];
@@ -1738,12 +1797,14 @@ createApp({
             loadKnownPlayers();
             pollEvents();
             document.addEventListener('click', closeOfflineMenuOnOutsideClick);
+            document.addEventListener('click', closeCourtRenameOnOutsideClick);
         });
         onUnmounted(() => {
             pollingStopped = true;
             if (pollTimer) clearTimeout(pollTimer);
             if (celebrationTimer) clearTimeout(celebrationTimer);
             document.removeEventListener('click', closeOfflineMenuOnOutsideClick);
+            document.removeEventListener('click', closeCourtRenameOnOutsideClick);
         });
 
         // Lock body scroll when any modal is open
@@ -1800,7 +1861,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, toggleExplanation, explanations, explaining, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue };
     }
 }).mount('#courtly-app');
 </script>

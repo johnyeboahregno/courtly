@@ -773,6 +773,18 @@ textarea,
     color: var(--text);
 }
 
+.court-card__number--editable {
+    cursor: pointer;
+    text-decoration: underline dotted transparent;
+    text-underline-offset: 4px;
+    transition: color .15s, text-decoration-color .15s;
+}
+
+.court-card__number--editable:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent);
+}
+
 .court-card__status {
     padding: 6px 14px;
     border-radius: 999px;
@@ -790,33 +802,6 @@ textarea,
     display: inline-flex;
     align-items: center;
     gap: 8px;
-}
-
-.court-rename-btn {
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--stroke);
-    border-radius: 50%;
-    background: var(--surface-2);
-    color: var(--text-muted);
-    cursor: pointer;
-    font: 700 0.9rem/1 inherit;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
-}
-
-.court-rename-btn:hover:not(:disabled) {
-    background: var(--court-cyan-soft);
-    border-color: var(--court-cyan);
-    color: var(--court-cyan);
-    transform: scale(1.08);
-}
-
-.court-rename-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.4;
 }
 
 .court-remove-btn {
@@ -844,40 +829,6 @@ textarea,
 .court-remove-btn:disabled {
     cursor: not-allowed;
     opacity: 0.4;
-}
-
-.court-why-btn {
-    height: 34px;
-    padding: 0 12px;
-    border: 1px solid var(--stroke);
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--accent);
-    cursor: pointer;
-    font: 700 0.72rem/1 inherit;
-    letter-spacing: 0.06em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
-}
-
-.court-why-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    transform: scale(1.05);
-}
-
-.court-why-btn:disabled { cursor: wait; opacity: 0.5; }
-
-.court-card__explanation {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border: 1px dashed var(--stroke);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
 }
 
 /* Court body: dark surface, colors driven by --court-* vars set per sport */
@@ -3119,4 +3070,84 @@ textarea,
 
 @media (max-width: 480px) {
     .score-picker__panel { width: 100%; }
+}
+
+/* Court rename popover — inline roller deck of court numbers 1–20 */
+#courtly-app .court-name-picker {
+    position: fixed;
+    z-index: 300;
+    width: 240px;
+    border: 1px solid var(--stroke);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    animation: court-name-picker-fade .14s ease-out;
+}
+
+@keyframes court-name-picker-fade {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.court-name-picker__deck {
+    position: relative;
+    height: 224px;
+}
+
+.court-name-picker__band {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    top: 90px;
+    height: 44px;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.court-name-picker__wheel {
+    height: 100%;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    text-align: center;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+}
+
+.court-name-picker__wheel::-webkit-scrollbar { display: none; }
+
+.court-name-picker__spacer { height: 90px; }
+
+.court-name-picker__item {
+    height: 44px;
+    line-height: 44px;
+    padding: 0 12px;
+    scroll-snap-align: center;
+    font-family: "Manrope", sans-serif;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    opacity: .55;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.court-name-picker__item:hover {
+    opacity: 1;
+    color: var(--text);
+}
+
+.court-name-picker__item--active {
+    font-family: "Space Grotesk", "Manrope", sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--text);
+    opacity: 1;
 }

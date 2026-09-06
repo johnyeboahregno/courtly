@@ -63,7 +63,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Matches
     Route::post('/matches/{match}/result', [MatchController::class, 'recordResult']);
     Route::post('/matches/{match}/correct', [MatchController::class, 'correctResult']);
-    Route::get('/matches/{match}/explanation', [MatchController::class, 'explain']);
     Route::post('/matches/{match}/feedback', [MatchController::class, 'feedback']);
 
     // Players
