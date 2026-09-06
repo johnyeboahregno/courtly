@@ -14,7 +14,7 @@
         .stats-nav-link { margin-left: auto; color: var(--text-muted); font-size: .82rem; text-decoration: none; }
         .stats-nav-link:hover { color: var(--accent); text-decoration: underline; }
 
-        .stats-select { margin-bottom: 24px; }
+        .stats-select { margin-top: 24px; margin-bottom: 24px; }
         .stats-select label { display: block; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
 
         .autocomplete { position: relative; max-width: 460px; }
@@ -43,7 +43,6 @@
         .stats-player { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
         .stats-player h2 { margin: 0; font-size: 1.5rem; }
         .tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-        .tag--rating { background: var(--tag-rating-bg); color: var(--tag-rating-text); }
         .tag--provisional { background: var(--tag-provisional-bg); color: var(--tag-provisional-text); }
         .tag--established { background: var(--tag-established-bg); color: var(--tag-established-text); }
 
@@ -57,6 +56,9 @@
         .stat-card__value--good { color: var(--status-active-text); }
         .stat-card__value--bad { color: var(--status-passed-text); }
         .stat-card__sub { font-size: .78rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .stat-card__rank { display: flex; align-items: center; gap: 10px; }
+        .stat-card__rank img { display: block; width: 88px; height: 88px; border-radius: 50%; }
+        .stat-card__rank-name { font-size: 1rem; font-weight: 800; letter-spacing: .06em; }
 
         .form-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
         .form-chip {
@@ -104,7 +106,6 @@
     <div id="statsContent" hidden>
         <section class="stats-player">
             <h2 id="playerName"></h2>
-            <span id="ratingBadge" class="tag tag--rating"></span>
             <span id="statusBadge" class="tag"></span>
         </section>
 
@@ -149,7 +150,6 @@
     var emptyState = document.getElementById('emptyState');
     var statsContent = document.getElementById('statsContent');
     var playerName = document.getElementById('playerName');
-    var ratingBadge = document.getElementById('ratingBadge');
     var statusBadge = document.getElementById('statusBadge');
     var statGrid = document.getElementById('statGrid');
     var chartEl = document.getElementById('chart');
@@ -173,6 +173,23 @@
 
     function r0(x) { return Math.round(Number(x)); }
     function signed(x) { return (x > 0 ? '+' : '') + Number(x).toFixed(2); }
+
+    // Rank emblems (START/RISE/PACE/APEX) — the gold crosshair rank icons.
+    function rankTier(r) {
+        var rating = Math.round(Number(r) || 0);
+        if (rating >= 75) return 'apex';
+        if (rating >= 50) return 'pace';
+        if (rating >= 25) return 'rise';
+        return 'start';
+    }
+    function rankName(r) {
+        return { start: 'START', rise: 'RISE', pace: 'PACE', apex: 'APEX' }[rankTier(r)];
+    }
+    function rankIcon(r, size) {
+        size = size || 28;
+        var base = BASE + '/assets/ranks/' + rankTier(r);
+        return '<img src="' + base + '@1x.png" srcset="' + base + '@1x.png 1x, ' + base + '@2x.png 2x, ' + base + '@3x.png 3x" alt="" width="' + size + '" height="' + size + '" decoding="async">';
+    }
 
     var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     function fmtDate(iso) {
@@ -341,7 +358,6 @@
         input.value = data.name;
         playerName.textContent = data.name;
 
-        ratingBadge.textContent = 'Rating ' + r0(data.summary.rating);
         statusBadge.textContent = data.summary.rating_status;
         statusBadge.className = 'tag ' + (data.summary.rating_status === 'ESTABLISHED' ? 'tag--established' : 'tag--provisional');
 
@@ -357,6 +373,7 @@
         var streak = s.current_streak || { type: null, length: 0 };
 
         var cards = [
+            { label: rankName(s.rating), rank: s.rating },
             { label: 'Current rating', value: String(r0(s.rating)), sub: 'Peak ' + r0(s.peak_rating) + ' · Low ' + r0(s.low_rating) },
             { label: 'Record', value: s.wins + '–' + s.losses, sub: s.win_percentage + '% win rate' },
             { label: 'Form (last 10)', form: data.form || [] },
@@ -380,6 +397,8 @@
                         return '<span class="form-chip form-chip--' + r.toLowerCase() + '">' + r + '</span>';
                     }).join('') + '</div>';
                 }
+            } else if (c.rank !== undefined) {
+                valueHtml = '<div class="stat-card__value stat-card__rank">' + rankIcon(c.rank, 88) + '</div>';
             } else {
                 var cls = 'stat-card__value';
                 if (c.good) { cls += ' stat-card__value--good'; }

@@ -25,7 +25,7 @@ $active = $active ?? 'sessions';
     </div>
 </header>
 <script>
-var COURT_THEMES=['dark','blue','cyber','crimson','emerald','light'];var COURT_GLYPHS={dark:'☾',blue:'✦',cyber:'✧',crimson:'♥',emerald:'❖',light:'☀'};var COURT_LABELS={dark:'Dark',blue:'Blue',cyber:'Cyber',crimson:'Crimson',emerald:'Emerald',light:'Light'};
+var COURT_THEMES=['dark','blue','cyber','emerald','light'];var COURT_GLYPHS={dark:'☾',blue:'✦',cyber:'✧',emerald:'❖',light:'☀'};var COURT_LABELS={dark:'Dark',blue:'Blue',cyber:'Cyber',emerald:'Emerald',light:'Light'};
 function courtlyCurrentTheme(){var t=document.documentElement.getAttribute('data-theme');return COURT_THEMES.indexOf(t)!==-1?t:'dark';}
 function courtlyUpdateThemeIcon(){var b=document.getElementById('themeSwitch')||document.getElementById('btnTheme');if(!b)return;var t=courtlyCurrentTheme();b.textContent=COURT_GLYPHS[t];b.title='Theme: '+COURT_LABELS[t]+' — click to switch';b.setAttribute('aria-label',b.title);}
 function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme())+1)%COURT_THEMES.length];if(next==='dark')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('courtly-theme',next)}catch(e){}courtlyUpdateThemeIcon();}

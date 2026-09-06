@@ -92,7 +92,7 @@ html, * {
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; }
 
 html {
-    font-size: 110%;
+    font-size: 121%;
 }
 
 body {
@@ -2469,35 +2469,6 @@ textarea,
     --scrollbar-thumb-hover: #155666;
 }
 
-/* ── Crimson Theme ───────────────────────────────────────────────────── */
-
-[data-theme="crimson"] {
-    --bg: #1a060b;
-    --bg-accent: #2b0d16;
-    --bg-overlay-1: rgba(26, 6, 11, .88);
-    --bg-overlay-2: rgba(26, 6, 11, .95);
-    --surface: rgba(32, 9, 15, .88);
-    --surface-2: rgba(255, 45, 85, .16);
-    --text: #ffe9ec;
-    --text-muted: #c9949e;
-    --accent: #ff2d55;
-    --accent-2: #ff8a5c;
-    --stroke: rgba(255, 45, 85, .24);
-    --glow-1: rgba(255, 45, 85, .20);
-    --glow-2: rgba(255, 138, 92, .12);
-    --court-deep-blue: #1a060b;
-    --court-blue: #ff2d55;
-    --court-cyan: #ff7a9c;
-    --court-green: #00e0a0;
-    --court-green-light: #7dffd0;
-    --rating-badge-bg: #ff4d6d;
-    --rating-badge-text: #3d0010;
-    --win-badge-bg: #ffd700;
-    --win-badge-text: #3d2e00;
-    --scrollbar-thumb: #3d1620;
-    --scrollbar-thumb-hover: #55202d;
-}
-
 /* ── Emerald Theme ───────────────────────────────────────────────────── */
 
 [data-theme="emerald"] {
@@ -2855,7 +2826,7 @@ textarea,
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
-    html { font-size: 100%; }
+    html { font-size: 110%; }
 
     body { min-width: 320px; }
 

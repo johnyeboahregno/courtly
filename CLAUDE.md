@@ -1030,9 +1030,8 @@ The theme is selected by `data-theme` on `<html>` and persisted to `localStorage
 1. `dark` — default (no `data-theme` attribute; `:root` values): deep navy + violet accent
 2. `blue` — navy + blue accent
 3. `cyber` — teal-black + cyan/mint accent
-4. `crimson` — near-black maroon + red/orange accent
-5. `emerald` — deep green + green/cyan accent
-6. `light` — white + violet accent (full semantic overrides)
+4. `emerald` — deep green + green/cyan accent
+5. `light` — white + violet accent (full semantic overrides)
 
 Dark variants override only brand/surface/text/glow variables (`--bg`, `--bg-accent`, `--bg-overlay-*`, `--surface*`, `--text*`, `--accent*`, `--stroke`, `--court-*`, `--glow-1/2`, `--rating-badge-*`, `--win-badge-*`, `--scrollbar-*`) and inherit the dark `:root` semantic status/tag colors. The `light` theme overrides everything.
 

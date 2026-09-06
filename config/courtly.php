@@ -12,7 +12,7 @@ return [
     'app' => [
         // Single source of truth for the app version. Displayed in the
         // session header and used as the cache-busting (?v=) suffix for CSS/favicon assets.
-        'version' => '1.0.10',
+        'version' => '1.0.11',
     ],
 
     /*
