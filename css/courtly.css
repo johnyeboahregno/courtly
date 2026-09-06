@@ -1965,7 +1965,7 @@ textarea,
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 3px 10px;
     background: var(--surface-2);
     border: 1px solid #e2ebe7;
     border-radius: 9px;
@@ -2187,12 +2187,12 @@ textarea,
 
 .existing-item__name {
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     flex: 1;
 }
 
 .existing-item__rating {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
 }
 
