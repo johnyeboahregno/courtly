@@ -58,7 +58,7 @@ Type a name, choose **Male** or **Female**, and press **Add**. Courtly creates t
 The dialog shows your roster. Tap a name to add them. As you type, suggestions appear.
 
 ### Manage a player
-Use the gender selector beside a roster suggestion to correct or complete an existing player's gender. Each player shows a small gender icon — male (Mars) and female (Venus) — white, with a gray hollow circle when gender isn't set. In a court player box the icon sits in the top-left corner; on Next Up cards it sits in the bottom-right corner.
+Use the gender selector beside a roster suggestion to correct or complete an existing player's gender. Each player shows a small gender icon — male (Mars) and female (Venus) — in the text color (light in dark mode, dark in light mode), with a muted hollow circle when gender isn't set. In a court player box the icon sits in the top-left corner; on Next Up cards it sits in the bottom-right corner.
 
 In the waiting list, each player card has a **⏸ / ▶** button:
 
