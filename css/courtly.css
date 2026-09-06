@@ -792,6 +792,33 @@ textarea,
     gap: 8px;
 }
 
+.court-rename-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--stroke);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+    font: 700 0.9rem/1 inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.court-rename-btn:hover:not(:disabled) {
+    background: var(--court-cyan-soft);
+    border-color: var(--court-cyan);
+    color: var(--court-cyan);
+    transform: scale(1.08);
+}
+
+.court-rename-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
 .court-remove-btn {
     width: 34px;
     height: 34px;
