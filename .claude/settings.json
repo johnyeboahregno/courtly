@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l app/Http/Controllers/Api/SessionEventsController.php)",
+      "Bash(php artisan *)"
+    ]
+  }
+}

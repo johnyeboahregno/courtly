@@ -17,6 +17,13 @@ class SessionEventsController extends Controller
 {
     use AuthorizesOwnership;
 
+    /**
+     * Cap on completed matches loaded into the live-view snapshot. This is a
+     * display cap for the polling endpoint, not a matchmaking parameter, so
+     * it lives here rather than in config/courtly.php.
+     */
+    private const HISTORY_LIMIT = 200;
+
     public function __construct(
         private readonly RealtimeEventService $eventService,
     ) {}
@@ -58,23 +65,61 @@ class SessionEventsController extends Controller
 
     /**
      * Build the authoritative state sent to the live browser on first load.
+     * Optimized to load all relations in minimal DB queries (5 queries instead of 12+).
      */
     private function sessionSnapshot(Session $session): array
     {
-        $snapshot = $session->fresh()->load([
-            'courts',
-            'sessionPlayers.player',
-            'matches' => fn ($query) => $query
-                ->where('status', MatchStatus::PLAYING->value)
-                ->with('matchPlayers.player'),
-        ])->toArray();
+        $session->load(['courts', 'sessionPlayers.player']);
 
-        $snapshot['history'] = $session->matches()
+        $playingMatches = $session->matches()
+            ->where('status', MatchStatus::PLAYING->value)
+            ->with('matchPlayers')
+            ->get();
+
+        $completedMatches = $session->matches()
             ->where('status', MatchStatus::COMPLETED->value)
-            ->with(['matchPlayers.player', 'court'])
             ->orderByDesc('game_number')
-            ->get()
-            ->toArray();
+            ->limit(self::HISTORY_LIMIT)
+            ->with('matchPlayers')
+            ->get();
+
+        $historyTotal = $session->matches()
+            ->where('status', MatchStatus::COMPLETED->value)
+            ->count();
+
+        $allMatches = $playingMatches->concat($completedMatches);
+
+        $playersMap = $session->sessionPlayers->pluck('player', 'player_id');
+        $courtsMap = $session->courts->keyBy('id');
+
+        // Check if any match player is missing from sessionPlayers (e.g. historical data)
+        $missingPlayerIds = [];
+        foreach ($allMatches as $match) {
+            foreach ($match->matchPlayers as $mp) {
+                if (! $playersMap->has($mp->player_id)) {
+                    $missingPlayerIds[] = $mp->player_id;
+                }
+            }
+        }
+        if ($missingPlayerIds) {
+            $extraPlayers = \App\Models\Player::whereIn('id', array_unique($missingPlayerIds))->get()->keyBy('id');
+            $playersMap = $playersMap->union($extraPlayers);
+        }
+
+        // Attach player and court relations in memory to avoid duplicate DB queries
+        foreach ($allMatches as $match) {
+            $match->setRelation('court', $courtsMap->get($match->court_id));
+            foreach ($match->matchPlayers as $mp) {
+                if ($player = $playersMap->get($mp->player_id)) {
+                    $mp->setRelation('player', $player);
+                }
+            }
+        }
+
+        $snapshot = $session->toArray();
+        $snapshot['matches'] = $playingMatches->values()->toArray();
+        $snapshot['history'] = $completedMatches->values()->toArray();
+        $snapshot['history_total'] = $historyTotal;
 
         return $snapshot;
     }

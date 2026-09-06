@@ -264,6 +264,40 @@ it('fills idle courts when an organizer requests it', function () {
     ]);
 });
 
+it('does not fill a free court while another court in the session is still playing', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $freeCourt = Court::factory()->for($session)->create(['court_number' => 1, 'status' => CourtStatus::AVAILABLE->value]);
+    $busyCourt = Court::factory()->for($session)->create(['court_number' => 2, 'status' => CourtStatus::PLAYING->value]);
+
+    $onCourtPlayers = Player::factory()->count(4)->for($user)->create();
+    $onCourtPlayers->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::PLAYING->value]));
+    $match = GameMatch::factory()->for($session)->for($busyCourt)->create(['status' => MatchStatus::PLAYING->value]);
+    $onCourtPlayers->each(fn (Player $player, int $index) => MatchPlayer::factory()
+        ->for($match, 'match')
+        ->for($player)
+        ->create(['team' => $index < 2 ? 1 : 2]));
+
+    $waitingPlayers = Player::factory()->count(4)->for($user)->create();
+    $waitingPlayers->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+
+    Sanctum::actingAs($user);
+
+    $this->postJson("/api/sessions/{$session->id}/fill")->assertOk();
+
+    $this->assertDatabaseHas('courts', ['id' => $freeCourt->id, 'status' => CourtStatus::AVAILABLE->value]);
+    $this->assertDatabaseMissing('matches', [
+        'session_id' => $session->id,
+        'court_id' => $freeCourt->id,
+    ]);
+});
+
 it('automatically starts a regular session when its fourth player checks in', function () {
     $user = User::factory()->create();
     $session = Session::factory()->for($user, 'createdBy')->create();

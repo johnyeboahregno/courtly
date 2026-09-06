@@ -174,6 +174,19 @@ class MatchmakingService
             return [];
         }
 
+        // Synchronized rounds: don't trickle-fill a court the moment it frees
+        // while others are still playing — wait until every (active) court on
+        // the session is free, then remix the whole waiting pool across all of
+        // them at once. A court can sit idle for the rest of the round here by
+        // design; the organizer can still use manual assignment to fill one
+        // court immediately if they choose to.
+        $activeCourtCount = $session->courts()
+            ->where('status', '!=', CourtStatus::INACTIVE->value)
+            ->count();
+        if ($availableCourts->count() < $activeCourtCount) {
+            return [];
+        }
+
         $waitingPlayers = $session->sessionPlayers()
             ->where('status', SessionPlayerStatus::WAITING->value)
             ->with('player')
@@ -551,7 +564,7 @@ class MatchmakingService
      */
     public function generateExplanation(array $players, float $skillSpread, float $balanceDiff, int $matchQuality): string
     {
-        $ratings = array_map(fn (Player $p) => (int) round($p->rating), $players);
+        $ratings = array_map(fn (Player $p) => (int) round((float) $p->rating), $players);
         $minRating = min($ratings);
         $maxRating = max($ratings);
 

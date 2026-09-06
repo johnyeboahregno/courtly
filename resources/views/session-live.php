@@ -55,6 +55,18 @@
             <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
             <span class="session-sport-icon" :style="{ '--session-sport-image': 'url(/assets/' + session.sport + '.png)' }" aria-hidden="true"></span>
+            <div class="offline-control">
+                <button type="button" class="offline-indicator" :class="'offline-indicator--' + offlineStatus" :title="offlineIndicatorTitle" @click="offlineMenuOpen = !offlineMenuOpen" aria-label="Offline mode">
+                    <svg v-if="offlinePreference === 'offline'" class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+                    <svg v-else-if="offlinePreference === 'online'" class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5 12a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg>
+                    <svg v-else class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+                </button>
+                <div v-if="offlineMenuOpen" class="offline-menu">
+                    <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'auto' }" @click="setOfflinePreference('auto')">Automatic</button>
+                    <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'offline' }" @click="setOfflinePreference('offline')">Offline</button>
+                    <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'online' }" @click="setOfflinePreference('online')">Online</button>
+                </div>
+            </div>
             <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
         </div>
     </header>
@@ -66,6 +78,7 @@
     <div v-if="session.status !== 'FINISHED'" class="courts-toolbar">
         <button class="court-toolbar-btn" type="button" :disabled="courts.length >= 8 || updatingCourts" @click="adjustCourts('add')" title="Add a court">+ ADD COURT</button>
         <div class="courts-toolbar__actions">
+            <button class="mode-switch mode-switch--insights" @click="openInsights">INSIGHTS</button>
             <button class="mode-switch mode-switch--players" @click="openPlayers">+ PLAYERS</button>
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession">FINISH</button>
         </div>
@@ -77,6 +90,7 @@
                 <span class="court-card__number">COURT {{ court.court_number }}</span>
                 <span class="court-card__head-actions">
                     <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
+                    <button v-if="court.match" class="court-why-btn" type="button" :class="{ 'is-busy': explaining[court.match.id] }" :disabled="explaining[court.match.id]" @click="toggleExplanation(court)" title="Why this match?">WHY</button>
                     <button v-if="session.status !== 'FINISHED'" class="court-remove-btn" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove', court.court_number)" title="Remove this court" :aria-label="'Remove court ' + court.court_number">×</button>
                 </span>
             </div>
@@ -97,7 +111,6 @@
                 </div>
                 <template v-else>
                     <div class="court-card__empty">
-                        <span class="court-empty-text">Waiting for players — drag from NEXT UP</span>
                         <button class="fill-courts-btn" type="button" @click="openManualAssignment(court.id)">ASSIGN</button>
                     </div>
                 </template>
@@ -125,6 +138,7 @@
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[1].gender)" :title="genderLabel(court.match.t2[1].gender)"></span>{{ formatName(court.match.t2[1].name) }}</span>
                             <span v-if="court.match.t2[1].wins || court.match.t2[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
+                    <div v-if="explanations[court.match.id]" class="court-card__explanation">{{ explanations[court.match.id] }}</div>
                     </div>
                 </div>
             </div>
@@ -177,7 +191,7 @@
     <details class="match-history">
         <summary class="match-history__summary">
             <span class="match-history__summary-label">MATCH HISTORY</span>
-            <span class="match-history__summary-count">{{ history.length }} games</span>
+            <span class="match-history__summary-count">{{ historyTotal }} games</span>
         </summary>
         <div class="match-history__search-wrap">
             <input v-model="historySearch" class="match-history__search" type="search" placeholder="Search players..." @click.stop>
@@ -200,6 +214,12 @@
                         <span v-if="match.winner === 2" class="match-history__badge">WINNER</span>
                     </div>
                 </div>
+                <div class="match-history__feedback">
+                    <span class="match-history__feedback-label">Quality</span>
+                    <button type="button" class="fb-btn fb-btn--poor" :class="{ 'fb-btn--active': matchFeedback[match.id] === 'POOR' }" @click="submitFeedback(match.id, 'POOR')">POOR</button>
+                    <button type="button" class="fb-btn fb-btn--good" :class="{ 'fb-btn--active': matchFeedback[match.id] === 'GOOD' }" @click="submitFeedback(match.id, 'GOOD')">GOOD</button>
+                    <button type="button" class="fb-btn fb-btn--great" :class="{ 'fb-btn--active': matchFeedback[match.id] === 'GREAT' }" @click="submitFeedback(match.id, 'GREAT')">GREAT</button>
+                </div>
             </div>
         </div>
         <p v-else class="match-history__empty">{{ history.length ? 'No matching players.' : 'No completed matches yet.' }}</p>
@@ -207,7 +227,7 @@
 
     <footer class="session-controls">
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'resume' }" :disabled="sessionActionPending === 'resume'" @click="resumeSession">▶ RESUME</button>
-        <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession'" @click="startNewSession">▶ START NEW SESSION</button>
+        <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession' || offlineMode" :title="offlineMode ? 'Unavailable offline — reconnect to start a new session' : ''" @click="startNewSession">▶ START NEW SESSION</button>
     </footer>
 
     <div v-if="manualAssignment.show" class="modal-overlay" @click.self="closeManualAssignment">
@@ -359,6 +379,53 @@
         </div>
     </div>
 
+    <!-- Offline sync prompt -->
+    <div v-if="syncPrompt.show" class="modal-overlay" @click.self="!syncPrompt.syncing && (syncPrompt.show = false)">
+        <div class="modal modal--confirm">
+            <div class="confirm-icon confirm-icon--sync">⇅</div>
+            <h3>You're back online</h3>
+            <p class="confirm-note">{{ offlineQueue.length }} change{{ offlineQueue.length === 1 ? '' : 's' }} made while offline {{ offlineQueue.length === 1 ? 'is' : 'are' }} waiting to sync.</p>
+            <ul v-if="offlineQueue.length" class="offline-queue-list">
+                <li v-for="item in offlineQueue" :key="item.id">{{ item.label }}</li>
+            </ul>
+            <p v-if="syncPrompt.error" class="err" style="display:block">{{ syncPrompt.error }}</p>
+            <div class="modal__actions">
+                <button class="btn btn--secondary" :disabled="syncPrompt.syncing" @click="discardOfflineQueue">Discard changes</button>
+                <button class="btn btn--primary" :class="{ 'is-busy': syncPrompt.syncing }" :disabled="syncPrompt.syncing" @click="syncOfflineQueue">{{ syncPrompt.syncing ? 'Syncing…' : 'Sync now' }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matchmaking insights modal -->
+    <div v-if="insights.show" class="modal-overlay" @click.self="insights.show = false">
+        <div class="modal modal--wide modal--insights">
+            <div class="modal__head">
+                <h3>Matchmaking insights</h3>
+                <button class="modal__close" @click="insights.show = false">✕</button>
+            </div>
+            <p v-if="insights.loading" class="add-section__label">Analysing matchmaking quality…</p>
+            <p v-else-if="insights.error" class="err" style="display:block">{{ insights.error }}</p>
+            <template v-else-if="insights.data">
+                <p class="insights-summary">{{ insights.data.summary }}</p>
+                <div v-if="insights.data.issues && insights.data.issues.length" class="insights-list">
+                    <div v-for="(issue, i) in insights.data.issues" :key="i" class="insights-item" :class="'insights-item--' + (issue.severity || 'info')">
+                        <span class="insights-item__issue">{{ issue.issue }}</span>
+                        <span v-if="issue.suggestion" class="insights-item__suggestion">{{ issue.suggestion }}</span>
+                    </div>
+                </div>
+                <div v-if="insights.data.suggested_weights && Object.keys(insights.data.suggested_weights).length" class="insights-weights">
+                    <h4>Suggested weight changes</h4>
+                    <div v-for="(value, key) in insights.data.suggested_weights" :key="key" class="insights-weight">
+                        <span>{{ key }}</span>
+                        <span>{{ value }}</span>
+                    </div>
+                    <p class="insights-weights__note">Suggestions only — weights aren't applied automatically.</p>
+                </div>
+                <p class="insights-source">{{ insights.data.source === 'ai' ? 'AI-generated' : 'Auto-generated from session data' }}</p>
+            </template>
+        </div>
+    </div>
+
     <!-- Score picker — roller deck shown after a winner is tapped -->
     <div v-if="scorePicker.show" class="score-picker" @click.self="closeScorePicker">
         <div class="score-picker__panel" role="dialog" aria-label="Enter match score">
@@ -367,8 +434,8 @@
                 <button class="score-picker__close" type="button" @click="closeScorePicker" aria-label="Cancel">✕</button>
             </div>
             <div class="score-picker__teams">
-                <span class="score-picker__team score-picker__team--1" :class="{ 'score-picker__team--winner': scorePicker.team === 1 }">{{ scorePicker.t1Names }}</span>
-                <span class="score-picker__team score-picker__team--2" :class="{ 'score-picker__team--winner': scorePicker.team === 2 }">{{ scorePicker.t2Names }}</span>
+                <span class="score-picker__team score-picker__team--1" :class="{ 'score-picker__team--winner': scoreWinner === 1 }">{{ scorePicker.t1Names }}</span>
+                <span class="score-picker__team score-picker__team--2" :class="{ 'score-picker__team--winner': scoreWinner === 2 }">{{ scorePicker.t2Names }}</span>
             </div>
             <div class="score-picker__deck">
                 <div class="score-picker__band" aria-hidden="true"></div>
@@ -387,7 +454,7 @@
             <p class="score-picker__hint" :class="{ 'score-picker__hint--error': !scoreValid }">{{ scoreHint }}</p>
             <div class="score-picker__actions">
                 <button class="score-picker__btn score-picker__btn--skip" type="button" @click="skipScore">SKIP</button>
-                <button class="score-picker__btn score-picker__btn--confirm" :class="'score-picker__btn--team-' + scorePicker.team" type="button" :disabled="!scoreValid" @click="confirmScore">CONFIRM</button>
+                <button class="score-picker__btn score-picker__btn--confirm" :class="'score-picker__btn--team-' + (scoreWinner || scorePicker.team)" type="button" :disabled="!scoreValid" @click="confirmScore">CONFIRM</button>
             </div>
         </div>
     </div>
@@ -415,6 +482,7 @@ createApp({
         const players = ref([]);
         const tournament = ref(null);
         const history = ref([]);
+        const historyTotal = ref(0);
         const historySearch = ref('');
         const filteredHistory = computed(() => {
             const query = historySearch.value.trim().toLowerCase();
@@ -479,7 +547,11 @@ createApp({
                 .slice(0, 4)
                 .map(p => p.player_id)
         );
+        const explanations = reactive({});
+        const explaining = reactive({});
         const submitting = reactive({});
+        const matchFeedback = reactive({});
+        const insights = reactive({ show: false, loading: false, data: null, error: '' });
         const pendingResultMatchIds = new Set();
 
         // Score picker — the wheels are index-addressed, so value === index.
@@ -576,16 +648,15 @@ createApp({
         }
         async function performSwap(playerIdA, playerIdB) {
             teamsError.value = '';
+            if (offlineMode.value) {
+                queueAction('POST', '/api/sessions/' + SESSION_ID + '/tournament/teams/swap', { player_id_a: playerIdA, player_id_b: playerIdB }, 'Swap tournament players');
+                teamsError.value = "You're offline — this swap is queued and will apply once you reconnect.";
+                return;
+            }
             try {
-                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/tournament/teams/swap', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                    body: JSON.stringify({ player_id_a: playerIdA, player_id_b: playerIdB }),
-                });
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.message || 'Failed to swap players');
-                teamsList.value = json.data;
+                const result = await sendRequest('POST', '/api/sessions/' + SESSION_ID + '/tournament/teams/swap', { player_id_a: playerIdA, player_id_b: playerIdB });
+                if (!result.ok) throw new Error(result.data.message || 'Failed to swap players');
+                teamsList.value = result.data.data;
             } catch (ex) {
                 teamsError.value = ex.message;
             }
@@ -625,15 +696,16 @@ createApp({
         async function regenerateTeams() {
             teamsLoading.value = true;
             teamsError.value = '';
+            if (offlineMode.value) {
+                queueAction('POST', '/api/sessions/' + SESSION_ID + '/tournament/teams/regenerate', null, 'Shuffle tournament teams');
+                teamsError.value = "You're offline — the shuffle is queued and will apply once you reconnect.";
+                teamsLoading.value = false;
+                return;
+            }
             try {
-                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/tournament/teams/regenerate', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                });
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.message || 'Failed to shuffle teams');
-                teamsList.value = json.data;
+                const result = await sendRequest('POST', '/api/sessions/' + SESSION_ID + '/tournament/teams/regenerate', undefined);
+                if (!result.ok) throw new Error(result.data.message || 'Failed to shuffle teams');
+                teamsList.value = result.data.data;
             } catch (ex) {
                 teamsError.value = ex.message;
             } finally {
@@ -642,8 +714,187 @@ createApp({
         }
         let pollTimer = null;
         let lastEventId = 0;
+        let hasLoadedSnapshot = false;
         let pollDelay = 3000;
         let pollingStopped = false;
+
+        // --- Offline mode -------------------------------------------------
+        // Entered automatically whenever the server can't be reached (or
+        // manually, via the offline indicator's menu). Every mutating action
+        // is queued to localStorage instead of sent, so nothing is lost.
+        // Once the server is reachable again we stop and ask the user
+        // whether to sync or discard, rather than silently applying (or
+        // losing) what happened while offline.
+        const OFFLINE_QUEUE_KEY = 'courtly-offline-queue-' + SESSION_ID;
+        const OFFLINE_PREFERENCE_KEY = 'courtly-offline-preference';
+        function loadOfflineQueue() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+        function loadOfflinePreference() {
+            try {
+                const stored = localStorage.getItem(OFFLINE_PREFERENCE_KEY);
+                return ['auto', 'offline', 'online'].includes(stored) ? stored : 'auto';
+            } catch {
+                return 'auto';
+            }
+        }
+        const offlineQueue = ref(loadOfflineQueue());
+        const offlinePreference = ref(loadOfflinePreference());
+        // Start in offline mode whenever forced, or whenever a queue was left
+        // over from a previous visit — better to surface it via the sync
+        // prompt than to silently sit on unsynced changes.
+        const offlineMode = ref(offlinePreference.value === 'offline' || offlineQueue.value.length > 0);
+        const offlineMenuOpen = ref(false);
+        const syncPrompt = reactive({ show: false, syncing: false, error: '' });
+
+        // Manually force Automatic / Offline / Online from the indicator's
+        // menu. Switching away from a forced Offline (or out of Automatic)
+        // while changes are queued asks whether to sync, exactly like
+        // reconnecting on its own would.
+        function setOfflinePreference(pref) {
+            offlinePreference.value = pref;
+            try { localStorage.setItem(OFFLINE_PREFERENCE_KEY, pref); } catch { /* storage unavailable */ }
+            offlineMenuOpen.value = false;
+
+            if (pref === 'offline') {
+                offlineMode.value = true;
+                syncPrompt.show = false;
+                return;
+            }
+
+            if (offlineQueue.value.length > 0) {
+                offlineMode.value = true;
+                syncPrompt.show = true;
+            } else {
+                offlineMode.value = false;
+            }
+        }
+
+        function saveOfflineQueue() {
+            try {
+                if (offlineQueue.value.length) localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(offlineQueue.value));
+                else localStorage.removeItem(OFFLINE_QUEUE_KEY);
+            } catch {
+                // Storage unavailable (private browsing, quota) — the queue
+                // still works for the rest of this tab session, in memory.
+            }
+        }
+
+        function queueAction(method, url, body, label, meta) {
+            const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('off-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+            const entry = { id, method, url, body: body ?? null, label, ts: Date.now() };
+            // A locally-created match uses a placeholder id until it's really
+            // created on sync. Tag the assignment entry that produces it so
+            // syncOfflineQueue can rewrite any later queued action (e.g. its
+            // eventual result) to point at the real match id once known.
+            if (meta && meta.producesMatchId) entry.producesMatchId = meta.producesMatchId;
+            offlineQueue.value = [...offlineQueue.value, entry];
+            saveOfflineQueue();
+            return { ok: true, queued: true, data: {} };
+        }
+
+        // Raw network call, bypassing the offline queue — used both for the
+        // "online" path and to replay queued actions during sync.
+        async function sendRequest(method, url, body) {
+            const headers = { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN };
+            const opts = { method, credentials: 'include', headers };
+            if (body !== undefined && body !== null) {
+                headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(body);
+            }
+            const res = await fetch(BASE_URL + url, opts);
+            let data = {};
+            try { data = await res.json(); } catch { /* no JSON body, e.g. 204 */ }
+            return { ok: res.ok, data };
+        }
+
+        async function apiRequest(method, url, body, label) {
+            if (offlineMode.value) return queueAction(method, url, body, label);
+            return sendRequest(method, url, body);
+        }
+
+        async function syncOfflineQueue() {
+            if (syncPrompt.syncing) return;
+            syncPrompt.syncing = true;
+            syncPrompt.error = '';
+            while (offlineQueue.value.length) {
+                const item = offlineQueue.value[0];
+                try {
+                    const result = await sendRequest(item.method, item.url, item.body);
+                    if (!result.ok) {
+                        syncPrompt.error = 'Failed to sync "' + item.label + '" — stopped here so nothing is lost. Try again, or discard the remaining changes.';
+                        break;
+                    }
+                    let rest = offlineQueue.value.slice(1);
+                    if (item.producesMatchId) {
+                        // Locally-created matches use a placeholder id until
+                        // synced. Now that the real one exists, patch it into
+                        // any later queued action (its eventual result) that
+                        // still refers to the placeholder.
+                        const realId = result.data?.data?.id;
+                        if (realId) {
+                            rest = rest.map(entry => (entry.url && entry.url.includes(item.producesMatchId))
+                                ? { ...entry, url: entry.url.split(item.producesMatchId).join(String(realId)) }
+                                : entry);
+                        }
+                    }
+                    offlineQueue.value = rest;
+                    saveOfflineQueue();
+                } catch {
+                    syncPrompt.error = 'Still can\'t reach the server. Try again once you have a connection.';
+                    break;
+                }
+            }
+            syncPrompt.syncing = false;
+            if (!offlineQueue.value.length) {
+                offlineMode.value = false;
+                syncPrompt.show = false;
+                syncPrompt.error = '';
+                pendingAddedPlayers.value = [];
+                pendingExistingPlayerIds.value = new Set();
+                pollDelay = 3000;
+                fetchSession().catch(() => { connectionState.value = 'offline'; });
+            }
+        }
+
+        function discardOfflineQueue() {
+            offlineQueue.value = [];
+            saveOfflineQueue();
+            offlineMode.value = false;
+            syncPrompt.show = false;
+            syncPrompt.error = '';
+            pendingAddedPlayers.value = [];
+            pendingExistingPlayerIds.value = new Set();
+            pollDelay = 3000;
+            fetchSession().catch(() => { connectionState.value = 'offline'; });
+        }
+
+        const offlineStatus = computed(() => {
+            if (syncPrompt.show) return 'pending';
+            if (offlineMode.value) return 'offline';
+            return 'online';
+        });
+        const offlineIndicatorTitle = computed(() => {
+            const prefLabel = { auto: 'Automatic', offline: 'Forced offline', online: 'Forced online' }[offlinePreference.value];
+            if (syncPrompt.show) return 'Back online — review your offline changes';
+            if (offlineMode.value) {
+                return prefLabel + ' — ' + (offlineQueue.value.length
+                    ? offlineQueue.value.length + ' change' + (offlineQueue.value.length === 1 ? '' : 's') + ' queued'
+                    : 'queuing changes until you reconnect');
+            }
+            return prefLabel + ' — online';
+        });
+        function closeOfflineMenuOnOutsideClick(event) {
+            if (offlineMenuOpen.value && !event.target.closest('.offline-control')) {
+                offlineMenuOpen.value = false;
+            }
+        }
+
         // Fetch the full player list from the server.
         async function refreshPlayerCache() {
             try {
@@ -688,7 +939,10 @@ createApp({
                 session.type = d.type || 'casual';
                 tournament.value = d.tournament || null;
                 matchmakingMode.value = d.matchmaking_mode || 'smart';
-                if (d.history) history.value = d.history;
+                if (d.history) {
+                    history.value = d.history;
+                    historyTotal.value = d.history_total ?? d.history.length;
+                }
 
                 const playingMatchIds = new Set(
                     (d.matches || []).filter(match => match.status === 'PLAYING').map(match => match.id)
@@ -711,7 +965,7 @@ createApp({
                     if (match && match.match_players && match.match_players.length === 4) {
                         const t1 = match.match_players.filter(p => p.team === 1);
                         const t2 = match.match_players.filter(p => p.team === 2);
-                        const build = (mp) => ({ name: mp.player.name, rating: mp.player.rating, gender: mp.player.gender, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
+                        const build = (mp) => ({ player_id: mp.player_id, name: mp.player.name, rating: mp.player.rating, gender: mp.player.gender, wins: (stats[mp.player_id] || {}).wins || 0, streak: mp.player.consecutive_wins || 0 });
                         md = { id: match.id, t1: [build(t1[0]), build(t1[1])], t2: [build(t2[0]), build(t2[1])] };
                     }
                     return { ...c, match: md };
@@ -737,7 +991,7 @@ createApp({
 
         async function pollEvents() {
             try {
-                const query = lastEventId > 0
+                const query = hasLoadedSnapshot
                     ? '?last_event_id=' + lastEventId
                     : '?snapshot=1';
                 const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/events' + query, {
@@ -747,33 +1001,60 @@ createApp({
                 if (!response.ok) throw new Error('Event poll failed');
 
                 const payload = (await response.json()).data;
-                if (payload.snapshot) {
-                    applySessionData(payload.snapshot);
-                } else if ((payload.events || []).length > 0) {
-                    await fetchSession();
-                }
-                lastEventId = payload.last_event_id || lastEventId;
-                pollDelay = 3000;
                 connectionState.value = 'connected';
+                pollDelay = 3000;
+
+                if (offlineMode.value) {
+                    // The server is reachable again, but don't touch local
+                    // state until the user decides what to do with the
+                    // queued changes — applying the (stale) server snapshot
+                    // now would silently overwrite them. Skip this entirely
+                    // while forced offline — that's a deliberate choice, not
+                    // something a live server response should override.
+                    if (offlinePreference.value !== 'offline') {
+                        if (offlineQueue.value.length > 0) {
+                            syncPrompt.show = true;
+                        } else {
+                            offlineMode.value = false;
+                        }
+                    }
+                } else {
+                    if (payload.snapshot) {
+                        applySessionData(payload.snapshot);
+                    } else if ((payload.events || []).length > 0) {
+                        await fetchSession();
+                    }
+                    lastEventId = payload.last_event_id || lastEventId;
+                    hasLoadedSnapshot = true;
+                }
             } catch {
                 connectionState.value = 'offline';
                 pollDelay = Math.min(pollDelay * 2, 15000);
+                if (offlinePreference.value === 'auto' && !offlineMode.value) offlineMode.value = true;
             } finally {
                 if (!pollingStopped) pollTimer = setTimeout(pollEvents, pollDelay);
             }
         }
 
-        async function postApi(url, body) { const res = await fetch(BASE_URL + url, { method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF_TOKEN}, credentials:'include', body: body ? JSON.stringify(body) : undefined }); return { ok: res.ok, data: await res.json() }; }
+        async function postApi(url, body, label) { return apiRequest('POST', url, body, label || url); }
+        // The score determines the winner, not whichever side was originally
+        // tapped to open the picker — scrolling the loser's score above the
+        // winner's flips who wins.
+        const scoreWinner = computed(() => {
+            if (scorePicker.t1 === scorePicker.t2) return null;
+            return scorePicker.t1 > scorePicker.t2 ? 1 : 2;
+        });
         const scoreValid = computed(() => {
-            const winner = scorePicker.team === 1 ? scorePicker.t1 : scorePicker.t2;
-            const loser = scorePicker.team === 1 ? scorePicker.t2 : scorePicker.t1;
-            if (winner < MATCH_POINTS || winner <= loser) return false;
+            if (!scoreWinner.value) return false;
+            const winner = scoreWinner.value === 1 ? scorePicker.t1 : scorePicker.t2;
+            const loser = scoreWinner.value === 1 ? scorePicker.t2 : scorePicker.t1;
+            if (winner < MATCH_POINTS) return false;
             return winner === MATCH_POINTS ? (winner - loser) >= 2 : (winner - loser) === 2;
         });
         const scoreHint = computed(() => {
-            const winner = scorePicker.team === 1 ? scorePicker.t1 : scorePicker.t2;
-            const loser = scorePicker.team === 1 ? scorePicker.t2 : scorePicker.t1;
-            if (winner <= loser) return 'The winning team needs the higher score';
+            const winner = Math.max(scorePicker.t1, scorePicker.t2);
+            const loser = Math.min(scorePicker.t1, scorePicker.t2);
+            if (winner === loser) return 'The winning team needs the higher score';
             if (winner < MATCH_POINTS) return 'A game is played to ' + MATCH_POINTS;
             if (winner === MATCH_POINTS && (winner - loser) < 2) return 'A game must be won by two';
             if (winner > MATCH_POINTS && (winner - loser) !== 2) return 'Past ' + MATCH_POINTS + ' the game ends on a two-point lead';
@@ -827,8 +1108,8 @@ createApp({
         }
 
         function confirmScore() {
-            if (!scoreValid.value || !scorePicker.matchId) return;
-            const payload = { matchId: scorePicker.matchId, team: scorePicker.team, scores: { t1: scorePicker.t1, t2: scorePicker.t2 }, spot: scorePickerSpot };
+            if (!scoreValid.value || !scorePicker.matchId || !scoreWinner.value) return;
+            const payload = { matchId: scorePicker.matchId, team: scoreWinner.value, scores: { t1: scorePicker.t1, t2: scorePicker.t2 }, spot: scorePickerSpot };
             scorePicker.show = false;
             scorePicker.matchId = null;
             recordResult(payload.matchId, payload.team, payload.scores, payload.spot);
@@ -851,15 +1132,25 @@ createApp({
             const court = courts.value.find(item => item.match && item.match.id === matchId);
             const previousMatch = court ? court.match : null;
             if (court) {
+                if (offlineMode.value && previousMatch) {
+                    // Free the players locally so they're available for the
+                    // next match; the server recalculates ratings/wins on sync.
+                    [...(previousMatch.t1 || []), ...(previousMatch.t2 || [])].forEach(mp => {
+                        const sp = players.value.find(item => item.player_id === mp.player_id);
+                        if (sp) { sp.status = 'WAITING'; sp.games_played = (sp.games_played || 0) + 1; }
+                    });
+                }
                 court.match = null;
                 celebration.value = { courtId: court.id, x: spot ? spot.x : (team === 1 ? 25 : 75), y: spot ? spot.y : 50 };
                 clearTimeout(celebrationTimer);
                 celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
+                if (offlineMode.value) autoFillCourtsOffline();
             }
 
-            postApi('/api/matches/' + matchId + '/result', scores
+            const label = 'Match result — Court ' + (court ? court.court_number : '?') + ' (Team ' + team + ' won)';
+            apiRequest('POST', '/api/matches/' + matchId + '/result', scores
                 ? { winning_team: team, team_1_score: scores.t1, team_2_score: scores.t2 }
-                : { winning_team: team })
+                : { winning_team: team }, label)
                 .then(result => {
                     if (!result.ok) {
                         pendingResultMatchIds.delete(matchId);
@@ -867,10 +1158,12 @@ createApp({
                         celebration.value = null;
                         return;
                     }
+                    if (result.queued) return;
 
                     const completedMatch = result.data?.data?.match;
                     if (completedMatch && !history.value.some(match => match.id === completedMatch.id)) {
                         history.value = [completedMatch, ...history.value];
+                        historyTotal.value += 1;
                     }
                     fetchSession().catch(() => { connectionState.value = 'offline'; });
                 })
@@ -909,7 +1202,7 @@ createApp({
             matchmakingMode.value = next;
             uiPending.mode = true;
             try {
-                const result = await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next });
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/matchmaking-mode', { mode: next }, 'Switch matchmaking mode to ' + next.toUpperCase());
                 if (!result.ok) matchmakingMode.value = previous;
             } catch {
                 matchmakingMode.value = previous;
@@ -921,7 +1214,11 @@ createApp({
             if (uiPending.fill) return;
             uiPending.fill = true;
             try {
-                const result = await postApi('/api/sessions/' + SESSION_ID + '/fill');
+                if (offlineMode.value) {
+                    autoFillCourtsOffline();
+                    return;
+                }
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/fill', undefined, 'Fill empty courts');
                 if (result.ok) await fetchSession();
             } finally {
                 uiPending.fill = false;
@@ -934,14 +1231,22 @@ createApp({
             try {
                 const body = { action };
                 if (courtNumber != null) body.court_number = courtNumber;
-                const response = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/courts', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                    credentials: 'include',
-                    body: JSON.stringify(body),
-                });
-                const payload = await response.json();
-                if (response.ok) applySessionData(payload.data);
+                const label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
+
+                if (offlineMode.value) {
+                    if (action === 'add' && courts.value.length < 8) {
+                        const nextNumber = courts.value.reduce((max, c) => Math.max(max, c.court_number), 0) + 1;
+                        courts.value = [...courts.value, { id: 'offline-court-' + nextNumber, court_number: nextNumber, match: null }];
+                    } else if (action === 'remove' && courts.value.length > 1) {
+                        const targetNumber = courtNumber ?? courts.value.reduce((max, c) => Math.max(max, c.court_number), 0);
+                        courts.value = courts.value.filter(c => c.court_number !== targetNumber);
+                    }
+                    queueAction('PATCH', '/api/sessions/' + SESSION_ID + '/courts', body, label);
+                    return;
+                }
+
+                const result = await apiRequest('PATCH', '/api/sessions/' + SESSION_ID + '/courts', body, label);
+                if (result.ok) applySessionData(result.data.data);
             } finally {
                 updatingCourts.value = false;
             }
@@ -996,15 +1301,76 @@ createApp({
             if (next.length === 0) delete pendingCourtPlayers[courtId];
             else pendingCourtPlayers[courtId] = next;
         }
+        // Builds a match card locally (offline mode only) so the court
+        // doesn't look stuck empty until the queued assignment syncs. The
+        // server is the source of truth and recomputes this for real on sync;
+        // matchId is a placeholder that syncOfflineQueue swaps for the real
+        // one once the queued assignment actually runs.
+        function makeOfflineMatchId(courtId) {
+            return 'offline-match-' + courtId + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
+        }
+        function applyLocalMatch(courtId, team1Ids, team2Ids, matchId) {
+            const build = (id) => {
+                const sp = players.value.find(item => item.player_id === id);
+                return sp
+                    ? { player_id: id, name: sp.player.name, rating: sp.player.rating, gender: sp.player.gender, wins: sp.wins || 0, streak: sp.player.consecutive_wins || 0 }
+                    : { player_id: id, name: '?', rating: 0, gender: null, wins: 0, streak: 0 };
+            };
+            const targetCourt = courts.value.find(c => c.id === courtId);
+            if (targetCourt) {
+                targetCourt.match = { id: matchId, t1: team1Ids.map(build), t2: team2Ids.map(build) };
+            }
+            [...team1Ids, ...team2Ids].forEach(id => {
+                const sp = players.value.find(item => item.player_id === id);
+                if (sp) sp.status = 'PLAYING';
+            });
+        }
+
+        // Fills empty courts from the waiting list while offline, the same
+        // way the server's matchmaking pass normally would. This is a plain
+        // rating-balanced grouping, not the real fairness/rotation/repeat-
+        // avoidance algorithm — the server recalculates that for real once
+        // each queued assignment actually runs on sync.
+        function autoFillCourtsOffline() {
+            if (!offlineMode.value || session.status !== 'ACTIVE' || session.type === 'tournament') return;
+            // Mirrors the real matchmaking rule: players who just came off a
+            // court wait in the queue until every court is free, rather than
+            // trickling straight back in while others are still playing.
+            if (courts.value.some(c => c.match)) return;
+            const emptyCourts = courts.value.filter(c => !c.match && typeof c.id === 'number');
+            for (const court of emptyCourts) {
+                const waiting = players.value.filter(p => p.status === 'WAITING');
+                if (waiting.length < 4) break;
+                const ids = waiting.slice(0, 4).map(sp => sp.player_id);
+                const balanced = balanceManualTeam(ids);
+                const team1Ids = balanced.slice(0, 2);
+                const team2Ids = balanced.slice(2, 4);
+                const matchId = makeOfflineMatchId(court.id);
+                applyLocalMatch(court.id, team1Ids, team2Ids, matchId);
+                queueAction('POST', '/api/sessions/' + SESSION_ID + '/manual-assignment', {
+                    court_id: court.id, player_ids: ids, team_1_ids: team1Ids, team_2_ids: team2Ids,
+                }, 'Auto-fill court ' + court.court_number, { producesMatchId: matchId });
+            }
+        }
         async function startCourtMatch(courtId) {
             const list = pendingCourtPlayers[courtId] || [];
             if (list.length !== 4 || uiPending.court[courtId]) return;
             uiPending.court[courtId] = true;
             try {
-                const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
-                    court_id: courtId,
-                    player_ids: list.map(sp => sp.player_id),
-                });
+                const playerIds = list.map(sp => sp.player_id);
+                const court = courts.value.find(c => c.id === courtId);
+                const label = 'Assign court ' + (court ? court.court_number : '') + ' from queue';
+
+                if (offlineMode.value) {
+                    const balanced = balanceManualTeam(playerIds);
+                    const matchId = makeOfflineMatchId(courtId);
+                    applyLocalMatch(courtId, balanced.slice(0, 2), balanced.slice(2, 4), matchId);
+                    queueAction('POST', '/api/sessions/' + SESSION_ID + '/manual-assignment', { court_id: courtId, player_ids: playerIds }, label, { producesMatchId: matchId });
+                    delete pendingCourtPlayers[courtId];
+                    return;
+                }
+
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', { court_id: courtId, player_ids: playerIds }, label);
                 if (result.ok) {
                     delete pendingCourtPlayers[courtId];
                     await fetchSession();
@@ -1070,13 +1436,28 @@ createApp({
             if (!manualAssignment.court || manualAssignment.playerIds.length !== 4 || manualAssignment.submitting) return;
             manualAssignment.submitting = true;
             manualAssignment.error = '';
+            const court = manualAssignment.court;
+            const playerIds = manualAssignment.playerIds;
+            const team1Ids = playerIds.slice(0, 2);
+            const team2Ids = playerIds.slice(2, 4);
+            const label = 'Assign court ' + court.court_number + ' manually';
+
+            if (offlineMode.value) {
+                const matchId = makeOfflineMatchId(court.id);
+                applyLocalMatch(court.id, team1Ids, team2Ids, matchId);
+                queueAction('POST', '/api/sessions/' + SESSION_ID + '/manual-assignment', { court_id: court.id, player_ids: playerIds, team_1_ids: team1Ids, team_2_ids: team2Ids }, label, { producesMatchId: matchId });
+                closeManualAssignment();
+                manualAssignment.submitting = false;
+                return;
+            }
+
             try {
                 const result = await postApi('/api/sessions/' + SESSION_ID + '/manual-assignment', {
-                    court_id: manualAssignment.court.id,
-                    player_ids: manualAssignment.playerIds,
-                    team_1_ids: manualAssignment.playerIds.slice(0, 2),
-                    team_2_ids: manualAssignment.playerIds.slice(2, 4),
-                });
+                    court_id: court.id,
+                    player_ids: playerIds,
+                    team_1_ids: team1Ids,
+                    team_2_ids: team2Ids,
+                }, label);
                 if (!result.ok) {
                     manualAssignment.error = result.data.message || 'Unable to start this match.';
                     return;
@@ -1092,18 +1473,30 @@ createApp({
         async function startSession() {
             if (sessionActionPending.value) return;
             sessionActionPending.value = 'start';
-            try { await postApi('/api/sessions/' + SESSION_ID + '/start'); } finally { sessionActionPending.value = null; }
+            try {
+                if (offlineMode.value) { session.status = 'ACTIVE'; queueAction('POST', '/api/sessions/' + SESSION_ID + '/start', null, 'Start session'); autoFillCourtsOffline(); return; }
+                await postApi('/api/sessions/' + SESSION_ID + '/start', undefined, 'Start session');
+            } finally { sessionActionPending.value = null; }
         }
-        async function pauseSession() { postApi('/api/sessions/' + SESSION_ID + '/pause'); }
+        async function pauseSession() {
+            if (offlineMode.value) { session.status = 'PAUSED'; queueAction('POST', '/api/sessions/' + SESSION_ID + '/pause', null, 'Pause session'); return; }
+            postApi('/api/sessions/' + SESSION_ID + '/pause', undefined, 'Pause session');
+        }
         async function resumeSession() {
             if (sessionActionPending.value) return;
             sessionActionPending.value = 'resume';
-            try { await postApi('/api/sessions/' + SESSION_ID + '/resume'); } finally { sessionActionPending.value = null; }
+            try {
+                if (offlineMode.value) { session.status = 'ACTIVE'; queueAction('POST', '/api/sessions/' + SESSION_ID + '/resume', null, 'Resume session'); autoFillCourtsOffline(); return; }
+                await postApi('/api/sessions/' + SESSION_ID + '/resume', undefined, 'Resume session');
+            } finally { sessionActionPending.value = null; }
         }
         async function finishSession() {
             if (sessionActionPending.value) return;
             sessionActionPending.value = 'finish';
-            try { await postApi('/api/sessions/' + SESSION_ID + '/finish'); } finally { sessionActionPending.value = null; }
+            try {
+                if (offlineMode.value) { session.status = 'FINISHED'; queueAction('POST', '/api/sessions/' + SESSION_ID + '/finish', null, 'Finish session'); return; }
+                await postApi('/api/sessions/' + SESSION_ID + '/finish', undefined, 'Finish session');
+            } finally { sessionActionPending.value = null; }
         }
         async function addPlayers() {
             const name = newPlayerName.value.trim();
@@ -1113,7 +1506,21 @@ createApp({
             newPlayerName.value = '';
             newPlayerGender.value = '';
             try {
-                await postApi('/api/sessions/' + SESSION_ID + '/players', { name, gender });
+                if (offlineMode.value) {
+                    const tempId = 'offline-player-' + Date.now();
+                    pendingAddedPlayers.value = [...pendingAddedPlayers.value, {
+                        player_id: tempId,
+                        player: { id: tempId, name, gender, rating: 0 },
+                        status: 'WAITING',
+                        games_played: 0,
+                        wins: 0,
+                        losses: 0,
+                        pending: true,
+                    }];
+                    queueAction('POST', '/api/sessions/' + SESSION_ID + '/players', { name, gender }, 'Add player "' + name + '"');
+                    return;
+                }
+                await postApi('/api/sessions/' + SESSION_ID + '/players', { name, gender }, 'Add player "' + name + '"');
                 await fetchSession();
             } finally {
                 uiPending.add = false;
@@ -1139,7 +1546,7 @@ createApp({
             newPlayerName.value = '';
 
             try {
-                const result = await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] });
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/players', { player_ids: [id] }, 'Add existing player');
                 if (result.ok) return;
             } catch {
                 // Restore the suggestion when the server cannot accept it.
@@ -1167,8 +1574,10 @@ createApp({
             player.status = status;
             uiPending.player[spId] = true;
             try {
-                const result = await postApi('/api/session-players/' + spId + '/' + action);
+                const label = (action === 'pause' ? 'Pause ' : 'Resume ') + player.player.name;
+                const result = await postApi('/api/session-players/' + spId + '/' + action, undefined, label);
                 if (!result.ok) player.status = previous;
+                else if (offlineMode.value && action === 'resume') autoFillCourtsOffline();
             } catch {
                 player.status = previous;
             } finally {
@@ -1183,9 +1592,17 @@ createApp({
         async function confirmLeave() {
             if (!confirmRemove.value.spId || confirmRemove.value.loading) return;
             const spId = confirmRemove.value.spId;
+            const name = confirmRemove.value.name;
             confirmRemove.value.loading = true;
             try {
-                const result = await postApi('/api/session-players/' + spId + '/leave');
+                if (offlineMode.value) {
+                    const sp = players.value.find(item => item.id === spId);
+                    if (sp) sp.status = 'LEFT';
+                    queueAction('POST', '/api/session-players/' + spId + '/leave', null, 'Remove ' + name + ' from session');
+                    confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false, loading: false };
+                    return;
+                }
+                const result = await postApi('/api/session-players/' + spId + '/leave', undefined, 'Remove ' + name + ' from session');
                 if (result.ok) {
                     confirmRemove.value = { show: false, spId: null, name: '', isPlaying: false, loading: false };
                 } else {
@@ -1206,10 +1623,18 @@ createApp({
         async function deletePlayer() {
             if (!confirmDelete.value.playerId || confirmDelete.value.loading) return;
             const playerId = confirmDelete.value.playerId;
+            const name = confirmDelete.value.name;
             confirmDelete.value.loading = true;
             try {
-                const res = await fetch(BASE_URL + '/api/players/' + playerId, { method: 'DELETE', credentials: 'include', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } });
-                if (res.ok) {
+                if (offlineMode.value) {
+                    allKnownPlayers.value = allKnownPlayers.value.filter(p => p.id !== playerId);
+                    players.value = players.value.filter(sp => sp.player_id !== playerId);
+                    queueAction('DELETE', '/api/players/' + playerId, null, 'Delete player "' + name + '" permanently');
+                    confirmDelete.value = { show: false, playerId: null, name: '', loading: false };
+                    return;
+                }
+                const result = await apiRequest('DELETE', '/api/players/' + playerId, null, 'Delete player "' + name + '" permanently');
+                if (result.ok) {
                     confirmDelete.value = { show: false, playerId: null, name: '', loading: false };
                 } else {
                     confirmDelete.value.loading = false;
@@ -1219,18 +1644,83 @@ createApp({
             }
         }
 
+        async function toggleExplanation(court) {
+            if (!court || !court.match) return;
+            const matchId = court.match.id;
+            if (explanations[matchId]) {
+                delete explanations[matchId];
+                return;
+            }
+            if (explaining[matchId]) return;
+            explaining[matchId] = true;
+            try {
+                const res = await fetch(BASE_URL + '/api/matches/' + matchId + '/explanation', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const json = await res.json();
+                if (res.ok && json.data && json.data.explanation) {
+                    explanations[matchId] = json.data.explanation;
+                }
+            } catch {
+                // network error — leave the explanation collapsed
+            } finally {
+                delete explaining[matchId];
+            }
+        }
+
+        async function submitFeedback(matchId, rating) {
+            if (!matchId) return;
+            const previous = matchFeedback[matchId];
+            matchFeedback[matchId] = rating;
+            try {
+                const result = await postApi('/api/matches/' + matchId + '/feedback', { quality_rating: rating }, 'Rate match quality: ' + rating);
+                if (!result.ok) matchFeedback[matchId] = previous;
+            } catch {
+                matchFeedback[matchId] = previous;
+            }
+        }
+
+        async function openInsights() {
+            insights.show = true;
+            insights.error = '';
+            insights.data = null;
+            await loadInsights();
+        }
+
+        async function loadInsights() {
+            if (insights.loading) return;
+            insights.loading = true;
+            insights.error = '';
+            try {
+                const res = await fetch(BASE_URL + '/api/sessions/' + SESSION_ID + '/matchmaking-insights', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.message || 'Failed to load insights');
+                insights.data = json.data;
+            } catch (ex) {
+                insights.error = ex.message;
+            } finally {
+                insights.loading = false;
+            }
+        }
+
         onMounted(() => {
             loadKnownPlayers();
             pollEvents();
+            document.addEventListener('click', closeOfflineMenuOnOutsideClick);
         });
         onUnmounted(() => {
             pollingStopped = true;
             if (pollTimer) clearTimeout(pollTimer);
             if (celebrationTimer) clearTimeout(celebrationTimer);
+            document.removeEventListener('click', closeOfflineMenuOnOutsideClick);
         });
 
         // Lock body scroll when any modal is open
-        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || manualAssignment.show || scorePicker.show);
+        const modalOpen = computed(() => showPlayers.value || confirmRemove.value.show || confirmDelete.value.show || confirmNewSession.value.show || manualAssignment.show || scorePicker.show || insights.show || syncPrompt.show);
         watch(modalOpen, (val) => { document.body.style.overflow = val ? 'hidden' : ''; });
 
         function formatName(name) {
@@ -1283,7 +1773,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, toggleExplanation, explanations, explaining, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue };
     }
 }).mount('#courtly-app');
 </script>

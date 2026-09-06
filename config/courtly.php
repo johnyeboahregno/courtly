@@ -170,11 +170,15 @@ return [
     */
     'ai' => [
         'enabled' => env('AI_ENABLED', false),
-        'provider' => env('AI_PROVIDER', ''),
+        'provider' => env('AI_PROVIDER', 'openai'),
         'api_key' => env('AI_API_KEY', ''),
         'model' => env('AI_MODEL', ''),
-        'timeout_seconds' => 30,
-        'max_tokens' => 2000,
+        // OpenAI-compatible base URL. Local: http://localhost:11434/v1 (Ollama).
+        // Hosted free tier: https://api.groq.com/openai/v1 (Groq).
+        'base_url' => env('AI_BASE_URL', ''),
+        'timeout_seconds' => (int) env('AI_TIMEOUT_SECONDS', 30),
+        'max_tokens' => (int) env('AI_MAX_TOKENS', 2000),
+        'temperature' => (float) env('AI_TEMPERATURE', 0.2),
     ],
 
 ];

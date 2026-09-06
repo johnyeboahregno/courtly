@@ -78,6 +78,13 @@
         .chart-area { fill: var(--accent); opacity: .12; }
         .chart-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
         .chart-empty { color: var(--text-muted); font-size: .9rem; padding: 16px 0; }
+
+        .coach-card__narrative { font-size: 1rem; line-height: 1.55; margin: 0 0 14px; }
+        .coach-card__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+        .coach-card__col h4 { margin: 0 0 8px; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+        .coach-list { margin: 0; padding-left: 18px; }
+        .coach-list li { font-size: .88rem; line-height: 1.5; margin-bottom: 6px; color: var(--text); }
+        .coach-card__source { margin: 14px 0 0; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -111,6 +118,26 @@
         <section class="chart-card">
             <h3>Rating over time</h3>
             <div id="chart"></div>
+        </section>
+
+        <section id="coachCard" class="chart-card coach-card" hidden>
+            <h3>AI Coach</h3>
+            <p id="coachNarrative" class="coach-card__narrative"></p>
+            <div class="coach-card__cols">
+                <div class="coach-card__col">
+                    <h4>Strengths</h4>
+                    <ul id="coachStrengths" class="coach-list"></ul>
+                </div>
+                <div class="coach-card__col">
+                    <h4>To improve</h4>
+                    <ul id="coachImprovements" class="coach-list"></ul>
+                </div>
+                <div class="coach-card__col">
+                    <h4>Tips</h4>
+                    <ul id="coachTips" class="coach-list"></ul>
+                </div>
+            </div>
+            <p id="coachSource" class="coach-card__source"></p>
         </section>
     </div>
 </div>
@@ -152,6 +179,12 @@ function toggleCourtlyTheme() {
     var statusBadge = document.getElementById('statusBadge');
     var statGrid = document.getElementById('statGrid');
     var chartEl = document.getElementById('chart');
+    var coachCard = document.getElementById('coachCard');
+    var coachNarrative = document.getElementById('coachNarrative');
+    var coachStrengths = document.getElementById('coachStrengths');
+    var coachImprovements = document.getElementById('coachImprovements');
+    var coachTips = document.getElementById('coachTips');
+    var coachSource = document.getElementById('coachSource');
 
     var players = [];
     var filtered = [];
@@ -296,6 +329,35 @@ function toggleCourtlyTheme() {
                 emptyState.hidden = false;
                 statsContent.hidden = true;
             });
+
+        fetchCoach(id);
+    }
+
+    function fetchCoach(id) {
+        coachCard.hidden = false;
+        coachNarrative.textContent = 'Generating coaching notes…';
+        coachStrengths.innerHTML = '';
+        coachImprovements.innerHTML = '';
+        coachTips.innerHTML = '';
+        coachSource.textContent = '';
+
+        fetch(BASE + '/api/players/' + id + '/insights', { headers: { 'Accept': 'application/json' } })
+            .then(function (res) {
+                if (!res.ok) { throw new Error('failed'); }
+                return res.json();
+            })
+            .then(function (json) { renderCoach(json.data); })
+            .catch(function () { coachCard.hidden = true; });
+    }
+
+    function renderCoach(data) {
+        if (!data) { coachCard.hidden = true; return; }
+        coachCard.hidden = false;
+        coachNarrative.textContent = data.narrative || '';
+        coachStrengths.innerHTML = (data.strengths || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+        coachImprovements.innerHTML = (data.improvements || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+        coachTips.innerHTML = (data.tips || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+        coachSource.textContent = data.source === 'ai' ? 'AI-generated' : 'Auto-generated from stats';
     }
 
     function renderStats(data) {

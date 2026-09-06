@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\GameMatch;
+use App\Models\MatchFeedback;
+use App\Services\AI\MatchExplanationService;
 use App\Services\MatchResultService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +51,52 @@ class MatchController extends Controller
         );
 
         return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Explain why this match was assembled. AI-generated when enabled,
+     * deterministic otherwise.
+     */
+    public function explain(GameMatch $match, MatchExplanationService $explainer): JsonResponse
+    {
+        $this->authorizeSession($match->session);
+
+        return response()->json([
+            'data' => ['explanation' => $explainer->explain($match)],
+        ]);
+    }
+
+    /**
+     * Record match quality feedback from the session owner.
+     */
+    public function feedback(Request $request, GameMatch $match): JsonResponse
+    {
+        $this->authorizeSession($match->session);
+
+        if (! $match->isCompleted()) {
+            return response()->json([
+                'message' => 'Feedback can only be given on completed matches.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'quality_rating' => ['required', 'string', 'in:POOR,GOOD,GREAT'],
+        ]);
+
+        MatchFeedback::query()->updateOrCreate(
+            [
+                'match_id' => $match->id,
+                'player_id' => $this->currentUser()->player?->id,
+            ],
+            ['quality_rating' => $validated['quality_rating']],
+        );
+
+        return response()->json([
+            'data' => [
+                'match_id' => $match->id,
+                'quality_rating' => $validated['quality_rating'],
+            ],
+        ]);
     }
 
     /**
