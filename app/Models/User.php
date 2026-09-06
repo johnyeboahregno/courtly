@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -50,7 +51,14 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function sendEmailVerificationNotification(): void
     {
-        Mail::to($this->getEmailForVerification())->send(new VerifyEmail($this));
+        try {
+            Mail::to($this->getEmailForVerification())->send(new VerifyEmail($this));
+        } catch (\Throwable $e) {
+            // A mail-delivery failure must never break registration or login.
+            Log::error('Failed to send verification email: '.$e->getMessage(), [
+                'email' => $this->getEmailForVerification(),
+            ]);
+        }
     }
 
     /**
