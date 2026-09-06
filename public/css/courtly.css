@@ -1,28 +1,28 @@
 /* Courtly brand system */
 
 :root {
-    --court-deep-blue: #0f172a;
-    --court-blue: #3b82f6;
-    --court-cyan: #93c5fd;
-    --court-green: #3b82f6;
-    --court-green-light: #93c5fd;
+    --court-deep-blue: #0b0e2a;
+    --court-blue: #7c5cff;
+    --court-cyan: #39d0ff;
+    --court-green: #00c764;
+    --court-green-light: #7cf0b8;
 
-    --bg: #0f172a;
-    --bg-accent: #17243b;
-    --bg-overlay-1: rgba(15,23,42,.82);
-    --bg-overlay-2: rgba(15,23,42,.90);
-    --surface: rgba(15,23,42,.92);
-    --surface-2: rgba(59,130,246,.18);
-    --text: #e5e7eb;
-    --text-muted: #b7c1d1;
-    --accent: #3b82f6;
-    --accent-2: #93c5fd;
+    --bg: #0b0e2a;
+    --bg-accent: #151a3f;
+    --bg-overlay-1: rgba(11,14,42,.86);
+    --bg-overlay-2: rgba(11,14,42,.94);
+    --surface: rgba(16,20,48,.82);
+    --surface-2: rgba(124,92,255,.16);
+    --text: #e6e8ff;
+    --text-muted: #8f96c9;
+    --accent: #7c5cff;
+    --accent-2: #ff5da2;
 
-    --radius: 8px;
-    --radius-sm: 6px;
-    --shadow-card: 0 14px 36px rgba(0,13,43,0.34);
-    --shadow-soft: 0 5px 16px rgba(0,13,43,0.24);
-    --stroke: rgba(147,197,253,.28);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-card: 0 14px 36px rgba(0,0,0,.40);
+    --shadow-soft: 0 5px 16px rgba(0,0,0,.30);
+    --stroke: rgba(120,140,255,.16);
     --min-touch: 56px;
 
     /* Semantic Theme Custom Properties */
@@ -94,12 +94,11 @@ html {
 }
 
 body {
-    font-family: "Manrope", "Segoe UI", sans-serif !important;
-    background: var(--bg);
-    background-image: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') !important;
-    background-position: center center;
-    background-repeat: no-repeat;
-    background-size: cover;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
+    background:
+        radial-gradient(1200px 800px at 50% 40%, rgba(60,60,160,.28), transparent 70%),
+        radial-gradient(900px 700px at 80% 85%, rgba(120,50,160,.18), transparent 70%),
+        var(--bg) !important;
     background-attachment: fixed;
     color: var(--text);
     caret-color: transparent;
@@ -107,8 +106,11 @@ body {
 }
 
 .auth-page {
-    background: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') center center / 100% 100% no-repeat fixed !important;
-    font-family: "Manrope", "Segoe UI", sans-serif !important;
+    background:
+        radial-gradient(1200px 800px at 50% 40%, rgba(60,60,160,.28), transparent 70%),
+        radial-gradient(900px 700px at 80% 85%, rgba(120,50,160,.18), transparent 70%),
+        var(--bg) !important;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
 }
 
 .theme-switch {
@@ -129,7 +131,7 @@ body {
 
 .theme-switch:hover,
 .theme-switch:focus-visible {
-    border-color: var(--court-blue);
+    border-color: var(--accent);
     background: var(--bg-accent);
     outline: none;
     transform: translateY(-1px);
@@ -2418,8 +2420,8 @@ textarea,
     --surface-2: rgba(226, 232, 240, 0.8);
     --text: #0f172a;
     --text-muted: #475569;
-    --accent: #3b82f6;
-    --accent-2: #2563eb;
+    --accent: #6d4fff;
+    --accent-2: #d61e7b;
     --stroke: rgba(15, 23, 42, 0.15);
     --shadow-card: 0 10px 28px rgba(0,0,0,.08);
     --shadow-soft: 0 4px 10px rgba(0,0,0,.05);
@@ -2470,7 +2472,7 @@ textarea,
 }
 
 [data-theme="light"] body {
-    font-family: "Manrope", "Segoe UI", sans-serif;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
 [data-theme="light"] .court-card__body { background: #ffffff; }
@@ -2502,8 +2504,8 @@ textarea,
         --surface-2: rgba(226, 232, 240, 0.8);
         --text: #0f172a;
         --text-muted: #475569;
-        --accent: #3b82f6;
-        --accent-2: #2563eb;
+        --accent: #6d4fff;
+        --accent-2: #d61e7b;
         --stroke: rgba(15, 23, 42, 0.15);
         --shadow-card: 0 10px 28px rgba(0,0,0,.08);
         --shadow-soft: 0 4px 10px rgba(0,0,0,.05);
@@ -2552,7 +2554,7 @@ textarea,
         --scrollbar-thumb: #cbd5e1;
         --scrollbar-thumb-hover: #94a3b8;
     }
-    :root:not([data-theme]) body { font-family: "Manrope", "Segoe UI", sans-serif; }
+    :root:not([data-theme]) body { font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace; }
     :root:not([data-theme]) .court-card__body { background: #ffffff; }
     :root:not([data-theme]) .court-card__body--empty { background: #f5f8f7; }
     :root:not([data-theme]) .court-card__lines::before,
@@ -3186,3 +3188,72 @@ textarea,
     color: var(--text);
     opacity: 1;
 }
+
+/* ==========================================================================
+   App header + nav (shared across Circles / Sessions / Stats / Rankings)
+   ========================================================================== */
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    background: linear-gradient(180deg, rgba(8,10,30,.92), rgba(8,10,30,.55));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--stroke);
+}
+.app-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: .01em;
+    color: var(--text);
+    text-decoration: none;
+}
+.app-brand img { width: 30px; height: 30px; object-fit: contain; display: block; }
+.app-brand b { color: var(--accent-2); font-weight: 900; }
+.app-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.app-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: .82rem;
+    letter-spacing: .03em;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    color: var(--text-muted);
+    background: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.app-pill:hover { border-color: var(--accent); color: var(--text); }
+.app-pill--active {
+    border-color: var(--accent);
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.app-actions { display: flex; align-items: center; gap: 8px; }
+.app-logout {
+    border: 1px solid var(--stroke);
+    background: var(--surface);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 700;
+    font-family: inherit;
+    transition: border-color .15s, color .15s;
+}
+.app-logout:hover { border-color: var(--accent-2); color: var(--text); }
+.app-header .theme-switch { width: 38px; height: 38px; font-size: .95rem; }

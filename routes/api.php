@@ -46,6 +46,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Circles
     Route::get('/circles', [CircleController::class, 'index']);
     Route::post('/circles/join', [CircleController::class, 'join']);
+    Route::get('/circles/map', [CircleController::class, 'map']);
+    Route::get('/circles/{circle}', [CircleController::class, 'show']);
+    Route::patch('/circles/{circle}', [CircleController::class, 'update']);
+    Route::post('/circles/{circle}/request-join', [CircleController::class, 'requestJoin']);
+    Route::post('/circles/{circle}/leave', [CircleController::class, 'leave']);
+    Route::get('/circles/{circle}/leaderboard', [CircleController::class, 'leaderboard']);
+    Route::post('/circle-join-requests/{joinRequest}/approve', [CircleController::class, 'approve']);
+    Route::post('/circle-join-requests/{joinRequest}/decline', [CircleController::class, 'decline']);
 
     // Sessions
     Route::get('/sessions', [SessionController::class, 'index']);

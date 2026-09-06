@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CircleVisibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,17 @@ class Circle extends Model
         'name',
         'admin_id',
         'invite_code',
+        'description',
+        'visibility',
+        'location_label',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'visibility' => CircleVisibility::class,
+        ];
+    }
 
     public function admin(): BelongsTo
     {
@@ -41,9 +52,19 @@ class Circle extends Model
         return $this->hasMany(Session::class);
     }
 
+    public function joinRequests(): HasMany
+    {
+        return $this->hasMany(CircleJoinRequest::class);
+    }
+
     public function isAdmin(User $user): bool
     {
         return (int) $this->admin_id === (int) $user->id;
+    }
+
+    public function isDiscoverable(): bool
+    {
+        return $this->visibility === CircleVisibility::PUBLIC;
     }
 
     public function hasMember(User $user): bool

@@ -75,11 +75,27 @@ Route::post('/email/verification-notification', function (\Illuminate\Http\Reque
     return redirect()->route('verification.notice')->with('status', 'verification-link-sent');
 })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 
+// Interactive Circles map — the app's landing view
+Route::get('/circles', function () {
+    $base = rtrim(request()->getBasePath(), '/');
+    $csrf = csrf_token();
+
+    $__path = resource_path('views/circles-map.php');
+    extract(['base' => $base, 'csrf' => $csrf], EXTR_SKIP);
+    ob_start();
+    include $__path;
+
+    return response(ob_get_clean());
+})->middleware(['auth', 'verified'])->name('circles.map');
+
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
     $base = rtrim(request()->getBasePath(), '/');
 
-    $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
+    $active = 'sessions';
+    ob_start();
+    include resource_path('views/partials/app-header.php');
+    $headerHtml = ob_get_clean();
 
     $circleId = \Illuminate\Support\Facades\Auth::user()->personalCircle?->id;
 
@@ -148,9 +164,8 @@ Route::get('/', function () {
     <style>
         html,body{height:100%}
         body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;margin:0;padding:0;overflow:hidden}
-        .wrap{width:100%;max-width:none;height:100dvh;display:flex;flex-direction:column;box-sizing:border-box;padding:20px 16px 0;margin:0}
-        .dashboard-header,.dashboard-subhead{flex-shrink:0}
-        .view{flex:1;min-height:0;overflow-y:auto;padding-bottom:24px;-webkit-overflow-scrolling:touch}
+        .wrap{width:100%;max-width:none;height:100dvh;display:flex;flex-direction:column;box-sizing:border-box;padding:0;margin:0}
+        .view{flex:1;min-height:0;overflow-y:auto;padding:20px 16px 24px;-webkit-overflow-scrolling:touch}
         h1{font-size:2rem;margin:0 0 4px}
         .sub{color:var(--text-muted);margin:0 0 24px}
         .manage-link{font-family:inherit;font-size:inherit;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:inherit}
@@ -228,26 +243,7 @@ Route::get('/', function () {
         .brand-word{font-family:"Arial Black","Space Grotesk","Manrope",sans-serif;font-size:1.7rem;font-weight:900;letter-spacing:.01em;line-height:1;color:var(--text)}
     </style>
     </head><body><div class="wrap">
-        <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-            <div style="display:flex;align-items:center;justify-content:flex-start"><h1 style="margin-left:-0.5rem;display:flex;align-items:center;justify-content:flex-start;gap:12px"><img class="brand-mark" src="'.$base.'/assets/courtly-mark.png" alt="" style="width:48px;height:48px;object-fit:contain;display:block;flex-shrink:0"><span class="brand-word">Courtly</span></h1></div>
-            <div class="dashboard-header__actions" style="display:flex;gap:8px;align-items:center">
-                '.$userChip.'
-                <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
-            </div>
-        </div>
-        <div class="dashboard-subhead" style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
-            <div class="dashboard-subhead__actions" style="display:flex;gap:8px;align-items:center">
-                <button type="button" class="pill-link pill-link--active" data-view="sessions" aria-current="page" onclick="showView(\'sessions\')">Sessions</button>
-                <button type="button" class="pill-link" data-view="stats" onclick="showView(\'stats\')">Player Stats</button>
-                <button type="button" class="pill-link" data-view="rankings" onclick="showView(\'rankings\')">Rankings</button>
-                <button type="button" class="pill-link" data-view="manage" onclick="openManage()">Manage Players</button>
-                <button type="button" class="pill-link" data-view="circles" onclick="showView(\'circles\')">Circles</button>
-            </div>
-            <form method="POST" action="/logout" style="margin:0">
-                <input type="hidden" name="_token" value="'.csrf_token().'">
-                <button type="submit" class="pill-link">Logout</button>
-            </form>
-        </div>
+        '.$headerHtml.'
         <div class="view" id="view-sessions">
         <div class="card">
             <h2>New Session</h2>
@@ -310,27 +306,6 @@ Route::get('/', function () {
         </div>
     </div>
     <script>
-    function courtlyUpdateThemeIcon() {
-        var button = document.getElementById("themeSwitch");
-        if (!button) return;
-        var light = document.documentElement.getAttribute("data-theme") === "light";
-        button.textContent = light ? "☾" : "☀";
-        button.title = light ? "Switch to dark theme" : "Switch to light theme";
-        button.setAttribute("aria-label", button.title);
-    }
-    function toggleCourtlyTheme() {
-        var isLight = document.documentElement.getAttribute("data-theme") === "light";
-        var next = isLight ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", next);
-        localStorage.setItem("courtly-theme", next);
-        courtlyUpdateThemeIcon();
-    }
-    (function() {
-        var stored = localStorage.getItem("courtly-theme");
-        if (stored === "light" || stored === "dark") document.documentElement.setAttribute("data-theme", stored);
-        courtlyUpdateThemeIcon();
-    })();
-
     document.getElementById("createForm").addEventListener("submit", async function(e){
         e.preventDefault();
         var err = document.getElementById("err");

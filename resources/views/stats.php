@@ -89,17 +89,7 @@
 </head>
 <body>
 <div class="stats-wrap">
-    <header class="stats-head">
-        <a href="<?= e($base ?? '') ?>/" class="back-btn" title="Back to dashboard">←</a>
-        <h1>Player Stats</h1>
-        <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
-    </header>
-
-    <nav class="view-nav" aria-label="Views">
-        <a href="<?= e($base ?? '') ?>/" class="pill-link">Sessions</a>
-        <a href="<?= e($base ?? '') ?>/stats" class="pill-link pill-link--active" aria-current="page">Player Stats</a>
-        <a href="<?= e($base ?? '') ?>/rankings" class="pill-link">Rankings</a>
-    </nav>
+    <?php $active = 'stats'; include resource_path('views/partials/app-header.php'); ?>
 
     <div class="stats-select">
         <label for="playerSelect">Select a player</label>
@@ -148,27 +138,6 @@
 </div>
 
 <script>
-function courtlyUpdateThemeIcon() {
-    var button = document.getElementById('themeSwitch');
-    if (!button) return;
-    var light = document.documentElement.getAttribute('data-theme') === 'light';
-    button.textContent = light ? '☾' : '☀';
-    button.title = light ? 'Switch to dark theme' : 'Switch to light theme';
-    button.setAttribute('aria-label', button.title);
-}
-function toggleCourtlyTheme() {
-    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    var next = isLight ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('courtly-theme', next);
-    courtlyUpdateThemeIcon();
-}
-(function() {
-    var stored = localStorage.getItem('courtly-theme');
-    if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
-    courtlyUpdateThemeIcon();
-})();
-
 (function () {
     'use strict';
 

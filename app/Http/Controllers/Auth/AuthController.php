@@ -134,7 +134,7 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/');
+            return redirect()->intended('/circles');
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.'])->onlyInput('email');
@@ -172,7 +172,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect('/');
+        return redirect('/circles');
     }
 
     /** Logout. */
@@ -216,7 +216,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect('/');
+        return redirect('/circles');
     }
 
     /**
