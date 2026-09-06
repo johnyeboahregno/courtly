@@ -41,7 +41,7 @@
 <div id="courtly-app">
     <header class="session-header">
         <div class="session-header__left">
-            <a href="<?= $base ?? '/courtly' ?>/" class="session-header__logo" title="Back to home">
+            <a href="<?= $base ?? '/courtly' ?>/circles" class="session-header__logo" title="Back to circles">
                 <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark.png" alt="Courtly" class="session-header__logo-img session-header__logo-img--light">
                 <img src="<?= $base ?? '/courtly' ?>/assets/courtly-mark-dark.png" alt="Courtly" class="session-header__logo-img session-header__logo-img--dark">
             </a>
@@ -67,6 +67,7 @@
                     <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'online' }" @click="setOfflinePreference('online')">Online</button>
                 </div>
             </div>
+            <a href="<?= $base ?? '/courtly' ?>/circles" class="mode-switch" title="Back to circles">CIRCLES</a>
             <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
         </div>
     </header>

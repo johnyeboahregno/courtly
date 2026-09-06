@@ -138,6 +138,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Courtly Circles Configuration
+    |--------------------------------------------------------------------------
+    */
+    'circles' => [
+        // Player tier badges: highest tier whose thresholds are met.
+        'tiers' => [
+            ['name' => 'Rookie', 'min_rating' => 0, 'min_games' => 0],
+            ['name' => 'Bronze', 'min_rating' => 20, 'min_games' => 3],
+            ['name' => 'Silver', 'min_rating' => 40, 'min_games' => 5],
+            ['name' => 'Gold', 'min_rating' => 60, 'min_games' => 10],
+            ['name' => 'Ace', 'min_rating' => 80, 'min_games' => 15],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Courtly Offline-First Sync Configuration
     |--------------------------------------------------------------------------
     */
