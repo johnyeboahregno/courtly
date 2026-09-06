@@ -19,6 +19,7 @@ class Court extends Model
     protected $fillable = [
         'session_id',
         'court_number',
+        'name',
         'status',
     ];
 
@@ -26,6 +27,7 @@ class Court extends Model
     {
         return [
             'court_number' => 'integer',
+            'name' => 'string',
             'status' => CourtStatus::class,
         ];
     }

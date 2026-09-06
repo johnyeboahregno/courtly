@@ -87,10 +87,11 @@
     <div class="courts-grid" :class="'courts-' + courts.length">
         <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')">
             <div class="court-card__head">
-                <span class="court-card__number">COURT {{ court.court_number }}</span>
+                <span class="court-card__number">{{ court.name || ('COURT ' + court.court_number) }}</span>
                 <span class="court-card__head-actions">
                     <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
                     <button v-if="court.match" class="court-why-btn" type="button" :class="{ 'is-busy': explaining[court.match.id] }" :disabled="explaining[court.match.id]" @click="toggleExplanation(court)" title="Why this match?">WHY</button>
+                    <button v-if="session.status !== 'FINISHED'" class="court-rename-btn" type="button" :disabled="updatingCourts" @click="adjustCourts('rename', court.court_number)" :title="'Rename ' + (court.name || ('court ' + court.court_number))" :aria-label="'Rename ' + (court.name || ('court ' + court.court_number))">✎</button>
                     <button v-if="session.status !== 'FINISHED'" class="court-remove-btn" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove', court.court_number)" title="Remove this court" :aria-label="'Remove court ' + court.court_number">×</button>
                 </span>
             </div>
@@ -233,7 +234,7 @@
     <div v-if="manualAssignment.show" class="modal-overlay" @click.self="closeManualAssignment">
         <div class="modal modal--wide modal--manual-assign">
             <div class="modal__head">
-                <h3>Assign Court {{ manualAssignment.court.court_number }}</h3>
+                <h3>Assign {{ manualAssignment.court.name || ('Court ' + manualAssignment.court.court_number) }}</h3>
                 <button class="modal__close" @click="closeManualAssignment">✕</button>
             </div>
             <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
@@ -430,7 +431,7 @@
     <div v-if="scorePicker.show" class="score-picker" @click.self="closeScorePicker">
         <div class="score-picker__panel" role="dialog" aria-label="Enter match score">
             <div class="score-picker__head">
-                <span class="score-picker__court">COURT {{ scorePicker.courtNumber }} — FINAL SCORE</span>
+                <span class="score-picker__court">{{ scorePicker.courtLabel || ('COURT ' + scorePicker.courtNumber) }} — FINAL SCORE</span>
                 <button class="score-picker__close" type="button" @click="closeScorePicker" aria-label="Cancel">✕</button>
             </div>
             <div class="score-picker__teams">
@@ -559,7 +560,7 @@ createApp({
         const CLOSE_MARGIN = 3;
         const SCORE_ITEM_HEIGHT = 56;
         const scoreValues = Object.freeze(Array.from({ length: 41 }, (_, index) => index));
-        const scorePicker = reactive({ show: false, matchId: null, team: 1, courtNumber: null, t1: 21, t2: 15, t1Names: '', t2Names: '' });
+        const scorePicker = reactive({ show: false, matchId: null, team: 1, courtNumber: null, courtLabel: null, t1: 21, t2: 15, t1Names: '', t2Names: '' });
         const wheelT1 = ref(null);
         const wheelT2 = ref(null);
         const wheelFrames = { t1: 0, t2: 0 };
@@ -1089,6 +1090,7 @@ createApp({
             scorePicker.matchId = match.id;
             scorePicker.team = team;
             scorePicker.courtNumber = court.court_number;
+            scorePicker.courtLabel = court.name || ('COURT ' + court.court_number);
             scorePicker.t1Names = match.t1.map(p => formatName(p.name)).join(' + ');
             scorePicker.t2Names = match.t2.map(p => formatName(p.name)).join(' + ');
             scorePicker.t1 = team === 1 ? MATCH_POINTS : 15;
@@ -1104,6 +1106,7 @@ createApp({
         function closeScorePicker() {
             scorePicker.show = false;
             scorePicker.matchId = null;
+            scorePicker.courtLabel = null;
             scorePickerSpot = null;
         }
 
@@ -1147,7 +1150,8 @@ createApp({
                 if (offlineMode.value) autoFillCourtsOffline();
             }
 
-            const label = 'Match result — Court ' + (court ? court.court_number : '?') + ' (Team ' + team + ' won)';
+            const courtLabel = court ? (court.name || ('Court ' + court.court_number)) : 'Court ?';
+            const label = 'Match result — ' + courtLabel + ' (Team ' + team + ' won)';
             apiRequest('POST', '/api/matches/' + matchId + '/result', scores
                 ? { winning_team: team, team_1_score: scores.t1, team_2_score: scores.t2 }
                 : { winning_team: team }, label)
@@ -1231,15 +1235,38 @@ createApp({
             try {
                 const body = { action };
                 if (courtNumber != null) body.court_number = courtNumber;
-                const label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
+                let label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
+
+                if (action === 'rename') {
+                    const court = courts.value.find(c => c.court_number === courtNumber);
+                    const defaultName = 'Court ' + courtNumber;
+                    const currentName = (court?.name || '').trim();
+                    const entered = window.prompt('Rename court ' + courtNumber, currentName || defaultName);
+
+                    if (entered === null) {
+                        return;
+                    }
+
+                    body.court_name = entered.trim();
+                    label = body.court_name
+                        ? 'Rename court ' + courtNumber + ' to "' + body.court_name + '"'
+                        : 'Reset court ' + courtNumber + ' name';
+                }
 
                 if (offlineMode.value) {
                     if (action === 'add' && courts.value.length < 8) {
                         const nextNumber = courts.value.reduce((max, c) => Math.max(max, c.court_number), 0) + 1;
-                        courts.value = [...courts.value, { id: 'offline-court-' + nextNumber, court_number: nextNumber, match: null }];
+                        courts.value = [...courts.value, { id: 'offline-court-' + nextNumber, court_number: nextNumber, name: 'Court ' + nextNumber, match: null }];
                     } else if (action === 'remove' && courts.value.length > 1) {
                         const targetNumber = courtNumber ?? courts.value.reduce((max, c) => Math.max(max, c.court_number), 0);
                         courts.value = courts.value.filter(c => c.court_number !== targetNumber);
+                    } else if (action === 'rename' && courtNumber != null) {
+                        const next = [...courts.value];
+                        const index = next.findIndex(c => c.court_number === courtNumber);
+                        if (index >= 0) {
+                            next[index] = { ...next[index], name: body.court_name || null };
+                            courts.value = next;
+                        }
                     }
                     queueAction('PATCH', '/api/sessions/' + SESSION_ID + '/courts', body, label);
                     return;
@@ -1349,7 +1376,7 @@ createApp({
                 applyLocalMatch(court.id, team1Ids, team2Ids, matchId);
                 queueAction('POST', '/api/sessions/' + SESSION_ID + '/manual-assignment', {
                     court_id: court.id, player_ids: ids, team_1_ids: team1Ids, team_2_ids: team2Ids,
-                }, 'Auto-fill court ' + court.court_number, { producesMatchId: matchId });
+                }, 'Auto-fill ' + (court.name || ('Court ' + court.court_number)), { producesMatchId: matchId });
             }
         }
         async function startCourtMatch(courtId) {
@@ -1359,7 +1386,7 @@ createApp({
             try {
                 const playerIds = list.map(sp => sp.player_id);
                 const court = courts.value.find(c => c.id === courtId);
-                const label = 'Assign court ' + (court ? court.court_number : '') + ' from queue';
+                const label = 'Assign ' + (court ? (court.name || ('Court ' + court.court_number)) : '') + ' from queue';
 
                 if (offlineMode.value) {
                     const balanced = balanceManualTeam(playerIds);
@@ -1440,7 +1467,7 @@ createApp({
             const playerIds = manualAssignment.playerIds;
             const team1Ids = playerIds.slice(0, 2);
             const team2Ids = playerIds.slice(2, 4);
-            const label = 'Assign court ' + court.court_number + ' manually';
+            const label = 'Assign ' + (court.name || ('Court ' + court.court_number)) + ' manually';
 
             if (offlineMode.value) {
                 const matchId = makeOfflineMatchId(court.id);
