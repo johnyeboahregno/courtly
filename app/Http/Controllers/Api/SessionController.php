@@ -86,6 +86,7 @@ class SessionController extends Controller
             Court::create([
                 'session_id' => $session->id,
                 'court_number' => $i,
+                'name' => 'Court ' . $i,
                 'status' => CourtStatus::AVAILABLE,
             ]);
         }
@@ -502,8 +503,9 @@ class SessionController extends Controller
         $this->authorizeSession($session);
 
         $validated = $request->validate([
-            'action' => ['required', 'string', 'in:add,remove'],
+            'action' => ['required', 'string', 'in:add,remove,rename'],
             'court_number' => ['nullable', 'integer', 'min:1'],
+            'court_name' => ['nullable', 'string', 'max:80'],
         ]);
 
         $session = DB::transaction(function () use ($session, $validated) {
@@ -518,6 +520,31 @@ class SessionController extends Controller
                 ->count();
             $minimum = (int) config('courtly.session.min_courts', 1);
             $maximum = (int) config('courtly.session.max_courts', 8);
+
+            if ($validated['action'] === 'rename') {
+                if (empty($validated['court_number'])) {
+                    abort(422, 'A court number is required to rename a court.');
+                }
+
+                $court = $lockedSession->courts()
+                    ->where('court_number', (int) $validated['court_number'])
+                    ->where('status', '!=', CourtStatus::INACTIVE->value)
+                    ->firstOrFail();
+
+                $nextName = trim((string) ($validated['court_name'] ?? ''));
+
+                $court->update([
+                    'name' => $nextName !== '' ? $nextName : null,
+                ]);
+
+                return $lockedSession->fresh()->load([
+                    'courts',
+                    'sessionPlayers.player',
+                    'matches' => fn ($query) => $query
+                        ->where('status', MatchStatus::PLAYING->value)
+                        ->with('matchPlayers.player'),
+                ]);
+            }
 
             if ($validated['action'] === 'add') {
                 if ($courtCount >= $maximum) {
@@ -535,6 +562,7 @@ class SessionController extends Controller
                     Court::create([
                         'session_id' => $lockedSession->id,
                         'court_number' => ($lockedSession->courts()->max('court_number') ?? 0) + 1,
+                        'name' => 'Court ' . (($lockedSession->courts()->max('court_number') ?? 0) + 1),
                         'status' => CourtStatus::AVAILABLE,
                     ]);
                 }
