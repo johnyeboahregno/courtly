@@ -164,7 +164,10 @@ class SessionPlayerController extends Controller
                 if ($session->isTournament()) {
                     AllocateSessionMatches::dispatch($session->id)->afterResponse();
                 } else {
-                    $this->matchmaking->allocateMatches($session);
+                    // Bypass the synchronized-rounds gate here: a player checking in
+                    // should seat a newly-eligible group on any open court right away,
+                    // rather than waiting for every other court to finish its round.
+                    $this->matchmaking->allocateMatches($session, requireAllCourtsFree: false);
                 }
             }
         }

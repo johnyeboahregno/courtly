@@ -28,16 +28,22 @@ class MatchmakingService
     /**
      * Main entry point: allocate matches to all available courts.
      *
+     * @param bool $requireAllCourtsFree When true (default), the synchronized-rounds
+     *        gate applies: no court is filled while any other active court on the
+     *        session is still PLAYING. Pass false to fill whatever courts are
+     *        currently AVAILABLE right away — used when a player check-in should
+     *        seat a newly-eligible group immediately instead of waiting for the
+     *        rest of the round to free up.
      * @return array<int, Match>
      */
-    public function allocateMatches(Session $session): array
+    public function allocateMatches(Session $session, bool $requireAllCourtsFree = true): array
     {
-        return DB::transaction(function () use ($session): array {
+        return DB::transaction(function () use ($session, $requireAllCourtsFree): array {
             // Multiple live browsers can trigger matchmaking at the same time.
             // Locking the session serializes allocation for its courts and players.
             $lockedSession = Session::query()->lockForUpdate()->findOrFail($session->id);
 
-            return $this->allocateMatchesLocked($lockedSession);
+            return $this->allocateMatchesLocked($lockedSession, $requireAllCourtsFree);
         });
     }
 
@@ -152,7 +158,7 @@ class MatchmakingService
      *
      * @return array<int, Match>
      */
-    private function allocateMatchesLocked(Session $session): array
+    private function allocateMatchesLocked(Session $session, bool $requireAllCourtsFree = true): array
     {
         // Only an ACTIVE session ever forms matches. UPCOMING sessions keep
         // their players in the waiting list until the organiser presses
@@ -180,11 +186,13 @@ class MatchmakingService
         // them at once. A court can sit idle for the rest of the round here by
         // design; the organizer can still use manual assignment to fill one
         // court immediately if they choose to.
-        $activeCourtCount = $session->courts()
-            ->where('status', '!=', CourtStatus::INACTIVE->value)
-            ->count();
-        if ($availableCourts->count() < $activeCourtCount) {
-            return [];
+        if ($requireAllCourtsFree) {
+            $activeCourtCount = $session->courts()
+                ->where('status', '!=', CourtStatus::INACTIVE->value)
+                ->count();
+            if ($availableCourts->count() < $activeCourtCount) {
+                return [];
+            }
         }
 
         $waitingPlayers = $session->sessionPlayers()
