@@ -11,29 +11,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
+        var COURT_THEMES = ['dark', 'blue', 'cyber', 'crimson', 'emerald', 'light'];
+        var COURT_GLYPHS = { dark: '☾', blue: '✦', cyber: '✧', crimson: '♥', emerald: '❖', light: '☀' };
+        var COURT_LABELS = { dark: 'Dark', blue: 'Blue', cyber: 'Cyber', crimson: 'Crimson', emerald: 'Emerald', light: 'Light' };
         (function () {
-            var stored = localStorage.getItem('courtly-theme');
-            if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+            try {
+                var s = localStorage.getItem('courtly-theme');
+                if (COURT_THEMES.indexOf(s) !== -1 && s !== 'dark') document.documentElement.setAttribute('data-theme', s);
+            } catch (e) {}
         })();
-        function toggleCourtlyTheme() {
-            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
-            var next = isLight ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('courtly-theme', next);
-            var button = document.getElementById('themeSwitch');
-            if (button) {
-                button.textContent = isLight ? '☀' : '☾';
-                button.title = isLight ? 'Switch to light theme' : 'Switch to dark theme';
-            }
+        function courtlyCurrentTheme() {
+            var t = document.documentElement.getAttribute('data-theme');
+            return COURT_THEMES.indexOf(t) !== -1 ? t : 'dark';
         }
-        document.addEventListener('DOMContentLoaded', function () {
-            var button = document.getElementById('themeSwitch');
-            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
-            if (button) {
-                button.textContent = isLight ? '☾' : '☀';
-                button.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
-            }
-        });
+        function courtlyUpdateThemeIcon() {
+            var b = document.getElementById('themeSwitch');
+            if (!b) return;
+            var t = courtlyCurrentTheme();
+            b.textContent = COURT_GLYPHS[t];
+            b.title = 'Theme: ' + COURT_LABELS[t] + ' — click to switch';
+            b.setAttribute('aria-label', b.title);
+        }
+        function toggleCourtlyTheme() {
+            var next = COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme()) + 1) % COURT_THEMES.length];
+            if (next === 'dark') document.documentElement.removeAttribute('data-theme');
+            else document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('courtly-theme', next); } catch (e) {}
+            courtlyUpdateThemeIcon();
+        }
+        document.addEventListener('DOMContentLoaded', courtlyUpdateThemeIcon);
     </script>
     <link rel="stylesheet" href="<?= $base ?? '/courtly' ?>/css/courtly.css?v=<?= htmlspecialchars($appVersion ?? '1.0.0') ?>">
 </head>

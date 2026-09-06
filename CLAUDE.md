@@ -1023,34 +1023,53 @@ File: `resources/views/session-live.php`
 
 File: `public/css/courtly.css` (single file, cache-busted via `?v=` — the suffix comes from `config('courtly.app.version')` in `config/courtly.php`; bump `app.version` on user-visible releases to invalidate stale CSS/favicon caches)
 
+### Themes
+
+The theme is selected by `data-theme` on `<html>` and persisted to `localStorage['courtly-theme']`. The header button (`.theme-switch` / `#themeSwitch`, `#btnTheme` on the Circles map) **cycles through** the full list rather than toggling two states:
+
+1. `dark` — default (no `data-theme` attribute; `:root` values): deep navy + violet accent
+2. `blue` — navy + blue accent
+3. `cyber` — teal-black + cyan/mint accent
+4. `crimson` — near-black maroon + red/orange accent
+5. `emerald` — deep green + green/cyan accent
+6. `light` — white + violet accent (full semantic overrides)
+
+Dark variants override only brand/surface/text/glow variables (`--bg`, `--bg-accent`, `--bg-overlay-*`, `--surface*`, `--text*`, `--accent*`, `--stroke`, `--court-*`, `--glow-1/2`, `--rating-badge-*`, `--win-badge-*`, `--scrollbar-*`) and inherit the dark `:root` semantic status/tag colors. The `light` theme overrides everything.
+
+The same theme list is mirrored in three places (keep in sync):
+- `public/css/courtly.css` (served copy) and `css/courtly.css` (legacy FTP copy) — `[data-theme="…"] { … }` blocks
+- `resources/views/circles-map.php` — its own inline `:root`/`[data-theme="…"]` variable set
+- The cycle script (`COURT_THEMES` array) lives inline in `partials/app-header.php`, `session-live.php`, `circles-map.php`, and `AuthController` (injected into login/register pages)
+
 ### Theme Variables
 ```css
 :root {
-  --bg: #12121f;
-  --surface: #1e1e32;
-  --stroke: #2e2e4a;
-  --text: #e4e4f0;
-  --text-muted: #8888a8;
-  --accent: #ff2d55;
-  --team-1: #0084ff;
-  --team-2: #00c764;
-  --shadow-card: 0 4px 20px rgba(0,0,0,.3);
+  --bg: #0b0e2a;
+  --surface: rgba(16,20,48,.82);
+  --stroke: rgba(120,140,255,.16);
+  --text: #e6e8ff;
+  --text-muted: #8f96c9;
+  --accent: #7c5cff;
+  --accent-2: #ff5da2;
+  --shadow-card: 0 14px 36px rgba(0,0,0,.40);
+  --glow-1: rgba(60,60,160,.28);   /* body ambient radial glow */
+  --glow-2: rgba(120,50,160,.18);
 }
 
 [data-theme="light"] {
-  --bg: #f5f5fa;
-  --surface: #ffffff;
-  --stroke: #dde;
-  --text: #1a1a2e;
-  --text-muted: #777;
-  --accent: #0f62fe;
-  --shadow-card: 0 2px 12px rgba(0,0,0,.08);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) { /* light overrides */ }
+  --bg: #ffffff;
+  --surface: rgba(255,255,255,.95);
+  --stroke: rgba(15,23,42,.15);
+  --text: #0f172a;
+  --text-muted: #475569;
+  --accent: #6d4fff;
+  --shadow-card: 0 10px 28px rgba(0,0,0,.08);
+  --glow-1: rgba(99,102,241,.10);
+  --glow-2: rgba(217,70,239,.06);
 }
 ```
+
+> Note: `--glow-1`/`--glow-2` only exist in `public/css/courtly.css` (and `circles-map.php` as `--glow1`/`--glow2`); the legacy `css/courtly.css` still uses a fixed `court-background.jpg` with `--bg-overlay-*` instead of radial glows.
 
 ### Key Class Prefixes
 - `.session-header`, `.session-header__logo`, `.session-header__badge`

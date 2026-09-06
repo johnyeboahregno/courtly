@@ -25,7 +25,18 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
   --team1:#0084ff;
   --team2:#00c764;
   --gold:#ffc24b;
+  --glow1:rgba(60,60,160,.28);
+  --glow2:rgba(120,50,160,.18);
 }
+[data-theme="blue"]{--bg:#0f172a;--panel:rgba(15,23,42,.92);--stroke:rgba(147,197,253,.28);--text:#e5e7eb;--muted:#b7c1d1;--accent:#3b82f6;--accent2:#60a5fa;--cyan:#93c5fd;--team1:#3b82f6;--team2:#10b981;--gold:#fbbf24;--glow1:rgba(59,130,246,.22);--glow2:rgba(147,197,253,.14)}
+[data-theme="cyber"]{--bg:#04151f;--panel:rgba(6,30,40,.88);--stroke:rgba(0,229,255,.22);--text:#d8f7ff;--muted:#7fb8c8;--accent:#00e5ff;--accent2:#00ff9d;--cyan:#7df3ff;--team1:#00e5ff;--team2:#00ff9d;--gold:#ffd166;--glow1:rgba(0,229,255,.20);--glow2:rgba(0,255,157,.12)}
+[data-theme="crimson"]{--bg:#1a060b;--panel:rgba(32,9,15,.88);--stroke:rgba(255,45,85,.24);--text:#ffe9ec;--muted:#c9949e;--accent:#ff2d55;--accent2:#ff8a5c;--cyan:#ff7a9c;--team1:#ff2d55;--team2:#00e0a0;--gold:#ffd166;--glow1:rgba(255,45,85,.20);--glow2:rgba(255,138,92,.12)}
+[data-theme="emerald"]{--bg:#061711;--panel:rgba(8,28,20,.88);--stroke:rgba(0,199,100,.22);--text:#e1fff0;--muted:#8fc7aa;--accent:#00c764;--accent2:#22d3ee;--cyan:#22d3ee;--team1:#00c764;--team2:#22d3ee;--gold:#ffd166;--glow1:rgba(0,199,100,.20);--glow2:rgba(34,211,238,.12)}
+[data-theme="light"]{--bg:#f5f5fa;--panel:rgba(255,255,255,.95);--stroke:rgba(15,23,42,.15);--text:#0f172a;--muted:#475569;--accent:#6d4fff;--accent2:#d61e7b;--cyan:#0e7490;--team1:#2563eb;--team2:#059669;--gold:#b45309;--glow1:rgba(99,102,241,.10);--glow2:rgba(217,70,239,.06)}
+[data-theme="light"] .map-header{background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.6))}
+[data-theme="light"] #grid{background-image:linear-gradient(rgba(15,23,42,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.06) 1px,transparent 1px)}
+[data-theme="light"] .link{stroke:rgba(15,23,42,.30)}
+[data-theme="light"] .link--soft{stroke:rgba(15,23,42,.16)}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden}
@@ -53,9 +64,9 @@ button{font-family:inherit}
 
 /* ── Map ────────────────────────────────────────────────── */
 #map{position:fixed;inset:0;overflow:hidden;touch-action:none;cursor:grab;background:
-  radial-gradient(1200px 800px at 50% 40%,rgba(60,60,160,.28),transparent 70%),
-  radial-gradient(900px 700px at 80% 85%,rgba(120,50,160,.18),transparent 70%),
-  #0b0e2a}
+  radial-gradient(1200px 800px at 50% 40%,var(--glow1),transparent 70%),
+  radial-gradient(900px 700px at 80% 85%,var(--glow2),transparent 70%),
+  var(--bg)}
 #map.dragging{cursor:grabbing}
 #world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 #grid{position:absolute;left:-2400px;top:-2400px;width:4800px;height:4800px;
@@ -335,7 +346,12 @@ function updateHud(focusId){
 }
 
 /* ── view transform ─────────────────────────────────────── */
-function applyView(){document.getElementById('world').style.transform=`translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.scale})`}
+let viewLoaded=false;
+let persistTimer=null;
+function schedulePersistView(){clearTimeout(persistTimer);persistTimer=setTimeout(persistView,250)}
+function persistView(){try{localStorage.setItem('courtly-map-view',JSON.stringify({scale:state.view.scale,focusId:state.focusId}))}catch(e){}}
+function restoreView(){try{const raw=localStorage.getItem('courtly-map-view');if(!raw)return null;const v=JSON.parse(raw);return{scale:clamp(Number(v.scale)||1,0.35,3),focusId:v.focusId||null}}catch(e){return null}}
+function applyView(){document.getElementById('world').style.transform=`translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.scale})`;if(viewLoaded)schedulePersistView()}
 function screenToWorld(sx,sy){return{x:(sx-state.view.x)/state.view.scale,y:(sy-state.view.y)/state.view.scale}}
 function centerView(){
   const map=document.getElementById('map');
@@ -487,10 +503,26 @@ async function loadMap(){
   state.pending=d.pending_requests||[];
   state.nodes=d.nodes||[];
   state.nodeMap={};state.nodes.forEach(n=>state.nodeMap[n.id]=n);
-  state.focusId=state.personalId;
-  layout();render();
-  centerView();
-  if(state.personalId)setTimeout(()=>focusOn(state.personalId),60);  setTimeout(refreshSheet,400);}
+  const saved=restoreView();
+  if(!saved){
+    state.focusId=state.personalId;
+    layout();render();
+    centerView();
+    if(state.personalId)setTimeout(()=>focusOn(state.personalId),60);
+  }else{
+    state.focusId=(saved.focusId&&state.nodeMap[saved.focusId])?saved.focusId:state.personalId;
+    layout();render();
+    const focusP=state.positions[state.focusId];
+    if(focusP){
+      const mapEl=document.getElementById('map');
+      state.view={x:mapEl.clientWidth/2-focusP.x*saved.scale,y:mapEl.clientHeight/2-focusP.y*saved.scale,scale:saved.scale};
+      applyView();
+    }else{
+      centerView();
+    }
+  }
+  viewLoaded=true;
+  setTimeout(refreshSheet,400);}
 async function refreshMap(){
   const r=await api('/api/circles/map');
   if(!r.ok)return;
@@ -640,14 +672,14 @@ document.getElementById('joinGo').addEventListener('click',async()=>{
 document.getElementById('joinCode').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('joinGo').click()});
 
 /* theme */
-function updateThemeIcon(){document.getElementById('btnTheme').textContent=document.documentElement.getAttribute('data-theme')==='light'?'☾':'☀'}
-document.getElementById('btnTheme').addEventListener('click',()=>{
-  const isLight=document.documentElement.getAttribute('data-theme')==='light';
-  document.documentElement.setAttribute('data-theme',isLight?'dark':'light');
-  try{localStorage.setItem('courtly-theme',isLight?'dark':'light')}catch(e){}
-  updateThemeIcon();
-});
-(function(){try{const s=localStorage.getItem('courtly-theme');if(s==='light'||s==='dark')document.documentElement.setAttribute('data-theme',s)}catch(e){}updateThemeIcon()})();
+var COURT_THEMES=['dark','blue','cyber','crimson','emerald','light'];
+var COURT_GLYPHS={dark:'☾',blue:'✦',cyber:'✧',crimson:'♥',emerald:'❖',light:'☀'};
+var COURT_LABELS={dark:'Dark',blue:'Blue',cyber:'Cyber',crimson:'Crimson',emerald:'Emerald',light:'Light'};
+function courtlyCurrentTheme(){var t=document.documentElement.getAttribute('data-theme');return COURT_THEMES.indexOf(t)!==-1?t:'dark'}
+function updateThemeIcon(){var b=document.getElementById('btnTheme');if(!b)return;var t=courtlyCurrentTheme();b.textContent=COURT_GLYPHS[t];b.title='Theme: '+COURT_LABELS[t]+' — click to switch';b.setAttribute('aria-label',b.title)}
+function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme())+1)%COURT_THEMES.length];if(next==='dark')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('courtly-theme',next)}catch(e){}updateThemeIcon()}
+document.getElementById('btnTheme').addEventListener('click',toggleCourtlyTheme);
+(function(){try{var s=localStorage.getItem('courtly-theme');if(COURT_THEMES.indexOf(s)!==-1&&s!=='dark')document.documentElement.setAttribute('data-theme',s)}catch(e){}updateThemeIcon()})();
 
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});
 
