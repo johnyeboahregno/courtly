@@ -68,10 +68,10 @@
                         <tr>
                             <td class="ranking-table__rank" aria-label="Rank <?= $rankNumber ?>"><?= $rankNumber ?></td>
                             <th scope="row">
+                                <?= e($player->name) ?>
                                 <span class="rank-icon">
                                     <img src="<?= $emblemBase ?>@2x.png" srcset="<?= $emblemBase ?>@1x.png 1x, <?= $emblemBase ?>@2x.png 2x, <?= $emblemBase ?>@3x.png 3x" alt="<?= e(ucfirst($tier)) ?> rank" width="28" height="28" decoding="async">
                                 </span>
-                                <?= e($player->name) ?>
                             </th>
                             <td class="ranking-table__rating"><?= number_format($rating, 1) ?></td>
                             <td><?= $player->total_games ?></td>

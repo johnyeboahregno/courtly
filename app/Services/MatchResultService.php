@@ -18,7 +18,6 @@ class MatchResultService
 {
     public function __construct(
         private readonly RatingService $ratingService,
-        private readonly MatchmakingService $matchmakingService,
         private readonly RealtimeEventService $eventService,
         private readonly TournamentService $tournamentService,
     ) {}
@@ -165,21 +164,26 @@ class MatchResultService
             ];
         }, 3); // Retry up to 3 times on deadlock
 
-        // After the transaction commits, refill available courts synchronously
-        // to ensure no idle courts. This happens after the transaction so we don't
-        // nest two transactions and cause potential deadlock.
-        $nextMatches = [];
+        // Refill available courts on the queue instead of inline: the
+        // matchmaking algorithm's DB round-trips against the (high-latency,
+        // remote) database routinely cost several seconds by themselves — see
+        // the `matchmaking.completed` duration_ms log entries — so running it
+        // synchronously here was adding that same delay to every result
+        // submission. dispatch()->afterResponse() sends the HTTP response
+        // immediately and runs the allocation right after; the client picks
+        // up the newly created match on its next event poll instead of via
+        // `next_matches` in this response.
         if (! $result['is_tournament']) {
             $session = Session::find($result['session_id']);
             if ($session?->isActive()) {
-                $nextMatches = $this->matchmakingService->allocateMatches($session);
+                AllocateSessionMatches::dispatch($session->id)->afterResponse();
             }
         }
 
         return [
             'match' => $result['match'],
             'rating_changes' => $result['rating_changes'],
-            'next_matches' => $nextMatches,
+            'next_matches' => [],
         ];
     }
 
