@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\SessionController;
@@ -29,7 +30,22 @@ Route::post('/reset-password', fn () => response()->json(['message' => 'Password
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/email/verification-notification', fn () => response()->json(['message' => 'Verification email resent.']));
+    Route::get('/me/overview', [AuthController::class, 'overview']);
+    Route::post('/email/verification-notification', function (\Illuminate\Http\Request $request) {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json(['message' => 'Verification email sent.']);
+    });
+
+    // Everything below requires a verified email address.
+    Route::middleware('verified')->group(function () {
+    // Circles
+    Route::get('/circles', [CircleController::class, 'index']);
+    Route::post('/circles/join', [CircleController::class, 'join']);
 
     // Sessions
     Route::get('/sessions', [SessionController::class, 'index']);
@@ -75,4 +91,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/players/reset-all', [PlayerController::class, 'resetAll']);
     Route::post('/players/{player}/reset-rating', [PlayerController::class, 'resetRating']);
     Route::delete('/players/{player}', [PlayerController::class, 'destroy']);
+    });
 });

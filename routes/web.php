@@ -23,18 +23,72 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
+// ── Email verification ──────────────────────────────────────────────
+Route::get('/email/verify', function () {
+    $base = rtrim(request()->getBasePath(), '/');
+    $email = e(\Illuminate\Support\Facades\Auth::user()->email);
+
+    $statusHtml = session('status') === 'verification-link-sent'
+        ? '<p style="color:#00c764;margin:16px 0 0">A fresh verification link has been sent to <strong>'.$email.'</strong>.</p>'
+        : '';
+
+    return response('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify your email — Courtly</title></head>'
+        .'<body style="background:#12121f;color:#e4e4f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
+        .'<div style="background:#1e1e32;border:1px solid #2e2e4a;border-radius:12px;padding:32px;max-width:420px;width:100%;margin:16px;box-shadow:0 4px 20px rgba(0,0,0,.3)">'
+        .'<h1 style="font-size:1.3rem;margin:0 0 12px">Verify your email address</h1>'
+        .'<p style="color:#8888a8;line-height:1.6;margin:0">We sent a verification link to <strong style="color:#e4e4f0">'.$email.'</strong>. Click the link in that email to activate your account.</p>'
+        .$statusHtml
+        .'<form method="POST" action="'.$base.'/email/verification-notification" style="margin:20px 0 0">'
+        .'<input type="hidden" name="_token" value="'.csrf_token().'">'
+        .'<button type="submit" style="width:100%;padding:12px;border:none;border-radius:6px;background:#ff2d55;color:#fff;font-weight:700;cursor:pointer">Resend verification email</button>'
+        .'</form>'
+        .'<form method="POST" action="'.$base.'/logout" style="margin:12px 0 0">'
+        .'<input type="hidden" name="_token" value="'.csrf_token().'">'
+        .'<button type="submit" style="width:100%;padding:12px;border:1px solid #2e2e4a;border-radius:6px;background:transparent;color:#8888a8;cursor:pointer">Logout</button>'
+        .'</form>'
+        .'</div></body></html>');
+})->middleware('auth')->name('verification.notice');
+
+Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
+    $user = \App\Models\User::findOrFail($id);
+
+    if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+        abort(403, 'Invalid verification link.');
+    }
+
+    if ($user->hasVerifiedEmail()) {
+        return redirect()->route('dashboard')->with('status', 'Your email is already verified.');
+    }
+
+    $user->markEmailAsVerified();
+
+    return redirect()->route('dashboard')->with('status', 'Email verified — welcome to Courtly!');
+})->middleware(['auth', 'signed'])->name('verification.verify');
+
+Route::post('/email/verification-notification', function (\Illuminate\Http\Request $request) {
+    if ($request->user()->hasVerifiedEmail()) {
+        return redirect()->route('dashboard');
+    }
+
+    $request->user()->sendEmailVerificationNotification();
+
+    return redirect()->route('verification.notice')->with('status', 'verification-link-sent');
+})->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
 // Dashboard — lists the authenticated user's sessions
 Route::get('/', function () {
     $base = rtrim(request()->getBasePath(), '/');
 
     $userChip = '<span class="user-name">'.e(\Illuminate\Support\Facades\Auth::user()->name).'</span>';
 
+    $circleId = \Illuminate\Support\Facades\Auth::user()->personalCircle?->id;
+
     $sessions = \App\Models\Session::select('id', 'name', 'sport', 'date', 'number_of_courts', 'status', 'matchmaking_mode')
-        ->where('created_by', \Illuminate\Support\Facades\Auth::id())
+        ->where('circle_id', $circleId)
         ->orderByDesc('date')->get();
 
     $players = \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
-        ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+        ->where('circle_id', $circleId)
         ->orderByDesc('rating')
         ->orderByDesc('total_games')
         ->orderBy('name')
@@ -187,6 +241,7 @@ Route::get('/', function () {
                 <button type="button" class="pill-link" data-view="stats" onclick="showView(\'stats\')">Player Stats</button>
                 <button type="button" class="pill-link" data-view="rankings" onclick="showView(\'rankings\')">Rankings</button>
                 <button type="button" class="pill-link" data-view="manage" onclick="openManage()">Manage Players</button>
+                <button type="button" class="pill-link" data-view="circles" onclick="showView(\'circles\')">Circles</button>
             </div>
             <form method="POST" action="/logout" style="margin:0">
                 <input type="hidden" name="_token" value="'.csrf_token().'">
@@ -226,6 +281,22 @@ Route::get('/', function () {
                 <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()" title="Reset all player ratings" aria-label="Reset all player ratings">Reset All</button>
                 <button type="button" class="dialog__btn dialog__btn--save" onclick="saveAllPlayers()" title="Save all player changes" aria-label="Save all player changes">Save</button>
             </div>
+        </div>
+        </div>
+        <div class="view" id="view-circles" hidden>
+        <div class="card">
+            <h2>Your Circles</h2>
+            <p class="dialog__message" style="margin:0 0 16px">A circle is a shared roster of players and sessions. Share your invite code so others can join it.</p>
+            <div id="circleList" style="margin-bottom:16px"></div>
+        </div>
+        <div class="card">
+            <h2>Join a Circle</h2>
+            <p class="dialog__message" style="margin:0 0 16px">Enter an invite code that was shared with you.</p>
+            <div style="display:flex;gap:8px">
+                <input id="joinCode" type="text" placeholder="e.g. AB12CD34" style="flex:1">
+                <button type="button" class="create-btn" style="width:auto" onclick="joinCircle()">Join</button>
+            </div>
+            <div id="joinErr" class="err"></div>
         </div>
         </div>
         <div class="view" id="view-stats" hidden>'.$statsViewHtml.'</div>
@@ -375,7 +446,7 @@ Route::get('/', function () {
             });
     }
     function showView(name) {
-        var views = ["sessions", "stats", "rankings", "manage"];
+        var views = ["sessions", "stats", "rankings", "manage", "circles"];
         for (var i = 0; i < views.length; i++) {
             var el = document.getElementById("view-" + views[i]);
             if (el) { el.hidden = (views[i] !== name); }
@@ -387,6 +458,7 @@ Route::get('/', function () {
             b.classList.toggle("pill-link--active", active);
             if (active) { b.setAttribute("aria-current", "page"); } else { b.removeAttribute("aria-current"); }
         }
+        if (name === "circles") { loadCircles(); }
     }
     function openManage() {
         showView("manage");
@@ -587,8 +659,74 @@ Route::get('/', function () {
     loadPlayersCache();
     fetchPlayers();
     </script>
+    <script>
+    function renderCircle(c){
+        var row = document.createElement("div");
+        row.className = "manage-row";
+        var name = document.createElement("span");
+        name.className = "manage-name";
+        name.style.background = "none";
+        name.style.border = "none";
+        name.textContent = c.name;
+        row.appendChild(name);
+        if (c.is_admin) {
+            name.appendChild(document.createTextNode(" "));
+            var badge = document.createElement("span");
+            badge.className = "tag tag--active";
+            badge.style.fontSize = ".65rem";
+            badge.textContent = "YOURS";
+            name.appendChild(badge);
+        }
+        var meta = document.createElement("span");
+        meta.className = "manage-rating";
+        meta.style.minWidth = "110px";
+        meta.style.textAlign = "right";
+        meta.textContent = c.player_count + " players";
+        row.appendChild(meta);
+        if (c.invite_code) {
+            var code = document.createElement("span");
+            code.style.marginLeft = "12px";
+            code.style.letterSpacing = ".06em";
+            code.textContent = "Invite code: " + c.invite_code;
+            row.appendChild(code);
+        }
+        return row;
+    }
+    function loadCircles(){
+        fetch("/api/circles", {headers:{"Accept":"application/json"}}).then(function(r){ return r.json(); }).then(function(j){
+            var list = document.getElementById("circleList");
+            list.replaceChildren();
+            var circles = j.data || [];
+            if (!circles.length) {
+                var e = document.createElement("p");
+                e.className = "empty";
+                e.textContent = "No circles yet.";
+                list.appendChild(e);
+                return;
+            }
+            circles.forEach(function(c){ list.appendChild(renderCircle(c)); });
+        }).catch(function(){
+            var list = document.getElementById("circleList");
+            list.replaceChildren();
+            var e = document.createElement("p");
+            e.className = "empty";
+            e.textContent = "Failed to load circles.";
+            list.appendChild(e);
+        });
+    }
+    function joinCircle(){
+        var code = document.getElementById("joinCode").value.trim();
+        var err = document.getElementById("joinErr");
+        err.style.display = "none";
+        if (!code) { err.textContent = "Enter an invite code."; err.style.display = "block"; return; }
+        fetch("/api/circles/join", {method:"POST", headers:{"Content-Type":"application/json","Accept":"application/json","X-CSRF-TOKEN":"'.csrf_token().'"}, body:JSON.stringify({invite_code:code})}).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, message:j.message}; }); }).then(function(r){
+            if (r.ok) { document.getElementById("joinCode").value = ""; loadCircles(); }
+            else { err.textContent = r.message || "Could not join."; err.style.display = "block"; }
+        }).catch(function(){ err.textContent = "Network error."; err.style.display = "block"; });
+    }
+    </script>
     </body></html>';
-})->middleware('auth')->name('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 // Player stats — select a player, see rating trend + performance metrics
 Route::get('/stats', function () {
@@ -602,14 +740,14 @@ Route::get('/stats', function () {
     include $__path;
 
     return response(ob_get_clean());
-})->middleware('auth')->name('stats');
+})->middleware(['auth', 'verified'])->name('stats');
 
 // Player rankings — all players in the authenticated user's roster
 Route::get('/rankings', function () {
     $data = [
         'base' => rtrim(request()->getBasePath(), '/'),
         'players' => \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
-            ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->where('circle_id', \Illuminate\Support\Facades\Auth::user()->personalCircle?->id)
             ->orderByDesc('rating')
             ->orderByDesc('total_games')
             ->orderBy('name')
@@ -623,7 +761,7 @@ Route::get('/rankings', function () {
     include $__path;
 
     return response(ob_get_clean());
-})->middleware('auth')->name('rankings');
+})->middleware(['auth', 'verified'])->name('rankings');
 
 // Session live view — the tablet UI (owner only)
 Route::get('/sessions/{session}/live', function ($session) {
@@ -632,7 +770,7 @@ Route::get('/sessions/{session}/live', function ($session) {
 
     try {
         $s = \App\Models\Session::with(['courts', 'sessionPlayers.player'])
-            ->where('created_by', \Illuminate\Support\Facades\Auth::id())
+            ->whereIn('circle_id', \Illuminate\Support\Facades\Auth::user()->circles()->pluck('circles.id'))
             ->findOrFail($session);
         $sessionName = $s->name;
         $sessionStatus = $s->status->value;
@@ -658,5 +796,5 @@ Route::get('/sessions/{session}/live', function ($session) {
     include $__path;
 
     return response(ob_get_clean());
-})->middleware('auth');
+})->middleware(['auth', 'verified']);
 

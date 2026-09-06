@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Enums\MatchStatus;
 use App\Models\Player;
+use App\Models\RatingHistory;
+use App\Models\User;
 
 /**
  * Computes the per-player analytics payload for the stats screen:
@@ -141,6 +143,99 @@ class PlayerAnalyticsService
             ],
             'form' => $form,
             'rating_history' => $points,
+        ];
+    }
+
+    /**
+     * Account-level aggregate across every circle the registered player
+     * belongs to. Guests (players with no account link) never reach here —
+     * their stats are scoped to a single circle only.
+     */
+    public function buildOverall(User $user): array
+    {
+        $players = Player::where('user_id', $user->id)->get();
+        $playerIds = $players->pluck('id')->all();
+
+        $history = RatingHistory::whereIn('player_id', $playerIds)
+            ->with('match.session')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        $results = [];
+        foreach ($history as $rh) {
+            $results[] = [
+                'actual' => (int) round((float) $rh->actual_result),
+                'expected' => (float) $rh->expected_result,
+                'change' => (float) $rh->rating_change,
+            ];
+        }
+
+        [$longestWin, $longestLoss] = $this->streaks($results);
+
+        $form = array_map(
+            fn (array $r): string => $r['actual'] === 1 ? 'W' : 'L',
+            array_slice($results, -10)
+        );
+
+        $currentStreak = ['type' => null, 'length' => 0];
+        for ($i = count($results) - 1; $i >= 0; $i--) {
+            $type = $results[$i]['actual'] === 1 ? 'WIN' : 'LOSS';
+            if ($currentStreak['type'] === null) {
+                $currentStreak['type'] = $type;
+            }
+            if ($currentStreak['type'] === $type) {
+                $currentStreak['length']++;
+            } else {
+                break;
+            }
+        }
+
+        $upsetWins = 0;
+        $upsetGames = 0;
+        $clutchWins = 0;
+        $clutchGames = 0;
+        foreach ($results as $r) {
+            if ($r['expected'] < 0.5) {
+                $upsetGames++;
+                if ($r['actual'] === 1) {
+                    $upsetWins++;
+                }
+            }
+            if ($r['expected'] >= 0.4 && $r['expected'] <= 0.6) {
+                $clutchGames++;
+                if ($r['actual'] === 1) {
+                    $clutchWins++;
+                }
+            }
+        }
+
+        $totalGames = (int) $players->sum('total_games');
+        $wins = (int) $players->sum('wins');
+        $losses = (int) $players->sum('losses');
+
+        return [
+            'total_games' => $totalGames,
+            'wins' => $wins,
+            'losses' => $losses,
+            'win_percentage' => $totalGames > 0 ? round($wins / $totalGames * 100, 1) : 0.0,
+            'form' => $form,
+            'current_streak' => $currentStreak,
+            'longest_win_streak' => $longestWin,
+            'longest_loss_streak' => $longestLoss,
+            'upset_wins' => $upsetWins,
+            'upset_rate' => $upsetGames > 0 ? round($upsetWins / $upsetGames * 100, 1) : null,
+            'clutch_rate' => $clutchGames > 0 ? round($clutchWins / $clutchGames * 100, 1) : null,
+            'circles' => $players->map(fn (Player $p) => [
+                'circle_id' => $p->circle_id,
+                'circle_name' => $p->circle?->name,
+                'name' => $p->name,
+                'rating' => (float) $p->rating,
+                'rating_status' => $p->rating_status->value,
+                'total_games' => (int) $p->total_games,
+                'wins' => (int) $p->wins,
+                'losses' => (int) $p->losses,
+            ])->values()->all(),
         ];
     }
 

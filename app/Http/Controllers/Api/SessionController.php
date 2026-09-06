@@ -19,6 +19,7 @@ use App\Models\RatingHistory;
 use App\Models\Session;
 use App\Models\SessionPlayer;
 use App\Services\AI\MatchmakingCriticService;
+use App\Services\CircleService;
 use App\Services\MatchmakingService;
 use App\Services\RealtimeEventService;
 use App\Services\SessionAnalyticsService;
@@ -43,7 +44,7 @@ class SessionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $sessions = Session::where('created_by', $request->user()->id)
+        $sessions = Session::whereIn('circle_id', $request->user()->circles()->pluck('circles.id'))
             ->latest('date')
             ->paginate(20);
 
@@ -78,6 +79,7 @@ class SessionController extends Controller
             'type' => $validated['type'] ?? 'casual',
             'tournament_format' => $validated['tournament_format'] ?? 'round_robin',
             'created_by' => $request->user()->id,
+            'circle_id' => $this->targetCircleId($request),
             'started_at' => $isTournament ? null : now(),
         ]);
 
@@ -94,6 +96,30 @@ class SessionController extends Controller
         return response()->json([
             'data' => $session->load('courts'),
         ], 201);
+    }
+
+    /**
+     * Resolve which circle a new session belongs to. Defaults to the user's
+     * personal circle; accepts an explicit circle the user already belongs to.
+     */
+    private function targetCircleId(Request $request): int
+    {
+        $user = $request->user();
+
+        if ($request->filled('circle_id')) {
+            $requested = (int) $request->input('circle_id');
+            if ($user->circles()->whereKey($requested)->exists()) {
+                return $requested;
+            }
+        }
+
+        $personal = $user->personalCircle;
+
+        if (! $personal) {
+            $personal = app(CircleService::class)->createPersonalCircle($user);
+        }
+
+        return (int) $personal->id;
     }
 
     /**
@@ -370,7 +396,7 @@ class SessionController extends Controller
     {
         DB::transaction(function () use ($current) {
             $others = Session::query()
-                ->where('created_by', $current->created_by)
+                ->where('circle_id', $current->circle_id)
                 ->where('id', '!=', $current->id)
                 ->whereIn('status', [
                     SessionStatus::ACTIVE->value,

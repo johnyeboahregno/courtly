@@ -26,13 +26,15 @@ class PlayerController extends Controller
      */
     public function index(): JsonResponse
     {
+        $circleId = $this->currentUser()->personalCircle?->id;
+
         $players = Player::query()
-            ->where('user_id', $this->currentUser()->id)
+            ->where('circle_id', $circleId)
             ->orderBy('name')
             ->get();
 
         $activePlayerIds = Player::query()
-            ->where('user_id', $this->currentUser()->id)
+            ->where('circle_id', $circleId)
             ->whereHas('matchPlayers.match', fn ($query) => $query
                 ->where('status', MatchStatus::PLAYING->value)
                 ->whereHas('session', fn ($sessionQuery) => $sessionQuery
@@ -155,7 +157,7 @@ class PlayerController extends Controller
                 'string',
                 'max:255',
                 Rule::unique('players', 'name')
-                    ->where('user_id', $this->currentUser()->id)
+                    ->where('circle_id', $player->circle_id)
                     ->ignore($player->id),
             ],
                 'gender' => ['sometimes', 'nullable', Rule::enum(PlayerGender::class)],
@@ -212,7 +214,7 @@ class PlayerController extends Controller
      */
     public function resetAll(): JsonResponse
     {
-        $players = Player::where('user_id', $this->currentUser()->id)->get();
+        $players = Player::where('circle_id', $this->currentUser()->personalCircle?->id)->get();
 
         $reset = 0;
         $skipped = 0;
