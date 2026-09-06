@@ -33,7 +33,7 @@ Courtly is a real-time badminton session management system. It is **multi-tenant
 - **Tournament mode**: Auto-formed teams, round-robin schedule or a challenge-ladder, standings/rank tracking
 - **Match results**: Record winners (with optional point score), update ratings, immediately fill empty courts once every court in the round is free
 - **Rating system**: Elo-based rating with K-factor, streak bonuses, close-game and margin-of-victory multipliers, and history
-- **AI-assisted insights** *(optional, feature-flagged)*: matchmaking critique, per-player coaching, and match explanations via any OpenAI-compatible LLM endpoint, with a deterministic fallback when disabled
+- **AI-assisted insights** *(optional, feature-flagged)*: matchmaking critique and per-player coaching via any OpenAI-compatible LLM endpoint, with a deterministic fallback when disabled
 - **Offline mode**: mutating actions queue to `localStorage` when the server is unreachable (or forced offline), then sync or discard once back online
 - **Real-time updates**: HTTP polling with optional SSE streaming (no Redis/WebSockets needed)
 
@@ -598,7 +598,6 @@ Only valid when `session.type === tournament`; every method 422s via `assertTour
 |--------|------|---------|
 | `POST` | `/api/matches/{match}/result` | Record result: `winning_team` (1 or 2, required), plus optional `close_game`, `team_1_score`/`team_2_score`. Court reallocation is queued (`next_matches` is always `[]`); the frontend picks up the new match via the next event poll. |
 | `POST` | `/api/matches/{match}/correct` | Correct a previously recorded match result |
-| `GET` | `/api/matches/{match}/explanation` | Plain-language reason this match was formed (AI-polished if enabled, deterministic otherwise) |
 | `POST` | `/api/matches/{match}/feedback` | Rate match quality (`quality_rating`: POOR/GOOD/GREAT) — one row per player per match, upserted |
 
 ### Players (🔒)
@@ -672,10 +671,9 @@ All API controllers use the `AuthorizesOwnership` trait (`app/Http/Controllers/A
 - `leave(SessionPlayer)` — Sets player to LEFT
 
 ### `Api\MatchController`
-- **Dependencies**: `MatchResultService` (constructor); `MatchExplanationService` (method-injected into `explain`)
+- **Dependencies**: `MatchResultService` (constructor)
 - `recordResult(Request, GameMatch)` — Validates `winning_team` (1 or 2) + optional `close_game`/`team_1_score`/`team_2_score`, delegates to `MatchResultService`
 - `correctResult(Request, GameMatch)` — Corrects a completed match's winner
-- `explain(GameMatch, MatchExplanationService)` — Returns `{explanation}` (AI-polished if enabled, deterministic otherwise)
 - `feedback(Request, GameMatch)` — 422 unless the match is COMPLETED; validates `quality_rating` (POOR/GOOD/GREAT); upserts `MatchFeedback` on `[match_id, current user's player_id]`
 
 ### `Api\PlayerController`
@@ -728,7 +726,6 @@ The core algorithm that allocates 4-player matches to available courts. Casual (
 - `generateTeamSplits(array): array` — 3 possible (T1,T2) splits for a 4-player group
 - `findBestSplit(array, Session): array` — Lowest-cost split among the 3 options
 - `calculateMatchQuality(float, float, float, float): int` — 0-100 quality score
-- `generateExplanation(array, float, float, int): string` — Human-readable match explanation (the deterministic fallback `MatchExplanationService` always computes first)
 - `findBestCourtAssignments(Session, int, Collection, Collection): array` — "Smart" mode: ranks players by priority, takes top N×4 (+buffer), sorts by rating, scores every sliding-window group of 4 (including a winner-return-to-court penalty via greedy court assignment), falls back to adjacent windows if the non-overlapping selection under-fills
 
 **Peg mode** (`findPegAssignments`, `matchmaking_mode = 'peg'`) — a traditional queue instead of the fairness/skill scoring above: sorts WAITING players FIFO (`waiting_since`, winners before losers, then id), and for each free court takes the first eligible player as the **anchor**, then picks three companions from a `pick_zone_size`-deep window behind it, weighing skill cohesion, queue locality (`queue_displacement_weight`), and previous-companion avoidance (`previous_match_companion_penalty`) before balancing the four into teams.
@@ -803,8 +800,7 @@ Every AI feature follows the same shape: check `config('courtly.ai.enabled')` �
 - **`AIRunLogger`** — `log(runType, inputSummary, output, sessionId?, matchId?, status='SUCCESS', latencyMs?, errorMessage?): void`. Best-effort persistence to `ai_runs` (own try/catch — a logging failure never breaks the calling feature); compacts `input_summary` to `{truncated, size, preview}` before storing.
 - **`MatchmakingCriticService`** — `analyze(Session): array` → `{summary, issues[], suggested_weights, source}`. Aggregates session-level metrics (completed matches, matchmaking-log count, feedback breakdown, avg skill spread/team balance/match quality) and either asks the AI to summarize + suggest `matchmaking.*` weight tweaks, or falls back to a rule-based summary. Suggested weights are filtered to known numeric config keys; issues capped at 6. Backs `GET .../matchmaking-insights`.
 - **`PlayerCoachService`** — `coach(Player): array` → `{narrative, strengths[], improvements[], tips[], source}`. Builds on `PlayerAnalyticsService::build()`'s stats, either via AI or a deterministic narrative/strengths/improvements/tips built from the same numbers. Backs `GET /api/players/{player}/insights`.
-- **`MatchExplanationService`** — `explain(GameMatch): string`. Always computes `MatchmakingService::generateExplanation()` first; if AI is enabled, tries a 1–2 sentence AI rewrite from match/team/matchmaking-log stats and returns that instead, otherwise returns the deterministic string. Backs `GET /api/matches/{match}/explanation`.
-- `run_type` values written to `ai_runs`: `matchmaking_critic`, `player_coach`, `match_explanation`.
+- `run_type` values written to `ai_runs`: `matchmaking_critic`, `player_coach`.
 
 ---
 
@@ -982,7 +978,6 @@ File: `resources/views/session-live.php`
 | `fillCourts()` | POST `/api/sessions/{id}/fill` → refresh |
 | `openManualAssignment(courtId)` / `submitManualAssignment()` | Preselects the next 4 waiting players (rating-balanced teams), lets the organizer swap between teams (drag or tap-tap), then POSTs `/api/sessions/{id}/manual-assignment` |
 | `adjustCourts(action, courtNumber)` | PATCH `/api/sessions/{id}/courts` (`add`/`remove`) → applies the fresh session data |
-| `toggleExplanation(court)` | GET `/api/matches/{id}/explanation`, toggles an inline "WHY" explanation under the match |
 | `submitFeedback(matchId, rating)` | Optimistic set → POST `/api/matches/{id}/feedback` |
 | `openInsights()` / `loadInsights()` | GET `/api/sessions/{id}/matchmaking-insights` into the insights modal |
 | `openTeams()` / `regenerateTeams()` / `performSwap(a, b)` | Tournament team preview: GET/POST `/api/sessions/{id}/tournament/teams[/regenerate\|/swap]` |

@@ -92,9 +92,14 @@
     <header class="stats-head">
         <a href="<?= e($base ?? '') ?>/" class="back-btn" title="Back to dashboard">←</a>
         <h1>Player Stats</h1>
-        <a href="<?= e($base ?? '') ?>/rankings" class="stats-nav-link">Rankings</a>
         <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     </header>
+
+    <nav class="view-nav" aria-label="Views">
+        <a href="<?= e($base ?? '') ?>/" class="pill-link">Sessions</a>
+        <a href="<?= e($base ?? '') ?>/stats" class="pill-link pill-link--active" aria-current="page">Player Stats</a>
+        <a href="<?= e($base ?? '') ?>/rankings" class="pill-link">Rankings</a>
+    </nav>
 
     <div class="stats-select">
         <label for="playerSelect">Select a player</label>

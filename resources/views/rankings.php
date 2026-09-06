@@ -16,19 +16,6 @@
         .rankings-wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
         .rankings-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
         .rankings-head h1 { font-size: 1.4rem; margin: 0; }
-        .rankings-card { background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-card); }
-        .rankings-card__intro { color: var(--text-muted); margin: 0 0 16px; font-size: .86rem; }
-        .ranking-table-wrap { overflow-x: auto; }
-        .ranking-table { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 480px; }
-        .ranking-table th, .ranking-table td { padding: 12px 10px; border-bottom: 1px solid var(--stroke); text-align: right; white-space: nowrap; }
-        .ranking-table th:first-child, .ranking-table td:first-child, .ranking-table th:nth-child(2), .ranking-table td:nth-child(2) { text-align: left; }
-        .ranking-table thead th { color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
-        .ranking-table tbody th { color: var(--text); font-weight: 700; }
-        .ranking-table tbody tr:last-child th, .ranking-table tbody tr:last-child td { border-bottom: 0; }
-        .ranking-table__rank { color: var(--accent); font-weight: 800; width: 48px; font-size: 1.05rem; }
-        .ranking-table__icon { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
-        .ranking-table__empty { color: var(--text-muted); text-align: left !important; padding: 24px 10px !important; }
-        .ranking-table__rating { font-weight: 800; color: var(--accent); }
     </style>
 </head>
 <body>
@@ -39,50 +26,13 @@
         <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
     </header>
 
-    <section class="rankings-card" aria-labelledby="rankings-title">
-        <h2 id="rankings-title">Player Rankings</h2>
-        <p class="rankings-card__intro">Your roster, ordered by rating.</p>
-        <div class="ranking-table-wrap">
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th scope="col">Rank</th>
-                        <th scope="col">Player</th>
-                        <th scope="col">Rating</th>
-                        <th scope="col">Games</th>
-                        <th scope="col">Win rate</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php if ($players->isEmpty()): ?>
-                    <tr><td colspan="5" class="ranking-table__empty">No players yet.</td></tr>
-                <?php else: ?>
-                    <?php foreach ($players as $rank => $player): ?>
-                        <?php $winPercentage = $player->total_games > 0 ? round(($player->wins / $player->total_games) * 100, 1) : 0; ?>
-                        <?php $rankNumber = $rank + 1; ?>
-                        <?php
-                            $rating = (float) $player->rating;
-                            $tier = $rating >= 75 ? 'apex' : ($rating >= 50 ? 'pace' : ($rating >= 25 ? 'rise' : 'start'));
-                            $emblemBase = e($base ?? '') . '/assets/ranks/' . $tier;
-                        ?>
-                        <tr>
-                            <td class="ranking-table__rank" aria-label="Rank <?= $rankNumber ?>"><?= $rankNumber ?></td>
-                            <th scope="row">
-                                <?= e($player->name) ?>
-                                <span class="rank-icon">
-                                    <img src="<?= $emblemBase ?>@2x.png" srcset="<?= $emblemBase ?>@1x.png 1x, <?= $emblemBase ?>@2x.png 2x, <?= $emblemBase ?>@3x.png 3x" alt="<?= e(ucfirst($tier)) ?> rank" width="28" height="28" decoding="async">
-                                </span>
-                            </th>
-                            <td class="ranking-table__rating"><?= number_format($rating, 1) ?></td>
-                            <td><?= $player->total_games ?></td>
-                            <td><?= $winPercentage ?>%</td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </section>
+    <nav class="view-nav" aria-label="Views">
+        <a href="<?= e($base ?? '') ?>/" class="pill-link">Sessions</a>
+        <a href="<?= e($base ?? '') ?>/stats" class="pill-link">Player Stats</a>
+        <a href="<?= e($base ?? '') ?>/rankings" class="pill-link pill-link--active" aria-current="page">Rankings</a>
+    </nav>
+
+    <?php include resource_path('views/partials/rankings-content.php'); ?>
 </div>
 <script>
 function courtlyUpdateThemeIcon() {

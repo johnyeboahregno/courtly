@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\GameMatch;
 use App\Models\MatchFeedback;
-use App\Services\AI\MatchExplanationService;
 use App\Services\MatchResultService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,19 +50,6 @@ class MatchController extends Controller
         );
 
         return response()->json(['data' => $result]);
-    }
-
-    /**
-     * Explain why this match was assembled. AI-generated when enabled,
-     * deterministic otherwise.
-     */
-    public function explain(GameMatch $match, MatchExplanationService $explainer): JsonResponse
-    {
-        $this->authorizeSession($match->session);
-
-        return response()->json([
-            'data' => ['explanation' => $explainer->explain($match)],
-        ]);
     }
 
     /**

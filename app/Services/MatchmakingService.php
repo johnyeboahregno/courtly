@@ -568,21 +568,6 @@ class MatchmakingService
     }
 
     /**
-     * Generate deterministic explanation for a match.
-     */
-    public function generateExplanation(array $players, float $skillSpread, float $balanceDiff, int $matchQuality): string
-    {
-        $ratings = array_map(fn (Player $p) => (int) round((float) $p->rating), $players);
-        $minRating = min($ratings);
-        $maxRating = max($ratings);
-
-        return sprintf(
-            'Ratings ranged from %d–%d (spread: %.0f). Team averages differ by %.1f. Match quality: %d/100.',
-            $minRating, $maxRating, $skillSpread, $balanceDiff, $matchQuality
-        );
-    }
-
-    /**
      * Find the best set of non-overlapping court assignments.
      */
     public function findBestCourtAssignments(

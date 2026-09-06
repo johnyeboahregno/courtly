@@ -33,6 +33,14 @@ Route::get('/', function () {
         ->where('created_by', \Illuminate\Support\Facades\Auth::id())
         ->orderByDesc('date')->get();
 
+    $players = \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
+        ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+        ->orderByDesc('rating')
+        ->orderByDesc('total_games')
+        ->orderBy('name')
+        ->orderBy('id')
+        ->get();
+
     $today = now()->startOfDay();
     $currentRows = '';
     $pastRows = '';
@@ -72,12 +80,23 @@ Route::get('/', function () {
         $pastRows = '<p class="empty">No past sessions.</p>';
     }
 
+    ob_start();
+    include resource_path('views/partials/stats-content.php');
+    $statsViewHtml = ob_get_clean();
+
+    ob_start();
+    include resource_path('views/partials/rankings-content.php');
+    $rankingsViewHtml = ob_get_clean();
+
     return '<!DOCTYPE html><html><head><title>Courtly</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="'.csrf_token().'">
     <link rel="icon" type="image/png" href="'.$base.'/assets/favicon.png?v=' . config('courtly.app.version', '1.0.0') . '">
     <link rel="stylesheet" href="'.$base.'/css/courtly.css?v=' . config('courtly.app.version', '1.0.0') . '">
     <style>
-        body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;margin:0;padding:40px 20px}
-        .wrap{max-width:560px;margin:0 auto}
+        html,body{height:100%}
+        body{font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;margin:0;padding:0;overflow:hidden}
+        .wrap{width:100%;max-width:none;height:100dvh;display:flex;flex-direction:column;box-sizing:border-box;padding:20px 16px 0;margin:0}
+        .dashboard-header,.dashboard-subhead{flex-shrink:0}
+        .view{flex:1;min-height:0;overflow-y:auto;padding-bottom:24px;-webkit-overflow-scrolling:touch}
         h1{font-size:2rem;margin:0 0 4px}
         .sub{color:var(--text-muted);margin:0 0 24px}
         .manage-link{font-family:inherit;font-size:inherit;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:inherit}
@@ -164,15 +183,17 @@ Route::get('/', function () {
         </div>
         <div class="dashboard-subhead" style="display:flex;justify-content:space-between;align-items:baseline;margin:0 0 24px;gap:12px">
             <div class="dashboard-subhead__actions" style="display:flex;gap:8px;align-items:center">
-                <a href="'.$base.'/stats" class="pill-link">Player Stats</a>
-                <a href="'.$base.'/rankings" class="pill-link">Rankings</a>
-                <button type="button" onclick="openManage()" class="pill-link">Manage Players</button>
+                <button type="button" class="pill-link pill-link--active" data-view="sessions" aria-current="page" onclick="showView(\'sessions\')">Sessions</button>
+                <button type="button" class="pill-link" data-view="stats" onclick="showView(\'stats\')">Player Stats</button>
+                <button type="button" class="pill-link" data-view="rankings" onclick="showView(\'rankings\')">Rankings</button>
+                <button type="button" class="pill-link" data-view="manage" onclick="openManage()">Manage Players</button>
             </div>
             <form method="POST" action="/logout" style="margin:0">
                 <input type="hidden" name="_token" value="'.csrf_token().'">
                 <button type="submit" class="pill-link">Logout</button>
             </form>
         </div>
+        <div class="view" id="view-sessions">
         <div class="card">
             <h2>New Session</h2>
             <form id="createForm">
@@ -192,24 +213,29 @@ Route::get('/', function () {
             <summary class="past-toggle">Past Sessions ('.$pastCount.')</summary>
             <div class="past-list">'.$pastRows.'</div>
         </details>
+        </div>
+        <div class="view" id="view-manage" hidden>
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <h2 style="margin:0">Manage Players</h2>
+                <button type="button" class="pill-link" onclick="closeManage()">Close</button>
+            </div>
+            <p class="dialog__message" style="margin:0 0 16px">Edit names, gender, or delete players. Players on court are locked.</p>
+            <div id="manageList" style="margin-bottom:16px"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+                <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()" title="Reset all player ratings" aria-label="Reset all player ratings">Reset All</button>
+                <button type="button" class="dialog__btn dialog__btn--save" onclick="saveAllPlayers()" title="Save all player changes" aria-label="Save all player changes">Save</button>
+            </div>
+        </div>
+        </div>
+        <div class="view" id="view-stats" hidden>'.$statsViewHtml.'</div>
+        <div class="view" id="view-rankings" hidden>'.$rankingsViewHtml.'</div>
     </div>
     <div class="dialog-overlay" id="appDialog" style="display:none">
         <div class="dialog">
             <h3 class="dialog__title" id="appDialogTitle"></h3>
             <p class="dialog__message" id="appDialogMessage"></p>
             <div class="dialog__actions" id="appDialogActions"></div>
-        </div>
-    </div>
-    <div class="dialog-overlay" id="manageDialog" style="display:none">
-        <div class="dialog" style="max-width:480px">
-            <h3 class="dialog__title">Manage Players</h3>
-            <p class="dialog__message">Edit names, gender, or delete players. Players on court are locked.</p>
-            <div id="manageList" style="max-height:60vh;overflow:auto;margin-bottom:16px"></div>
-            <div class="dialog__actions">
-                <button type="button" class="dialog__btn dialog__btn--reset" onclick="resetAllPlayers()" title="Reset all player ratings" aria-label="Reset all player ratings">Reset All</button>
-                <button type="button" class="dialog__btn dialog__btn--save" onclick="saveAllPlayers()" title="Save all player changes" aria-label="Save all player changes">Save</button>
-                <button type="button" class="dialog__btn dialog__btn--cancel" onclick="closeManage()">Close</button>
-            </div>
         </div>
     </div>
     <script>
@@ -348,10 +374,24 @@ Route::get('/', function () {
                 return players;
             });
     }
+    function showView(name) {
+        var views = ["sessions", "stats", "rankings", "manage"];
+        for (var i = 0; i < views.length; i++) {
+            var el = document.getElementById("view-" + views[i]);
+            if (el) { el.hidden = (views[i] !== name); }
+        }
+        var badges = document.querySelectorAll(".dashboard-subhead__actions .pill-link[data-view]");
+        for (var j = 0; j < badges.length; j++) {
+            var b = badges[j];
+            var active = b.getAttribute("data-view") === name;
+            b.classList.toggle("pill-link--active", active);
+            if (active) { b.setAttribute("aria-current", "page"); } else { b.removeAttribute("aria-current"); }
+        }
+    }
     function openManage() {
+        showView("manage");
         manageDrafts = {};
         manageOriginals = {};
-        document.getElementById("manageDialog").style.display = "flex";
         var list = document.getElementById("manageList");
         if (playersCache !== null) {
             renderManage(playersCache);
@@ -374,8 +414,10 @@ Route::get('/', function () {
                 list.appendChild(e);
             }
         });
+        var manageView = document.getElementById("view-manage");
+        if (manageView) { manageView.scrollTop = 0; }
     }
-    function closeManage() { document.getElementById("manageDialog").style.display = "none"; }
+    function closeManage() { showView("sessions"); }
     function renderManage(players) {
         var list = document.getElementById("manageList");
         list.replaceChildren();
@@ -462,7 +504,7 @@ Route::get('/', function () {
         });
         if (!changes.length) return;
 
-        var saveButton = document.querySelector("#manageDialog .dialog__btn--save");
+        var saveButton = document.querySelector("#view-manage .dialog__btn--save");
         if (saveButton) saveButton.disabled = true;
         Promise.all(changes.map(function(change){
             return fetch("/api/players/" + change.id, {
@@ -566,7 +608,7 @@ Route::get('/stats', function () {
 Route::get('/rankings', function () {
     $data = [
         'base' => rtrim(request()->getBasePath(), '/'),
-        'players' => \App\Models\Player::select('name', 'rating', 'total_games', 'wins')
+        'players' => \App\Models\Player::select('id', 'name', 'rating', 'total_games', 'wins')
             ->where('user_id', \Illuminate\Support\Facades\Auth::id())
             ->orderByDesc('rating')
             ->orderByDesc('total_games')

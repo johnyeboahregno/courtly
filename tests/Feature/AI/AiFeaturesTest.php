@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\MatchStatus;
 use App\Enums\SessionStatus;
-use App\Models\AIRun;
 use App\Models\Court;
 use App\Models\GameMatch;
 use App\Models\MatchPlayer;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\User;
-use App\Services\AI\AIProviderException;
 use App\Services\AI\AIProviderInterface;
-use App\Services\AI\MatchExplanationService;
 use App\Services\AI\MatchmakingCriticService;
 use App\Services\AI\PlayerCoachService;
 use Laravel\Sanctum\Sanctum;
@@ -66,45 +63,6 @@ function fakeProvider(array $response): AIProviderInterface
         }
     };
 }
-
-// ── MatchExplanationService ───────────────────────────────────────────
-
-it('returns the deterministic explanation when AI is disabled', function () {
-    config(['courtly.ai.enabled' => false]);
-    [, , $match] = aiMatchFixture();
-
-    $explanation = app(MatchExplanationService::class)->explain($match);
-
-    expect($explanation)->toContain('Ratings ranged');
-});
-
-it('uses the AI provider when enabled', function () {
-    config(['courtly.ai.enabled' => true]);
-    app()->instance(AIProviderInterface::class, fakeProvider(['explanation' => 'Custom AI explanation']));
-    [, , $match] = aiMatchFixture();
-
-    $explanation = app(MatchExplanationService::class)->explain($match);
-
-    expect($explanation)->toBe('Custom AI explanation');
-    expect(AIRun::where('run_type', 'match_explanation')->count())->toBe(1);
-});
-
-it('falls back to the deterministic explanation when the provider fails', function () {
-    config(['courtly.ai.enabled' => true]);
-    $throwing = new class implements AIProviderInterface
-    {
-        public function generateStructuredResponse(string $systemPrompt, array $input, array $schema): array
-        {
-            throw new AIProviderException('boom');
-        }
-    };
-    app()->instance(AIProviderInterface::class, $throwing);
-    [, , $match] = aiMatchFixture();
-
-    $explanation = app(MatchExplanationService::class)->explain($match);
-
-    expect($explanation)->toContain('Ratings ranged');
-});
 
 // ── PlayerCoachService ────────────────────────────────────────────────
 
@@ -174,23 +132,6 @@ it('builds a deterministic summary from completed matches', function () {
 });
 
 // ── Endpoints ─────────────────────────────────────────────────────────
-
-it('returns 403 for a non-owner on the match explanation endpoint', function () {
-    [, , $match] = aiMatchFixture();
-    Sanctum::actingAs(User::factory()->create());
-
-    $this->getJson("/api/matches/{$match->id}/explanation")->assertForbidden();
-});
-
-it('returns an explanation for the owner', function () {
-    config(['courtly.ai.enabled' => false]);
-    [$user, , $match] = aiMatchFixture();
-    Sanctum::actingAs($user);
-
-    $this->getJson("/api/matches/{$match->id}/explanation")
-        ->assertOk()
-        ->assertJsonPath('data.explanation', fn ($v) => is_string($v) && str_contains($v, 'Ratings ranged'));
-});
 
 it('returns 403 for a non-owner on the player insights endpoint', function () {
     $owner = User::factory()->create();
