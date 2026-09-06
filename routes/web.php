@@ -82,7 +82,7 @@ Route::get('/', function () {
         .sub{color:var(--text-muted);margin:0 0 24px}
         .manage-link{font-family:inherit;font-size:inherit;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0;font-weight:inherit}
         .manage-link:hover{color:var(--accent);text-decoration:underline}
-        .pill-link{display:inline-flex;align-items:center;font-size:.85rem;font-weight:800;letter-spacing:.04em;padding:8px 16px;border-radius:999px;border:1px solid var(--stroke);color:var(--text-muted);background:transparent;text-decoration:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s,border-color .15s}
+        .pill-link{display:inline-flex;align-items:center;font-size:.85rem;letter-spacing:.04em;padding:8px 16px;border-radius:999px;border:1px solid var(--stroke);color:var(--text-muted);background:transparent;text-decoration:none;cursor:pointer;font-family:inherit;transition:background .15s,color .15s,border-color .15s}
         .pill-link:hover{border-color:var(--accent);color:var(--text)}
         .session-link{display:block;background:var(--surface);border:1px solid var(--stroke);border-radius:8px;padding:16px;margin-bottom:10px;text-decoration:none;color:var(--text);box-shadow:var(--shadow-card);transition:border-color .15s}
         .session-link:hover{border-color:var(--accent)}
