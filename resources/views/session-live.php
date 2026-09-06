@@ -11,9 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
-        var COURT_THEMES = ['dark', 'blue', 'cyber', 'crimson', 'emerald', 'light'];
-        var COURT_GLYPHS = { dark: '☾', blue: '✦', cyber: '✧', crimson: '♥', emerald: '❖', light: '☀' };
-        var COURT_LABELS = { dark: 'Dark', blue: 'Blue', cyber: 'Cyber', crimson: 'Crimson', emerald: 'Emerald', light: 'Light' };
+        var COURT_THEMES = ['dark', 'blue', 'cyber', 'emerald', 'light'];
+        var COURT_GLYPHS = { dark: '☾', blue: '✦', cyber: '✧', emerald: '❖', light: '☀' };
+        var COURT_LABELS = { dark: 'Dark', blue: 'Blue', cyber: 'Cyber', emerald: 'Emerald', light: 'Light' };
         (function () {
             try {
                 var s = localStorage.getItem('courtly-theme');

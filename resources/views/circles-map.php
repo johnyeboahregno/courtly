@@ -25,22 +25,23 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
   --team1:#0084ff;
   --team2:#00c764;
   --gold:#ffc24b;
-  --glow1:rgba(60,60,160,.28);
-  --glow2:rgba(120,50,160,.18);
+  --glow1:rgba(60,60,160,.14);
+  --glow2:rgba(120,50,160,.08);
 }
-[data-theme="blue"]{--bg:#0f172a;--panel:rgba(15,23,42,.92);--stroke:rgba(147,197,253,.28);--text:#e5e7eb;--muted:#b7c1d1;--accent:#3b82f6;--accent2:#60a5fa;--cyan:#93c5fd;--team1:#3b82f6;--team2:#10b981;--gold:#fbbf24;--glow1:rgba(59,130,246,.22);--glow2:rgba(147,197,253,.14)}
-[data-theme="cyber"]{--bg:#04151f;--panel:rgba(6,30,40,.88);--stroke:rgba(0,229,255,.22);--text:#d8f7ff;--muted:#7fb8c8;--accent:#00e5ff;--accent2:#00ff9d;--cyan:#7df3ff;--team1:#00e5ff;--team2:#00ff9d;--gold:#ffd166;--glow1:rgba(0,229,255,.20);--glow2:rgba(0,255,157,.12)}
-[data-theme="crimson"]{--bg:#1a060b;--panel:rgba(32,9,15,.88);--stroke:rgba(255,45,85,.24);--text:#ffe9ec;--muted:#c9949e;--accent:#ff2d55;--accent2:#ff8a5c;--cyan:#ff7a9c;--team1:#ff2d55;--team2:#00e0a0;--gold:#ffd166;--glow1:rgba(255,45,85,.20);--glow2:rgba(255,138,92,.12)}
-[data-theme="emerald"]{--bg:#061711;--panel:rgba(8,28,20,.88);--stroke:rgba(0,199,100,.22);--text:#e1fff0;--muted:#8fc7aa;--accent:#00c764;--accent2:#22d3ee;--cyan:#22d3ee;--team1:#00c764;--team2:#22d3ee;--gold:#ffd166;--glow1:rgba(0,199,100,.20);--glow2:rgba(34,211,238,.12)}
-[data-theme="light"]{--bg:#f5f5fa;--panel:rgba(255,255,255,.95);--stroke:rgba(15,23,42,.15);--text:#0f172a;--muted:#475569;--accent:#6d4fff;--accent2:#d61e7b;--cyan:#0e7490;--team1:#2563eb;--team2:#059669;--gold:#b45309;--glow1:rgba(99,102,241,.10);--glow2:rgba(217,70,239,.06)}
+[data-theme="blue"]{--bg:#0f172a;--panel:rgba(15,23,42,.92);--stroke:rgba(147,197,253,.28);--text:#e5e7eb;--muted:#b7c1d1;--accent:#3b82f6;--accent2:#60a5fa;--cyan:#93c5fd;--team1:#3b82f6;--team2:#10b981;--gold:#fbbf24;--glow1:rgba(59,130,246,.11);--glow2:rgba(147,197,253,.07)}
+[data-theme="cyber"]{--bg:#04151f;--panel:rgba(6,30,40,.88);--stroke:rgba(0,229,255,.22);--text:#d8f7ff;--muted:#7fb8c8;--accent:#00e5ff;--accent2:#00ff9d;--cyan:#7df3ff;--team1:#00e5ff;--team2:#00ff9d;--gold:#ffd166;--glow1:rgba(0,229,255,.10);--glow2:rgba(0,255,157,.06)}
+[data-theme="emerald"]{--bg:#061711;--panel:rgba(8,28,20,.88);--stroke:rgba(0,199,100,.22);--text:#e1fff0;--muted:#8fc7aa;--accent:#00c764;--accent2:#22d3ee;--cyan:#22d3ee;--team1:#00c764;--team2:#22d3ee;--gold:#ffd166;--glow1:rgba(0,199,100,.10);--glow2:rgba(34,211,238,.06)}
+[data-theme="light"]{--bg:#f5f5fa;--panel:rgba(255,255,255,.95);--stroke:rgba(15,23,42,.15);--text:#0f172a;--muted:#475569;--accent:#6d4fff;--accent2:#d61e7b;--cyan:#0e7490;--team1:#2563eb;--team2:#059669;--gold:#b45309;--glow1:rgba(99,102,241,.06);--glow2:rgba(217,70,239,.04)}
 [data-theme="light"] .map-header{background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.6))}
 [data-theme="light"] #grid{background-image:linear-gradient(rgba(15,23,42,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.06) 1px,transparent 1px)}
 [data-theme="light"] .link{stroke:rgba(15,23,42,.30)}
 [data-theme="light"] .link--soft{stroke:rgba(15,23,42,.16)}
 *{box-sizing:border-box}
+html{font-size:110%}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit}
+input,textarea{user-select:text;-webkit-user-select:text}
 
 /* ── Header ─────────────────────────────────────────────── */
 .map-header{position:fixed;top:0;left:0;right:0;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 16px;z-index:40;background:linear-gradient(180deg,rgba(8,10,30,.94),rgba(8,10,30,.55));backdrop-filter:blur(10px);pointer-events:none}
@@ -78,8 +79,8 @@ button{font-family:inherit}
   mask:radial-gradient(circle at center,rgba(0,0,0,.9),rgba(0,0,0,.15) 70%,transparent)}
 #landmass{position:absolute;left:-2400px;top:-2400px;pointer-events:none}
 #links{position:absolute;left:-2400px;top:-2400px;width:4800px;height:4800px;pointer-events:none;overflow:visible}
-.link{stroke:rgba(140,160,255,.42);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-dasharray:1 8}
-.link--soft{stroke:rgba(140,160,255,.22)}
+.link{fill:none;stroke-linecap:round}
+.link--soft{opacity:.5}
 #nodes{position:absolute;left:0;top:0}
 
 /* ── Circle nodes ───────────────────────────────────────── */
@@ -87,17 +88,21 @@ button{font-family:inherit}
 .cnode__inner{position:absolute;left:0;top:0;width:0;height:0;touch-action:none;cursor:grab}
 .cnode__inner:active{cursor:grabbing}
 .cnode__wrap{position:absolute;left:0;top:0;transform:translate(-50%,-50%)}
-.cnode__core{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.45);background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.28),transparent 45%),var(--c,var(--accent));border:1px solid rgba(255,255,255,.25)}
-.cnode--discoverable .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),#28316a;border-color:rgba(140,160,255,.35)}
-.cnode--visiting .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),#3a1f63;border-color:rgba(180,120,255,.4)}
-.cnode--joined .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),var(--c,var(--cyan))}
+.cnode__core{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.18),0 0 10px var(--c,var(--accent)),0 6px 20px rgba(0,0,0,.5);background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.28),transparent 45%),var(--c,var(--accent));border:1.5px solid rgba(255,255,255,.35)}
+.cnode--discoverable .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#28316a;border-color:rgba(140,160,255,.5);box-shadow:0 0 0 1px rgba(140,160,255,.2),0 0 16px rgba(90,130,255,.35),0 6px 24px rgba(0,0,0,.5)}
+.cnode--visiting .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#3a1f63;border-color:rgba(180,120,255,.55);box-shadow:0 0 0 1px rgba(180,120,255,.2),0 0 16px rgba(160,100,255,.4),0 6px 24px rgba(0,0,0,.5)}
+.cnode--joined .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),var(--c,var(--cyan));border-color:rgba(255,255,255,.35)}
+.cnode__core--hub{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.24),transparent 52%),var(--c,var(--accent));box-shadow:0 0 0 2px rgba(255,255,255,.28),0 0 14px var(--c,var(--accent)),0 0 28px var(--c,var(--accent)),0 10px 28px rgba(0,0,0,.5)}
+.hub{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
+.hub__num{font-size:2.05rem;font-weight:900;text-shadow:0 2px 14px rgba(0,0,0,.65)}
+.hub__cap{font-size:.52rem;letter-spacing:.22em;font-weight:800;opacity:.9}
 .cnode__label{position:absolute;left:0;top:0;font-weight:800;font-size:1.02rem;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.7)}
 .cnode__meta{position:absolute;left:0;top:0;font-size:.8rem;color:var(--muted);white-space:nowrap;text-shadow:0 1px 6px rgba(0,0,0,.5)}
-.cnode__gauge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+.cnode__gauge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 0 3px rgba(124,92,255,.35))}
 .cnode__rings i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;border:1px solid rgba(140,160,255,.28);pointer-events:none}
 .cnode__rings i:nth-child(2){border-color:rgba(140,160,255,.14)}
 .cnode__rings i:nth-child(3){border-style:dashed;border-color:rgba(255,93,162,.3)}
-.cnode__radar{position:absolute;left:50%;top:50%;width:170px;height:170px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,rgba(124,92,255,.28),transparent 72deg);animation:radarspin 5.5s linear infinite;pointer-events:none}
+.cnode__radar{position:absolute;left:50%;top:50%;width:170px;height:170px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,rgba(124,92,255,.14),transparent 72deg);animation:radarspin 5.5s linear infinite;pointer-events:none}
 @keyframes radarspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .cnode__members{position:absolute;left:50%;top:50%;width:0;height:0}
 .member{position:absolute;left:0;top:0;width:46px;height:46px;transform:translate(0,0) translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.25),transparent 45%),#16204d;border:1.5px solid rgba(140,160,255,.45);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .18s cubic-bezier(.34,1.56,.64,1),border-color .15s}
@@ -106,6 +111,18 @@ button{font-family:inherit}
 .member:hover::after{border-color:var(--accent2)}
 .cnode.is-spring .cnode__inner{transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
 .cnode--ghost{opacity:.5}
+
+/* ── Glass stat cards ───────────────────────────────────── */
+#statcards{position:fixed;top:74px;left:16px;z-index:34;display:flex;flex-direction:column;gap:12px;pointer-events:none}
+.scard{background:rgba(16,20,48,.55);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(14px);padding:14px;box-shadow:0 16px 44px rgba(0,0,0,.4);display:flex;align-items:center;gap:14px;min-width:176px}
+.scard__ring{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),rgba(255,255,255,.08) 0);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.scard__ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:rgba(10,13,34,.92)}
+.scard__ring .n{position:relative;font-size:1.45rem;font-weight:900;color:#fff}
+.scard__txt .t{font-size:.6rem;letter-spacing:.14em;color:var(--muted);font-weight:800}
+.scard__txt .s{font-size:.68rem;color:var(--text);font-weight:700;margin-top:3px}
+.scard--row{justify-content:space-between;gap:20px}
+.scard__cell .v{font-size:1.45rem;font-weight:900;color:#fff;line-height:1}
+.scard__cell .t{font-size:.58rem;letter-spacing:.12em;color:var(--muted);font-weight:800;margin-top:4px}
 
 /* ── Bottom sheet ───────────────────────────────────────── */
 #sheet{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:35;width:min(680px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--stroke);border-radius:18px;backdrop-filter:blur(14px);padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);transition:transform .25s cubic-bezier(.34,1.3,.64,1)}
@@ -206,6 +223,17 @@ button{font-family:inherit}
   <div class="join-err" id="joinErr"></div>
 </div>
 
+<div id="statcards">
+  <div class="scard">
+    <div class="scard__ring" id="scRing"><span class="n" id="scScore">—</span></div>
+    <div class="scard__txt"><div class="t">NETWORK SCORE</div><div class="s" id="scScoreCap">0–100 engagement</div></div>
+  </div>
+  <div class="scard scard--row">
+    <div class="scard__cell"><div class="v" id="scMembers">—</div><div class="t">MEMBERS</div></div>
+    <div class="scard__cell"><div class="v" id="scPlayers">—</div><div class="t">PLAYERS</div></div>
+  </div>
+</div>
+
 <div id="popover"></div>
 <div id="toasts"></div>
 
@@ -227,7 +255,7 @@ function hashId(id){let x=(id*2654435761)>>>0;x=((x>>16)^x)*0x45d9f3b;x=((x>>16)
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function initialsOf(name){const p=String(name||'?').trim().split(/\s+/);const a=p[0]?p[0][0]:'?';const b=p.length>1?p[p.length-1][0]:'';return (a+b).toUpperCase()}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},2600)}
-function colorFor(id){const hues=[255,190,330,30,205,100,280,45];const h=hues[id%hues.length];return `hsl(${h} 70% 52%)`}
+const NODE_COLORS=['#7c5cff','#39d0ff','#8b5cf6','#00c764','#3b82f6','#ff8a5c','#a06bff','#00e0a0'];function colorFor(id){return NODE_COLORS[id%NODE_COLORS.length]}function nodeColor(n){return n&&n.kind==='mine'?'var(--accent)':colorFor(n.id)}
 
 /* ── api ────────────────────────────────────────────────── */
 async function api(path, opts={}){
@@ -286,7 +314,7 @@ function buildNode(n,p,focused){
   el.style.left=p.x+'px';el.style.top=p.y+'px';
   el.dataset.id=n.id;
   const s=coreSize(n,focused);
-  const c=colorFor(n.id);
+  const c=nodeColor(n);
   const members=(focused?memberOffsets(n):[]).map(m=>{
     const t=`translate(${m.x}px, ${m.y}px) translate(-50%,-50%)`;
     return `<div class="member" data-user="${m.user_id}" data-pcircle="${m.personal_circle_id||''}" data-public="${m.personal_circle_public?1:0}" style="transform:${t}" title="${esc(m.name)}">${esc(initialsOf(m.name))}</div>`;
@@ -294,10 +322,12 @@ function buildNode(n,p,focused){
   const ringStyle=[];const rings=focused?`<div class="cnode__rings"><i style="width:${s.px+56}px;height:${s.px+56}px"></i><i style="width:${s.px+112}px;height:${s.px+112}px"></i><i style="width:${s.px+168}px;height:${s.px+168}px"></i></div>`:'';
   const gauge=focused?gaugeSvg(n.network_score||0,s.px+20):'';
   const radar=focused?`<div class="cnode__radar" style="width:${s.px}px;height:${s.px}px"></div>`:'';
+  const coreHtml=focused?`<span class="hub"><span class="hub__num">${n.network_score||0}</span><span class="hub__cap">SCORE</span></span>`:esc(initialsOf(n.name));
+  const coreStyle=focused?`--c:${c}`:`--c:${c};font-size:${Math.round(s.px*0.28)}px`;
   el.innerHTML=`<div class="cnode__inner">
     <div class="cnode__wrap" style="width:${s.px}px;height:${s.px}px;--c:${c}">
       ${rings}${gauge}${radar}
-      <div class="cnode__core" style="--c:${c};font-size:${Math.round(s.px*0.28)}px">${esc(initialsOf(n.name))}</div>
+      <div class="cnode__core${focused?' cnode__core--hub':''}" style="${coreStyle}">${coreHtml}</div>
       <div class="cnode__members">${members}</div>
     </div>
     <div class="cnode__label" style="transform:translate(-50%,${s.label}px)">${esc(n.name)}</div>
@@ -322,17 +352,30 @@ function render(){
 
 function drawLinks(linksEl,focusId){
   const O=2400;
-  const add=(a,b,cls)=>{const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1',a.x+O);line.setAttribute('y1',a.y+O);line.setAttribute('x2',b.x+O);line.setAttribute('y2',b.y+O);line.setAttribute('class','link '+(cls||''));linksEl.appendChild(line)};
+  const LINK_COLORS=['#39d0ff','#a06bff','#8b5cf6','#00c764','#3b82f6','#ff8a5c'];
+  let seq=0;
+  const add=(a,b,soft)=>{
+    const x1=a.x+O,y1=a.y+O,x2=b.x+O,y2=b.y+O;
+    const col=LINK_COLORS[seq++%LINK_COLORS.length];
+    const glow=document.createElementNS('http://www.w3.org/2000/svg','line');
+    glow.setAttribute('x1',x1);glow.setAttribute('y1',y1);glow.setAttribute('x2',x2);glow.setAttribute('y2',y2);
+    glow.style.stroke=col;glow.style.strokeWidth=soft?'3':'5';glow.style.opacity=soft?'0.10':'0.18';glow.style.strokeLinecap='round';glow.style.fill='none';
+    linksEl.appendChild(glow);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1);line.setAttribute('y1',y1);line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+    line.style.stroke=col;line.style.strokeWidth=soft?'1':'1.6';line.style.opacity=soft?'0.4':'0.85';line.style.strokeLinecap='round';line.style.fill='none';
+    linksEl.appendChild(line);
+  };
   const linked=new Set();
-  const connect=(a,b,cls)=>{if(a==null||b==null)return;const key=[Math.min(a,b),Math.max(a,b)].join('-');if(linked.has(key))return;linked.add(key);const pa=state.positions[a],pb=state.positions[b];if(pa&&pb)add(pa,pb,cls)};
+  const connect=(a,b,soft)=>{if(a==null||b==null)return;const key=[Math.min(a,b),Math.max(a,b)].join('-');if(linked.has(key))return;linked.add(key);const pa=state.positions[a],pb=state.positions[b];if(pa&&pb)add(pa,pb,soft)};
   // personal circle -> each joined circle
-  state.nodes.forEach(n=>{if(n.kind==='joined')connect(state.personalId,n.id,'link--soft')});
+  state.nodes.forEach(n=>{if(n.kind==='joined')connect(state.personalId,n.id,true)});
   // every circle I belong to -> each member's personal circle (if on the map)
   state.nodes.forEach(n=>{
     if((n.kind==='mine'||n.kind==='joined')&&n.members){
       n.members.forEach(m=>{
         if(m.personal_circle_id&&state.nodeMap[m.personal_circle_id]&&m.personal_circle_id!==n.id){
-          connect(n.id,m.personal_circle_id);
+          connect(n.id,m.personal_circle_id,false);
         }
       });
     }
@@ -343,6 +386,16 @@ function updateHud(focusId){
   const n=state.nodeMap[focusId];
   document.getElementById('hudScore').textContent=n?(n.network_score||0):'—';
   document.getElementById('hudName').innerHTML=n?esc(n.name)+'<small>FOCUSED CIRCLE</small>':'—';
+  updateStatCards(focusId);
+}
+
+function updateStatCards(focusId){
+  const n=state.nodeMap[focusId];
+  const score=n?(n.network_score||0):0;
+  document.getElementById('scScore').textContent=n?score:'—';
+  document.getElementById('scMembers').textContent=n?(n.member_count||0):'—';
+  document.getElementById('scPlayers').textContent=n?(n.player_count||0):'—';
+  document.getElementById('scRing').style.setProperty('--p',score);
 }
 
 /* ── view transform ─────────────────────────────────────── */
@@ -379,7 +432,7 @@ function focusOn(id){
 function updateSheet(focusId){
   const n=state.nodeMap[focusId];const sheet=document.getElementById('sheet');
   if(!n){sheet.innerHTML='';return}
-  const c=colorFor(n.id);
+  const c=nodeColor(n);
   const isMember=n.kind==='mine'||n.kind==='joined';
   let acts=[];
   if(isMember)acts.push(`<button class="act act--primary" onclick="startMeetup(${n.id})">▶ Start meetup</button>`);
@@ -456,7 +509,7 @@ function openLeaderboard(id){
   api(`/api/circles/${id}/leaderboard`).then(r=>{
     if(!r.ok){toast(r.message||'Could not load rankings');return}
     const rows=(r.data||[]).map((p,i)=>`<div class="req"><span class="n"><b style="color:var(--muted)">${i+1}.</b> ${esc(p.name)} <span style="color:var(--accent2)">${esc(p.tier)}</span></span><span style="color:var(--muted);font-size:.8rem">${Math.round(p.rating)} · ${p.wins}W/${p.losses}L</span></div>`).join('')||'<div class="req"><span class="n">No ranked players yet.</span></div>';
-    sheet.innerHTML=`<div class="sheet__head"><div class="sheet__dot" style="--c:${colorFor(n.id)}">${esc(initialsOf(n.name))}</div><div class="sheet__titles"><h2>${esc(n.name)} — Rankings</h2><p>Tier · rating · record</p></div></div><div class="reqlist" style="max-height:220px;overflow:auto">${rows}</div><div class="sheet__actions" style="margin-top:10px"><button class="act" onclick="render()">Back</button></div>`;
+    sheet.innerHTML=`<div class="sheet__head"><div class="sheet__dot" style="--c:${nodeColor(n)}">${esc(initialsOf(n.name))}</div><div class="sheet__titles"><h2>${esc(n.name)} — Rankings</h2><p>Tier · rating · record</p></div></div><div class="reqlist" style="max-height:220px;overflow:auto">${rows}</div><div class="sheet__actions" style="margin-top:10px"><button class="act" onclick="render()">Back</button></div>`;
   });
 }
 
@@ -672,9 +725,9 @@ document.getElementById('joinGo').addEventListener('click',async()=>{
 document.getElementById('joinCode').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('joinGo').click()});
 
 /* theme */
-var COURT_THEMES=['dark','blue','cyber','crimson','emerald','light'];
-var COURT_GLYPHS={dark:'☾',blue:'✦',cyber:'✧',crimson:'♥',emerald:'❖',light:'☀'};
-var COURT_LABELS={dark:'Dark',blue:'Blue',cyber:'Cyber',crimson:'Crimson',emerald:'Emerald',light:'Light'};
+var COURT_THEMES=['dark','blue','cyber','emerald','light'];
+var COURT_GLYPHS={dark:'☾',blue:'✦',cyber:'✧',emerald:'❖',light:'☀'};
+var COURT_LABELS={dark:'Dark',blue:'Blue',cyber:'Cyber',emerald:'Emerald',light:'Light'};
 function courtlyCurrentTheme(){var t=document.documentElement.getAttribute('data-theme');return COURT_THEMES.indexOf(t)!==-1?t:'dark'}
 function updateThemeIcon(){var b=document.getElementById('btnTheme');if(!b)return;var t=courtlyCurrentTheme();b.textContent=COURT_GLYPHS[t];b.title='Theme: '+COURT_LABELS[t]+' — click to switch';b.setAttribute('aria-label',b.title)}
 function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme())+1)%COURT_THEMES.length];if(next==='dark')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('courtly-theme',next)}catch(e){}updateThemeIcon()}
