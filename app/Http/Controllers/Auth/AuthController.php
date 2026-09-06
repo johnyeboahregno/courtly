@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\Player;
 use App\Models\User;
+use App\Services\CircleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -104,6 +104,12 @@ class AuthController extends Controller
 
         $html .= '<form method="POST" action="'.$base.'/register"><input type="hidden" name="_token" value="' . $csrf . '"><div class="auth-field" style="display:none" aria-hidden="true"><label>Leave this field empty</label><input type="text" name="website" tabindex="-1" autocomplete="off"></div><div class="auth-field"><label>Name</label><input type="text" name="name" value="' . e($oldName) . '" placeholder="Your name" required autofocus></div><div class="auth-field"><label>Email</label><input type="email" name="email" value="' . e($oldEmail) . '" placeholder="you@example.com" required></div><div class="auth-field"><label>Password</label><input type="password" name="password" placeholder="At least 8 characters" required minlength="8"></div><div class="auth-field"><label>Confirm Password</label><input type="password" name="password_confirmation" placeholder="Same as above" required minlength="8"></div><div class="auth-field"><label>Security check: what is ' . $a . ' + ' . $b . '?</label><input type="text" name="captcha" inputmode="numeric" pattern="[0-9]*" placeholder="Enter the number" required></div><button type="submit" class="auth-btn auth-btn--primary">Create account</button></form><div class="auth-divider">or continue with</div><a href="'.$base.'/auth/google/redirect" class="social-btn"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Google</a><p class="auth-footer">Already have an account? <a href="'.$base.'/login">Sign in</a></p></div></div></body></html>';
 
+        $html = str_replace(
+            '<label>Confirm Password</label><input type="password" name="password_confirmation" placeholder="Same as above" required minlength="8"></div>',
+            '<label>Confirm Password</label><input type="password" name="password_confirmation" placeholder="Same as above" required minlength="8"></div><div class="auth-field"><label>Circle name <span style="font-weight:400">(optional)</span></label><input type="text" name="circle_name" id="circleName" placeholder="e.g. Sunday Badminton" maxlength="255"><p class="circle-preview" id="circlePreview" style="display:none;margin:8px 0 0;font-size:.9rem;color:var(--text-muted)">Your circle will be named <strong id="circlePreviewName"></strong></p><script>(function(){var i=document.getElementById("circleName"),p=document.getElementById("circlePreview"),n=document.getElementById("circlePreviewName");function u(){var v=i.value.trim();if(v){p.style.display="block";n.textContent=v+" Circle";}else{p.style.display="none";}}i.addEventListener("input",u);u();})();</script></div>',
+            $html
+        );
+
         return response($html);
     }
 
@@ -151,6 +157,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
             'password' => ['required', 'min:8', 'confirmed'],
+            'circle_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = User::create([
@@ -159,7 +166,9 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        $this->ensurePlayer($user);
+        $this->ensurePersonalCircleAndPlayer($user, $validated['circle_name'] ?? null);
+
+        $user->sendEmailVerificationNotification();
 
         Auth::login($user);
 
@@ -198,7 +207,12 @@ class AuthController extends Controller
             ]
         );
 
-        $this->ensurePlayer($user);
+        $this->ensurePersonalCircleAndPlayer($user);
+
+        // Google has already verified the account's email address.
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
 
         Auth::login($user);
 
@@ -206,20 +220,17 @@ class AuthController extends Controller
     }
 
     /**
-     * Guarantee the user has a matching Player record for their roster.
+     * Guarantee the user has a personal circle and their own linked player
+     * record inside it.
      */
-    private function ensurePlayer(User $user): void
+    private function ensurePersonalCircleAndPlayer(User $user, ?string $circleName = null): void
     {
-        if ($user->player()->exists()) {
-            return;
+        $circle = $user->personalCircle;
+
+        if (! $circle) {
+            $circle = app(CircleService::class)->createPersonalCircle($user, $circleName);
         }
 
-        Player::create([
-            'user_id' => $user->id,
-            'name' => $user->name,
-            'rating' => config('courtly.rating.default_rating', 0.00),
-            'rating_status' => 'PROVISIONAL',
-            'rating_confidence' => 0.10,
-        ]);
+        app(CircleService::class)->ensureLinkedPlayer($user, $circle);
     }
 }

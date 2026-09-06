@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\GameMatch;
 use App\Models\MatchFeedback;
+use App\Models\Player;
+use App\Services\CircleService;
 use App\Services\MatchResultService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,10 +71,19 @@ class MatchController extends Controller
             'quality_rating' => ['required', 'string', 'in:POOR,GOOD,GREAT'],
         ]);
 
+        $circle = $match->session->circle;
+        $player = Player::where('circle_id', $circle->id)
+            ->where('user_id', $this->currentUser()->id)
+            ->first();
+
+        if (! $player) {
+            $player = app(CircleService::class)->ensureLinkedPlayer($this->currentUser(), $circle);
+        }
+
         MatchFeedback::query()->updateOrCreate(
             [
                 'match_id' => $match->id,
-                'player_id' => $this->currentUser()->player?->id,
+                'player_id' => $player->id,
             ],
             ['quality_rating' => $validated['quality_rating']],
         );

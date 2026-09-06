@@ -10,6 +10,8 @@ use App\Enums\UserRole;
 use App\Enums\PlayerGender;
 use App\Models\Player;
 use App\Models\User;
+use App\Services\CircleService;
+use App\Services\PlayerAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,9 +32,12 @@ class AuthController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
             'gender' => ['sometimes', 'nullable', Rule::enum(PlayerGender::class)],
+            'circle_name' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
-        $user = DB::transaction(function () use ($validated) {
+        $circle = null;
+
+        $user = DB::transaction(function () use ($validated, &$circle) {
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
@@ -40,26 +45,22 @@ class AuthController extends Controller
                 'role' => UserRole::PLAYER,
             ]);
 
-            Player::create([
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'gender' => $validated['gender'] ?? null,
-                'rating' => config('courtly.rating.default_rating', 0.00),
-                'rating_status' => 'PROVISIONAL',
-                'rating_confidence' => 0.10,
-                'rated_games_count' => 0,
-                'total_games' => 0,
-                'wins' => 0,
-                'losses' => 0,
-            ]);
+            $circle = app(CircleService::class)->createPersonalCircle($user, $validated['circle_name'] ?? null);
+            app(CircleService::class)->ensureLinkedPlayer($user, $circle, $validated['gender'] ?? null);
 
             return $user;
         });
 
+        $user->sendEmailVerificationNotification();
+
         return response()->json([
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'role', 'email_verified_at']),
-                'message' => 'Registration successful.',
+                'circle' => [
+                    'id' => $circle->id,
+                    'name' => $circle->name,
+                ],
+                'message' => 'Registration successful. Check your email to verify your account.',
             ],
         ], 201);
     }
@@ -86,7 +87,9 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $request->session()->regenerate();
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         return response()->json([
             'data' => [
@@ -115,6 +118,26 @@ class AuthController extends Controller
     {
         return response()->json([
             'data' => $request->user()->load('player'),
+        ]);
+    }
+
+    /**
+     * The member's own overview: every circle they belong to plus
+     * account-level overall stats aggregated across those circles.
+     */
+    public function overview(Request $request, PlayerAnalyticsService $analytics): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'data' => [
+                'circles' => $user->circles()->get()->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'is_admin' => $c->isAdmin($user),
+                ]),
+                'overall' => $analytics->buildOverall($user),
+            ],
         ]);
     }
 }

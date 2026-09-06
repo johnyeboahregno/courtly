@@ -33,6 +33,28 @@ class SessionFactory extends Factory
         ]);
     }
 
+    /**
+     * Resolve the session's circle from its creator.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Session $session) {
+            if ($session->circle_id !== null) {
+                return;
+            }
+
+            try {
+                $user = $session->created_by instanceof User
+                    ? $session->created_by
+                    : User::find($session->created_by);
+
+                $session->circle_id = $user?->personalCircle?->id;
+            } catch (\Throwable) {
+                // No database available (e.g. Unit tests using make()).
+            }
+        });
+    }
+
     public function withCourts(int $count): static
     {
         return $this->afterCreating(function (Session $session) use ($count) {

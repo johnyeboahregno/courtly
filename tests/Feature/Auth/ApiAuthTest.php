@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use App\Models\Player;
 use App\Models\User;
+use App\Mail\VerifyEmail;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 it('registers a user and creates their player record', function () {
+    Mail::fake();
+
     $response = $this->postJson('/api/register', [
         'name' => 'Ada Lovelace',
         'email' => ' ADA@example.com ',
@@ -18,11 +22,14 @@ it('registers a user and creates their player record', function () {
         ->assertCreated()
         ->assertJsonPath('data.user.name', 'Ada Lovelace')
         ->assertJsonPath('data.user.email', 'ada@example.com')
-        ->assertJsonPath('data.message', 'Registration successful.');
+        ->assertJsonPath('data.message', 'Registration successful. Check your email to verify your account.');
 
     $user = User::query()->where('email', 'ada@example.com')->firstOrFail();
 
-    expect(Hash::check('Password1', $user->password))->toBeTrue();
+    expect(Hash::check('Password1', $user->password))->toBeTrue()
+        ->and($user->email_verified_at)->toBeNull();
+
+    Mail::assertSent(VerifyEmail::class);
 
     $this->assertDatabaseHas('players', [
         'user_id' => $user->id,
