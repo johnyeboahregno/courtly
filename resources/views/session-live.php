@@ -160,7 +160,7 @@
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
                 <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }" :draggable="sp.status === 'WAITING'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd">
                     <div class="player-card__col">
-                        <span class="player-card__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                        <span class="player-card__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}<span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span></span>
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
@@ -239,7 +239,7 @@
             <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
             <div class="existing-list manual-assign__list">
                 <button v-for="sp in waitingPlayers" :key="sp.id" type="button" class="existing-item manual-assignment__player" :class="{ 'existing-item--selected': manualAssignment.playerIds.includes(sp.player_id) }" @click="toggleManualPlayer(sp.player_id)">
-                    <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span>{{ formatName(sp.player.name) }}</span>
+                    <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}<span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span></span>
                     <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span></span>
                 </button>
             </div>
@@ -295,7 +295,7 @@
                     <p class="add-section__label">{{ newPlayerName.trim() ? 'Suggestions:' : 'Top players:' }}</p>
                     <div class="existing-list">
                         <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
-                            <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                            <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span>{{ formatName(p.name) }}<span class="rank-icon" v-html="rankIcon(p.rating)"></span></span>
                             <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                         </div>
                     </div>
@@ -327,7 +327,7 @@
                         @dragleave="dragOverPlayerId === p.player_id && (dragOverPlayerId = null)"
                         @drop="onPlayerDrop(p.player_id, $event)">
                         <span class="team-card__handle">⠿</span>
-                        <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="rank-icon" v-html="rankIcon(p.rating)"></span>{{ formatName(p.name) }}</span>
+                        <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span>{{ formatName(p.name) }}<span class="rank-icon" v-html="rankIcon(p.rating)"></span></span>
                         <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                     </div>
                 </div>

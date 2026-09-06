@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(php -l app/Http/Controllers/Api/SessionEventsController.php)",
-      "Bash(php artisan *)"
+      "Bash(php artisan *)",
+      "Bash(php -l app/Services/MatchResultService.php)"
     ]
   }
 }
