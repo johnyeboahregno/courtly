@@ -1,4 +1,4 @@
-name: Deploy to FTP
+name: Deploy to VPS
 
 on:
   push:
@@ -7,58 +7,25 @@ on:
 
 jobs:
   deploy:
-    name: FTP Deploy
+    name: Deploy over SSH
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-          extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo, pdo_mysql, tokenizer, xml, zip
-
-      - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
-
-      - name: Install lftp
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-
-      - name: Deploy via lftp
-        env:
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      - name: Configure SSH
         run: |
-          timeout 12m lftp -p 666 -u "regnocloud,$FTP_PASSWORD" ftp.bytedemon.com <<'EOF'
-          set cmd:fail-exit yes
-          set net:timeout 20
-          set net:max-retries 1
-          set net:persist-retries 0
-          set ftp:ssl-allow no
-          set ftp:passive-mode yes
-          mkdir -p public_html/courtly
-          mirror --reverse --verbose --parallel=4 \
-            --exclude-glob '.git/' \
-            --exclude-glob '.gitignore' \
-            --exclude-glob '.github/' \
-            --exclude-glob '.env' \
-            --exclude-glob '.env.example' \
-            --exclude-glob 'storage/' \
-            --exclude-glob 'bootstrap/cache/' \
-            --exclude-glob 'public/' \
-            --exclude-glob '*.log' \
-            --exclude-glob 'README.md' \
-            --exclude-glob 'CLAUDE.md' \
-            --exclude-glob 'USER_GUIDE.md' \
-            --exclude-glob 'test.html' \
-            --exclude-glob 'debug.php' \
-            --exclude-glob 'info.php' \
-            --exclude-glob 'start.bat' \
-            --exclude-glob 'start.sh' \
-            --exclude-glob 'composer.phar' \
-            --exclude-glob 'composer.lock' \
-            --exclude-glob 'cacert.pem' \
-            --exclude-glob 'peg-board.md' \
-            ./ public_html/courtly/
-          quit
-          EOF
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<'REMOTE'
+            set -e
+            cd ~/courtly
+            git fetch origin master
+            git reset --hard origin/master
+            sudo docker compose build app queue
+            sudo docker compose up -d --force-recreate app queue
+            sudo docker compose exec -T app php artisan migrate --force
+            sudo docker compose ps --format 'table {{.Name}}\t{{.Status}}'
+          REMOTE

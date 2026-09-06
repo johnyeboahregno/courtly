@@ -13,6 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
+
+        // Trust the Caddy reverse proxy in front of the app container so
+        // request()->isSecure() reflects the original HTTPS request instead
+        // of the plain-HTTP hop between Caddy and php-fpm. Safe as '*' here:
+        // the app container has no public port mapping, so only Caddy can
+        // ever reach it, meaning nothing else can spoof these headers.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function ($exceptions) {
         //
