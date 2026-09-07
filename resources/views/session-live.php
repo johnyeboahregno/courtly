@@ -105,25 +105,29 @@
                 </span>
             </div>
             <div v-if="!court.match" class="court-card__body court-card__body--empty"
-                :class="{ 'court-card__body--drop': dragOverCourtId === court.id, 'court-card__body--picked': pickedQueuePlayerId != null }"
-                @dragover.prevent="onEmptyCourtDragOver(court, $event)"
-                @dragleave="onEmptyCourtDragLeave(court, $event)"
-                @drop="dropPlayerOnCourt(court, $event.clientX, $event.clientY, $event)"
-                @click="tapEmptyCourt(court, $event)">
+                :class="{ 'court-card__body--drop': dragOverCourtId === court.id, 'court-card__body--picked': pickedQueuePlayerId != null }">
                 <div class="court-card__lines"></div>
                 <div class="court-card__pending">
                     <div class="court-card__pending-grid">
                         <div v-for="(sp, index) in courtPendingSlots(court.id)" :key="court.id + '-' + index"
                             class="court-card__player-box court-card__player-box--pending"
                             :class="{ 'court-card__player-box--pending-empty': !sp, 'court-card__player-box--drop-target': pendingDropSlot === court.id + '-' + index }"
-                            @click="sp ? removePendingPlayer(court.id, sp.player_id) : null"
-                            :title="sp ? 'Tap to return to NEXT UP' : null">
+                            :data-slot-index="index"
+                            @dragover.prevent="onSlotDragOver(court, index, $event)"
+                            @dragleave="onSlotDragLeave(court, index)"
+                            @drop="onSlotDrop(court, index, $event)"
+                            @click="onSlotClick(court, index, sp, $event)"
+                            :title="sp ? 'Tap to return to NEXT UP' : 'Drop a player here'">
                             <span v-if="sp" class="court-card__player"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}</span>
                             <span v-else class="court-card__player court-card__player--placeholder">+</span>
                         </div>
                     </div>
                     <span v-if="courtPendingCount(court.id) >= 4" class="court-empty-text">Ready to start</span>
                     <button v-if="courtPendingCount(court.id) >= 4" class="fill-courts-btn fill-courts-btn--start" :class="{ 'is-busy': uiPending.court[court.id] }" type="button" :disabled="uiPending.court[court.id]" @click="startCourtMatch(court.id)">START MATCH</button>
+                </div>
+                <div v-if="selectingCourts[court.id]" class="court-card__selecting">
+                    <span class="court-card__selecting-ring"></span>
+                    <span class="court-card__selecting-text">Selecting teams…</span>
                 </div>
             </div>
             <div v-else class="court-card__body"
@@ -192,7 +196,7 @@
         <p v-if="pickedQueuePlayer" class="waiting-list__pick-hint">Picked <strong>{{ formatName(pickedQueuePlayer.player.name) }}</strong> — tap an empty court or a player on court to place, or tap again to cancel.</p>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
-                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id), 'player-card--picked': pickedQueuePlayerId === sp.player_id, 'player-card--draggable': sp.status === 'WAITING' || sp.status === 'PAUSED' }" :draggable="sp.status === 'WAITING' || sp.status === 'PAUSED'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd" @click="pickQueuePlayer(sp, $event)" @pointerdown="onCardPointerDown(sp, $event)" @pointermove="onCardPointerMove(sp, $event)" @pointerup="onCardPointerUp(sp, $event)" @pointercancel="onCardPointerCancel(sp, $event)">
+                <div v-for="(sp, index) in queuePlayers" :key="sp.player_id" :style="{ '--leave-order': index }" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id), 'player-card--picked': pickedQueuePlayerId === sp.player_id, 'player-card--draggable': sp.status === 'WAITING' || sp.status === 'PAUSED' }" :draggable="sp.status === 'WAITING' || sp.status === 'PAUSED'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd" @click="pickQueuePlayer(sp, $event)" @pointerdown="onCardPointerDown(sp, $event)" @pointermove="onCardPointerMove(sp, $event)" @pointerup="onCardPointerUp(sp, $event)" @pointercancel="onCardPointerCancel(sp, $event)">
                     <div class="player-card__col">
                         <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="name-label">{{ formatName(sp.player.name) }}</span></span>
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
@@ -632,6 +636,26 @@ createApp({
         const insights = reactive({ show: false, loading: false, data: null, error: '' });
         const pendingResultMatchIds = new Set();
 
+        // Courts awaiting the server's next-match allocation after a result is
+        // recorded — drives the "Selecting teams…" overlay.
+        const selectingCourts = reactive({});
+        const selectingTimers = {};
+        function markCourtSelecting(courtId) {
+            if (!courtId) return;
+            clearTimeout(selectingTimers[courtId]);
+            selectingCourts[courtId] = true;
+            selectingTimers[courtId] = setTimeout(() => {
+                delete selectingCourts[courtId];
+                delete selectingTimers[courtId];
+            }, 20000);
+        }
+        function clearCourtSelecting(courtId) {
+            if (!courtId) return;
+            clearTimeout(selectingTimers[courtId]);
+            delete selectingCourts[courtId];
+            delete selectingTimers[courtId];
+        }
+
         // Score picker — the wheels are index-addressed, so value === index.
         const MATCH_POINTS = 21;
         const CLOSE_MARGIN = 3;
@@ -1065,6 +1089,7 @@ createApp({
                     }
                     return { ...c, match: md };
                 });
+                courts.value.forEach(c => { if (c.match) clearCourtSelecting(c.id); });
                 const serverPlayers = d.session_players || [];
                 players.value = serverPlayers;
                 if (pickedQueuePlayerId.value != null) {
@@ -1295,21 +1320,37 @@ createApp({
 
             const court = courts.value.find(item => item.match && item.match.id === matchId);
             const previousMatch = court ? court.match : null;
-            if (court) {
-                if (offlineMode.value && previousMatch) {
-                    // Free the players locally so they're available for the
-                    // next match; the server recalculates ratings/wins on sync.
-                    [...(previousMatch.t1 || []), ...(previousMatch.t2 || [])].forEach(mp => {
-                        const sp = players.value.find(item => item.player_id === mp.player_id);
-                        if (sp) { sp.status = 'WAITING'; sp.games_played = (sp.games_played || 0) + 1; }
-                    });
-                }
+            const optimisticPlayers = [];
+
+            if (court && previousMatch) {
+                // Optimistic: free the court and return its players to NEXT UP
+                // immediately, before the server round-trip completes. The real
+                // ratings/wins arrive via the following fetch/poll.
+                [...(previousMatch.t1 || []), ...(previousMatch.t2 || [])].forEach(mp => {
+                    const sp = players.value.find(item => item.player_id === mp.player_id);
+                    if (sp) {
+                        optimisticPlayers.push({ sp, status: sp.status, games: sp.games_played });
+                        sp.status = 'WAITING';
+                        sp.games_played = (sp.games_played || 0) + 1;
+                    }
+                });
                 court.match = null;
+                if (!offlineMode.value) markCourtSelecting(court.id);
                 celebration.value = { courtId: court.id, x: spot ? spot.x : (team === 1 ? 25 : 75), y: spot ? spot.y : 50 };
                 clearTimeout(celebrationTimer);
                 celebrationTimer = setTimeout(() => { celebration.value = null; }, 850);
                 if (offlineMode.value) autoFillCourtsOffline();
             }
+
+            const revert = () => {
+                if (court && !court.match) court.match = previousMatch;
+                optimisticPlayers.forEach(({ sp, status, games }) => {
+                    sp.status = status;
+                    sp.games_played = games;
+                });
+                if (court) clearCourtSelecting(court.id);
+                celebration.value = null;
+            };
 
             const courtLabel = court ? (court.name || ('Court ' + court.court_number)) : 'Court ?';
             const label = 'Match result — ' + courtLabel + ' (Team ' + team + ' won)';
@@ -1319,8 +1360,7 @@ createApp({
                 .then(result => {
                     if (!result.ok) {
                         pendingResultMatchIds.delete(matchId);
-                        if (court && !court.match) court.match = previousMatch;
-                        celebration.value = null;
+                        revert();
                         return;
                     }
                     if (result.queued) return;
@@ -1334,8 +1374,7 @@ createApp({
                 })
                 .catch(() => {
                     pendingResultMatchIds.delete(matchId);
-                    if (court && !court.match) court.match = previousMatch;
-                    celebration.value = null;
+                    revert();
                 })
                 .finally(() => { submitting[submissionKey] = false; });
         }
@@ -1392,46 +1431,75 @@ createApp({
         async function adjustCourts(action, courtNumber = null, courtName = null) {
             if (updatingCourts.value) return;
 
+            const body = { action };
+            if (courtNumber != null) body.court_number = courtNumber;
+            let label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
+
+            if (action === 'rename') {
+                body.court_name = (courtName || '').trim();
+                label = body.court_name
+                    ? 'Rename court ' + courtNumber + ' to "' + body.court_name + '"'
+                    : 'Reset court ' + courtNumber + ' name';
+            }
+
+            // Optimistic: update the board instantly so the user sees the
+            // change before the (multi-second) server round-trip completes.
+            // A failure rolls the local state back.
+            let rollback = null;
+
+            if (action === 'remove') {
+                const targetNumber = courtNumber ?? courts.value.reduce((max, c) => Math.max(max, c.court_number), 0);
+                const index = courts.value.findIndex(c => c.court_number === targetNumber);
+                if (index >= 0) {
+                    const previousCourts = courts.value;
+                    const removed = courts.value[index];
+                    const playingIds = new Set(
+                        removed.match ? [...removed.match.t1, ...removed.match.t2].map(mp => mp.player_id) : []
+                    );
+
+                    courts.value = courts.value.filter(c => c.court_number !== targetNumber);
+                    if (playingIds.size) {
+                        players.value.forEach(sp => {
+                            if (playingIds.has(sp.player_id)) sp.status = 'WAITING';
+                        });
+                    }
+
+                    rollback = () => {
+                        courts.value = previousCourts;
+                        if (playingIds.size) {
+                            players.value.forEach(sp => {
+                                if (playingIds.has(sp.player_id)) sp.status = 'PLAYING';
+                            });
+                        }
+                    };
+                }
+            } else if (action === 'add') {
+                const nextNumber = courts.value.reduce((max, c) => Math.max(max, c.court_number), 0) + 1;
+                if (nextNumber <= 8) {
+                    const previousCourts = courts.value;
+                    courts.value = [...courts.value, { id: 'offline-court-' + nextNumber, court_number: nextNumber, name: 'Court ' + nextNumber, match: null }];
+                    rollback = () => { courts.value = previousCourts; };
+                }
+            } else if (action === 'rename' && courtNumber != null) {
+                const previousCourts = courts.value;
+                courts.value = courts.value.map(c =>
+                    c.court_number === courtNumber ? { ...c, name: body.court_name || null } : c
+                );
+                rollback = () => { courts.value = previousCourts; };
+            }
+
             updatingCourts.value = true;
             try {
-                const body = { action };
-                if (courtNumber != null) body.court_number = courtNumber;
-                let label = action === 'add' ? 'Add a court' : 'Remove court ' + courtNumber;
-
-                if (action === 'rename') {
-                    body.court_name = (courtName || '').trim();
-                    label = body.court_name
-                        ? 'Rename court ' + courtNumber + ' to "' + body.court_name + '"'
-                        : 'Reset court ' + courtNumber + ' name';
-
-                    // Optimistic: update the board instantly so the user sees
-                    // the new name before the server responds.
-                    courts.value = courts.value.map(c =>
-                        c.court_number === courtNumber ? { ...c, name: body.court_name || null } : c
-                    );
-                }
-
                 if (offlineMode.value) {
-                    if (action === 'add' && courts.value.length < 8) {
-                        const nextNumber = courts.value.reduce((max, c) => Math.max(max, c.court_number), 0) + 1;
-                        courts.value = [...courts.value, { id: 'offline-court-' + nextNumber, court_number: nextNumber, name: 'Court ' + nextNumber, match: null }];
-                    } else if (action === 'remove' && courts.value.length > 1) {
-                        const targetNumber = courtNumber ?? courts.value.reduce((max, c) => Math.max(max, c.court_number), 0);
-                        courts.value = courts.value.filter(c => c.court_number !== targetNumber);
-                    } else if (action === 'rename' && courtNumber != null) {
-                        const next = [...courts.value];
-                        const index = next.findIndex(c => c.court_number === courtNumber);
-                        if (index >= 0) {
-                            next[index] = { ...next[index], name: body.court_name || null };
-                            courts.value = next;
-                        }
-                    }
                     queueAction('PATCH', '/api/sessions/' + SESSION_ID + '/courts', body, label);
                     return;
                 }
 
                 const result = await apiRequest('PATCH', '/api/sessions/' + SESSION_ID + '/courts', body, label);
                 if (result.ok) applySessionData(result.data.data);
+                else if (rollback) rollback();
+            } catch {
+                if (rollback) rollback();
             } finally {
                 updatingCourts.value = false;
             }
@@ -1552,6 +1620,52 @@ createApp({
             const list = courtPendingSlots(court.id);
             list[quadrantIndex(court.id, x, y)] = sp;
             pendingCourtPlayers[court.id] = list;
+        }
+        // Place a dragged/picked player into a specific empty-court slot.
+        function placePlayerOnSlot(court, index, playerId) {
+            if (!court || court.match || playerId == null) return;
+            const sp = players.value.find(p => p.player_id === playerId && (p.status === 'WAITING' || p.status === 'PAUSED'));
+            if (!sp) return;
+            // Move the player out of any other court's pending slots first.
+            for (const key of Object.keys(pendingCourtPlayers)) {
+                const list = pendingCourtPlayers[key];
+                const idx = list.findIndex(slot => slot && slot.player_id === playerId);
+                if (idx !== -1) {
+                    list[idx] = null;
+                    pendingCourtPlayers[key] = list;
+                }
+            }
+            const list = courtPendingSlots(court.id);
+            list[index] = sp;
+            pendingCourtPlayers[court.id] = list;
+        }
+        function onSlotDragOver(court, index, event) {
+            if (event) event.preventDefault();
+            dragOverCourtId.value = court.id;
+            pendingDropSlot.value = court.id + '-' + index;
+        }
+        function onSlotDragLeave(court, index) {
+            if (pendingDropSlot.value === court.id + '-' + index) pendingDropSlot.value = null;
+        }
+        function onSlotDrop(court, index, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const playerId = takeIncomingPlayerId();
+            dragOverCourtId.value = null;
+            pendingDropSlot.value = null;
+            placePlayerOnSlot(court, index, playerId);
+        }
+        function onSlotClick(court, index, sp, event) {
+            if (sp) {
+                removePendingPlayer(court.id, sp.player_id);
+                return;
+            }
+            if (pickedQueuePlayerId.value == null) return;
+            const playerId = pickedQueuePlayerId.value;
+            pickedQueuePlayerId.value = null;
+            placePlayerOnSlot(court, index, playerId);
         }
         // Tap-to-place fallback: an empty court body becomes a drop target for
         // a picked player, without hijacking its ASSIGN/START buttons.
@@ -1736,10 +1850,11 @@ createApp({
         function onCardPointerUp(sp, event) {
             if (touchDrag.playerId !== sp.player_id) return;
             const wasDragging = touchDrag.active;
+            const playerId = touchDrag.playerId;
             const el = wasDragging ? document.elementFromPoint(touchDrag.x, touchDrag.y) : null;
             if (wasDragging) suppressPickClickUntil = Date.now() + 60;
             clearTouchDrag();
-            if (wasDragging && el) completeTouchDrop(el);
+            if (wasDragging && el) completeTouchDrop(el, playerId);
         }
         function onCardPointerCancel(sp, event) {
             if (touchDrag.playerId === sp.player_id) clearTouchDrag();
@@ -1771,7 +1886,10 @@ createApp({
             if (!court) return;
             if (!court.match) {
                 dragOverCourtId.value = court.id;
-                pendingDropSlot.value = court.id + '-' + quadrantIndex(court.id, x, y);
+                const slotBox = el.closest('.court-card__player-box--pending');
+                if (slotBox && slotBox.dataset && slotBox.dataset.slotIndex != null) {
+                    pendingDropSlot.value = court.id + '-' + slotBox.dataset.slotIndex;
+                }
                 return;
             }
             const box = el.closest('.court-card__player-box');
@@ -1785,22 +1903,25 @@ createApp({
                 }
             }
         }
-        function completeTouchDrop(el) {
+        function completeTouchDrop(el, playerId) {
             const card = el && el.closest ? el.closest('.court-card') : null;
             const court = courtFromCard(card);
-            if (!court) return;
+            if (!court || playerId == null) return;
             const x = touchDrag.x;
             const y = touchDrag.y;
             if (!court.match) {
-                dropPlayerOnCourt(court, x, y, null);
+                const slotBox = el.closest('.court-card__player-box--pending');
+                const slotIndex = slotBox && slotBox.dataset && slotBox.dataset.slotIndex != null
+                    ? Number(slotBox.dataset.slotIndex)
+                    : null;
+                if (slotIndex != null) placePlayerOnSlot(court, slotIndex, playerId);
                 return;
             }
             const box = el.closest('.court-card__player-box');
-            if (box && box.dataset && box.dataset.playerId) {
-                substituteOnCourt(court, Number(box.dataset.playerId), null);
-            } else {
-                dropOnPlayingCourt(court, x, y, null);
-            }
+            const outPlayerId = box && box.dataset && box.dataset.playerId
+                ? Number(box.dataset.playerId)
+                : cornerPlayerId(court, x, y);
+            if (outPlayerId != null) substituteOnCourt(court, outPlayerId, null, playerId);
         }
 
         function removePendingPlayer(courtId, playerId) {
@@ -2016,23 +2137,31 @@ createApp({
             uiPending.add = true;
             newPlayerName.value = '';
             newPlayerGender.value = '';
+
+            // Optimistic: show the new player in NEXT UP immediately — the POST
+            // also runs matchmaking, which can take seconds on the remote DB.
+            const tempId = 'offline-player-' + Date.now();
+            const pendingEntry = {
+                player_id: tempId,
+                player: { id: tempId, name, gender, rating: 0 },
+                status: 'WAITING',
+                games_played: 0,
+                wins: 0,
+                losses: 0,
+                pending: true,
+            };
+            pendingAddedPlayers.value = [...pendingAddedPlayers.value, pendingEntry];
+
             try {
                 if (offlineMode.value) {
-                    const tempId = 'offline-player-' + Date.now();
-                    pendingAddedPlayers.value = [...pendingAddedPlayers.value, {
-                        player_id: tempId,
-                        player: { id: tempId, name, gender, rating: 0 },
-                        status: 'WAITING',
-                        games_played: 0,
-                        wins: 0,
-                        losses: 0,
-                        pending: true,
-                    }];
                     queueAction('POST', '/api/sessions/' + SESSION_ID + '/players', { name, gender }, 'Add player "' + name + '"');
                     return;
                 }
-                await postApi('/api/sessions/' + SESSION_ID + '/players', { name, gender }, 'Add player "' + name + '"');
-                await fetchSession();
+                const result = await postApi('/api/sessions/' + SESSION_ID + '/players', { name, gender }, 'Add player "' + name + '"');
+                pendingAddedPlayers.value = pendingAddedPlayers.value.filter(sp => sp.player_id !== tempId);
+                if (result.ok) await fetchSession();
+            } catch {
+                pendingAddedPlayers.value = pendingAddedPlayers.value.filter(sp => sp.player_id !== tempId);
             } finally {
                 uiPending.add = false;
             }
@@ -2278,7 +2407,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, missingGenderPlayers, blockedByMissingGender, setPlayerGender, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue, subDragOver, subDragKey, substituteOnCourt, pickedQueuePlayerId, pickedQueuePlayer, pickQueuePlayer, tapEmptyCourt, tapOnCourtPlayer, dragOverPlayingCourtId, dropOnPlayingCourt, touchDrag, onCardPointerDown, onCardPointerMove, onCardPointerUp, onCardPointerCancel, pendingDropSlot, courtPendingSlots, courtPendingCount, onEmptyCourtDragOver, onEmptyCourtDragLeave, onPlayingCourtDragOver, onPlayingCourtDragLeave, clearCourt };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, selectingCourts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, missingGenderPlayers, blockedByMissingGender, setPlayerGender, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, onSlotDragOver, onSlotDragLeave, onSlotDrop, onSlotClick, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue, subDragOver, subDragKey, substituteOnCourt, pickedQueuePlayerId, pickedQueuePlayer, pickQueuePlayer, tapEmptyCourt, tapOnCourtPlayer, dragOverPlayingCourtId, dropOnPlayingCourt, touchDrag, onCardPointerDown, onCardPointerMove, onCardPointerUp, onCardPointerCancel, pendingDropSlot, courtPendingSlots, courtPendingCount, onEmptyCourtDragOver, onEmptyCourtDragLeave, onPlayingCourtDragOver, onPlayingCourtDragLeave, clearCourt };
     }
 }).mount('#courtly-app');
 </script>

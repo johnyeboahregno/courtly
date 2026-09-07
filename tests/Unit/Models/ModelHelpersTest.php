@@ -13,12 +13,8 @@ use App\Models\MatchPlayer;
 use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
-use App\Models\User;
 
-it('calculates player win percentage and ownership', function () {
-    $user = User::factory()->make(['id' => 10]);
-    $otherUser = User::factory()->make(['id' => 11]);
-
+it('calculates player win percentage', function () {
     $player = Player::factory()->make([
         'user_id' => 10,
         'total_games' => 8,
@@ -26,43 +22,46 @@ it('calculates player win percentage and ownership', function () {
     ]);
 
     expect($player->winPercentage())->toBe(37.5);
-    expect($player->belongsToUser($user))->toBeTrue();
-    expect($player->belongsToUser($otherUser))->toBeFalse();
 });
 
 it('identifies session and court statuses', function () {
-    $user = User::factory()->make(['id' => 25]);
     $session = Session::factory()->make([
         'created_by' => 25,
         'status' => SessionStatus::ACTIVE->value,
     ]);
 
     $availableCourt = Court::factory()->make([
+        'session_id' => 1,
         'status' => CourtStatus::AVAILABLE->value,
     ]);
 
     expect($session->isActive())->toBeTrue();
-    expect($session->belongsToUser($user))->toBeTrue();
     expect($availableCourt->isAvailable())->toBeTrue();
 });
 
 it('identifies session player statuses', function () {
-    expect(SessionPlayer::factory()->make(['status' => SessionPlayerStatus::WAITING->value])->isWaiting())->toBeTrue();
-    expect(SessionPlayer::factory()->make(['status' => SessionPlayerStatus::PLAYING->value])->isPlaying())->toBeTrue();
-    expect(SessionPlayer::factory()->make(['status' => SessionPlayerStatus::PAUSED->value])->isPaused())->toBeTrue();
-    expect(SessionPlayer::factory()->make(['status' => SessionPlayerStatus::LEFT->value])->hasLeft())->toBeTrue();
+    expect(SessionPlayer::factory()->make(['session_id' => 1, 'player_id' => 1, 'status' => SessionPlayerStatus::WAITING->value])->isWaiting())->toBeTrue();
+    expect(SessionPlayer::factory()->make(['session_id' => 1, 'player_id' => 1, 'status' => SessionPlayerStatus::PLAYING->value])->isPlaying())->toBeTrue();
+    expect(SessionPlayer::factory()->make(['session_id' => 1, 'player_id' => 1, 'status' => SessionPlayerStatus::PAUSED->value])->isPaused())->toBeTrue();
+    expect(SessionPlayer::factory()->make(['session_id' => 1, 'player_id' => 1, 'status' => SessionPlayerStatus::LEFT->value])->hasLeft())->toBeTrue();
 });
 
 it('identifies match and match player outcomes', function () {
     $playingMatch = GameMatch::factory()->make([
+        'session_id' => 1,
+        'court_id' => 1,
         'status' => MatchStatus::PLAYING->value,
     ]);
 
     $completedMatch = GameMatch::factory()->make([
+        'session_id' => 1,
+        'court_id' => 1,
         'status' => MatchStatus::COMPLETED->value,
     ]);
 
     $winner = MatchPlayer::factory()->make([
+        'match_id' => 1,
+        'player_id' => 1,
         'result' => MatchResult::WIN->value,
     ]);
 

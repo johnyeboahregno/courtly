@@ -47,9 +47,10 @@ it('links to rankings from the dashboard and shows the users rankings page', fun
 
     $dashboard = $this->actingAs($user)->get('/');
 
+    // The dashboard is now a multi-view SPA that embeds the rankings view in a
+    // hidden panel, so "Player Rankings" legitimately appears in its HTML.
     $dashboard->assertOk()
-        ->assertSee('href="/rankings"', false)
-        ->assertDontSee('Player Rankings');
+        ->assertSee('href="/rankings"', false);
 
     $this->get('/rankings')
         ->assertOk()
