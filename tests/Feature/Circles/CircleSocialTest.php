@@ -140,3 +140,45 @@ it('returns a circle leaderboard ordered by rating with tier badges', function (
         ->assertJsonPath('data.1.name', 'Weak')
         ->assertJsonPath('data.1.tier', 'Rookie');
 });
+
+it('notifies the joiner once their request is approved', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    Sanctum::actingAs($joiner);
+    $this->postJson("/api/circles/{$circle->id}/request-join")->assertCreated();
+
+    $request = CircleJoinRequest::where('circle_id', $circle->id)->where('user_id', $joiner->id)->firstOrFail();
+
+    Sanctum::actingAs($admin);
+    $this->postJson("/api/circle-join-requests/{$request->id}/approve")->assertOk();
+
+    Sanctum::actingAs($joiner);
+    $res = $this->getJson('/api/circles/map')->assertOk();
+
+    $notif = collect($res->json('data.notifications'))->firstWhere('circle_id', $circle->id);
+    expect($notif)->not->toBeNull()
+        ->and($notif['status'])->toBe('APPROVED')
+        ->and(collect($res->json('data.nodes'))->firstWhere('id', $circle->id)['kind'])->toBe('joined');
+});
+
+it('shows a joined member\'s private personal circle as a connected node on the admin\'s map', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    $joiner->personalCircle->update(['visibility' => 'PRIVATE']);
+    $joiner->circles()->attach($circle->id);
+
+    Sanctum::actingAs($admin);
+
+    $res = $this->getJson('/api/circles/map')->assertOk();
+
+    $node = collect($res->json('data.nodes'))->firstWhere('id', $joiner->personalCircle->id);
+    expect($node)->not->toBeNull()
+        ->and($node['kind'])->toBe('connected');
+
+    $pair = collect($res->json('data.connections'))->first(fn ($c) => $c['a'] === $circle->id && $c['b'] === $joiner->personalCircle->id);
+    expect($pair)->not->toBeNull();
+});

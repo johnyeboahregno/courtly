@@ -300,10 +300,53 @@ class CircleService
         $myCircles = $user->circles()->withCount(['members', 'players'])->get();
 
         $nodes = $myCircles->map(fn (Circle $circle) => $this->circleNode($circle, $user, true))->values()->all();
+        $onMap = $myCircles->pluck('id')->map(fn ($id) => (int) $id)->all();
 
+        // Connections: every circle the user belongs to is linked to each of
+        // its members' personal circles. A member's personal circle is added to
+        // the map as a "connected" node (even when private) so the line between
+        // the two circles is visible to both sides after a join is approved.
+        $connections = [];
+        $connected = [];
+
+        foreach ($myCircles as $circle) {
+            foreach ($circle->members()->get() as $member) {
+                $personal = $member->personalCircle;
+
+                if (! $personal || (int) $personal->id === (int) $circle->id) {
+                    continue;
+                }
+
+                $connections[] = [
+                    'a' => (int) $circle->id,
+                    'b' => (int) $personal->id,
+                ];
+
+                if (! in_array((int) $personal->id, $onMap, true)) {
+                    $connected[(int) $personal->id] = $personal;
+                }
+            }
+        }
+
+        foreach ($connected as $personalCircle) {
+            $personalCircle->loadCount(['members', 'players']);
+            $node = $this->circleNode($personalCircle, $user, false, 'connected');
+
+            // A private circle stays private: don't leak its profile details to
+            // co-members, only enough to draw the connection line.
+            if (! $personalCircle->isDiscoverable()) {
+                $node['description'] = null;
+                $node['location_label'] = null;
+            }
+
+            $nodes[] = $node;
+            $onMap[] = (int) $personalCircle->id;
+        }
+
+        // Discoverable public circles (excluding anything already on the map).
         Circle::query()
             ->where('visibility', CircleVisibility::PUBLIC->value)
-            ->whereNotIn('id', $myCircles->pluck('id')->all())
+            ->whereNotIn('id', $onMap)
             ->withCount(['members', 'players'])
             ->orderBy('name')
             ->get()
@@ -322,6 +365,25 @@ class CircleService
             ])
             ->values();
 
+        // The "message sent back": outcomes of join requests this user has sent.
+        $notifications = $user->joinRequests()
+            ->with('circle')
+            ->whereIn('status', [
+                CircleJoinRequestStatus::APPROVED->value,
+                CircleJoinRequestStatus::DECLINED->value,
+            ])
+            ->latest('updated_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (CircleJoinRequest $r) => [
+                'id' => $r->id,
+                'circle_id' => $r->circle_id,
+                'circle_name' => $r->circle?->name,
+                'status' => $r->status->value,
+            ])
+            ->values()
+            ->all();
+
         $liveSessions = Session::whereIn('circle_id', $myCircles->pluck('id')->all())
             ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
             ->orderBy('started_at')
@@ -339,7 +401,9 @@ class CircleService
         return [
             'personal_circle_id' => (int) ($user->personalCircle?->id ?? 0),
             'nodes' => $nodes,
+            'connections' => $connections,
             'pending_requests' => $pending,
+            'notifications' => $notifications,
             'live_sessions' => $liveSessions,
         ];
     }
@@ -416,7 +480,7 @@ class CircleService
     /**
      * Serialize a circle into a map node.
      */
-    private function circleNode(Circle $circle, ?User $viewer, bool $isMine): array
+    private function circleNode(Circle $circle, ?User $viewer, bool $isMine, ?string $kind = null): array
     {
         $members = [];
 
@@ -454,7 +518,7 @@ class CircleService
         return [
             'id' => $circle->id,
             'name' => $circle->name,
-            'kind' => $isMine ? ($isAdmin ? 'mine' : 'joined') : 'discoverable',
+            'kind' => $kind ?? ($isMine ? ($isAdmin ? 'mine' : 'joined') : 'discoverable'),
             'is_admin' => $isAdmin,
             'visibility' => $circle->visibility->value,
             'description' => $circle->description,

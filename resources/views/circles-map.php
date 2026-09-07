@@ -92,6 +92,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .cnode--discoverable .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#28316a;border-color:rgba(140,160,255,.5);box-shadow:0 0 0 1px rgba(140,160,255,.2),0 0 16px rgba(90,130,255,.35),0 6px 24px rgba(0,0,0,.5)}
 .cnode--visiting .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#3a1f63;border-color:rgba(180,120,255,.55);box-shadow:0 0 0 1px rgba(180,120,255,.2),0 0 16px rgba(160,100,255,.4),0 6px 24px rgba(0,0,0,.5)}
 .cnode--joined .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),var(--c,var(--cyan));border-color:rgba(255,255,255,.35)}
+.cnode--connected .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#0f5c4d;border-color:rgba(0,199,100,.5);box-shadow:0 0 0 1px rgba(0,199,100,.2),0 0 14px rgba(0,199,100,.3),0 6px 22px rgba(0,0,0,.5)}
 .cnode__core--hub{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.24),transparent 52%),var(--c,var(--accent));box-shadow:0 0 0 2px rgba(255,255,255,.28),0 0 14px var(--c,var(--accent)),0 0 28px var(--c,var(--accent)),0 10px 28px rgba(0,0,0,.5)}
 .hub{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
 .hub__num{font-size:2.05rem;font-weight:900;text-shadow:0 2px 14px rgba(0,0,0,.65)}
@@ -113,6 +114,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .cnode.is-spring .cnode__inner{transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
 .cnode--ghost{opacity:.5}
 .cnode__lock{position:absolute;right:2px;top:2px;z-index:4;font-size:.95rem;line-height:1;filter:drop-shadow(0 1px 4px rgba(0,0,0,.55))}
+.cnode__badge{position:absolute;left:-7px;top:-7px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--accent2);color:#fff;font-size:.66rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px var(--accent2);z-index:6}
 
 /* ── Live session nodes + pulsing link ─────────────────── */
 .snode{position:absolute;left:0;top:0;transform:translate(-50%,-50%);z-index:3}
@@ -155,6 +157,18 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .req .n{flex:1;font-size:.85rem}
 .req .ok{border:1px solid var(--team2);color:var(--team2);background:transparent;border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:700}
 .req .no{border:1px solid var(--accent2);color:var(--accent2);background:transparent;border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:700}
+
+/* ── Notifications ──────────────────────────────────────── */
+.notif-wrap{position:relative}
+.notif-badge{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent2);color:#fff;font-size:.62rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px var(--accent2);pointer-events:none}
+#inbox{position:fixed;top:66px;right:16px;z-index:52;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);width:min(350px,calc(100vw - 32px));max-height:calc(100vh - 92px);overflow-y:auto}
+#inbox h3{margin:0 0 6px;font-size:1rem}
+#inbox h3 .x{float:right;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:1rem}
+.inbox-item{padding:8px 0;border-bottom:1px solid var(--stroke);font-size:.8rem;line-height:1.45}
+.inbox-item:last-child{border-bottom:none}
+.inbox-item .tag-ok{color:var(--team2);font-weight:800}
+.inbox-item .tag-no{color:var(--accent2);font-weight:800}
+.inbox-empty{color:var(--muted);font-size:.8rem;padding:4px 0}
 
 /* ── Popover ────────────────────────────────────────────── */
 #popover{position:fixed;z-index:50;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);min-width:210px;max-height:calc(100vh - 20px);overflow-y:auto}
@@ -258,6 +272,9 @@ input,textarea{user-select:text;-webkit-user-select:text}
     <a class="map-pill map-pill--active" href="<?= $base ?>/circles" title="Circles"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="map-pill__label">Circles</span></a>
     <a class="map-pill" href="<?= $base ?>/" title="Sessions"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="map-pill__label">Sessions</span></a>
     <a class="map-pill" href="<?= $base ?>/rankings" title="Rankings"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="map-pill__label">Rankings</span></a>
+    <div class="notif-wrap">
+      <button class="hdr-icon" id="notifBell" title="Notifications" aria-label="Notifications">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
+    </div>
     <button class="hdr-icon" id="btnTheme" title="Theme">☾</button>
     <form method="POST" action="<?= $base ?>/logout" style="margin:0">
       <input type="hidden" name="_token" value="<?= e($csrf) ?>">
@@ -305,6 +322,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </div>
 
 <div id="popover"></div>
+<div id="inbox"></div>
 <div id="statsModal"></div>
 <div id="leaderModal"></div>
 <div id="manageModal"></div>
@@ -317,7 +335,8 @@ const ME = <?= json_encode($userName) ?>;
 
 const state = {
   nodes: [], nodeMap: {}, positions: {}, personalId: null,
-  focusId: null, pending: [], liveSessions: [], nodePos: {}, focusedAttachments: [], lastFocusId: null, lastClickId: null, lastClickTime: 0,
+  focusId: null, pending: [], liveSessions: [], connections: [], notifications: [], unreadNotifs: 0,
+  nodePos: {}, focusedAttachments: [], lastFocusId: null, lastClickId: null, lastClickTime: 0,
   view: { x: 0, y: 0, scale: 1 },
   drag: null, pointers: new Map(), lastWheel: 0,
 };
@@ -350,6 +369,8 @@ function layout(){
   if(mine)pos[mine.id]={x:0,y:0};
   const joined=byKind('joined');
   joined.forEach((n,i)=>{const a=(i/Math.max(joined.length,1))*Math.PI*2-Math.PI/2;pos[n.id]={x:Math.cos(a)*460,y:Math.sin(a)*460}});
+  const conn=byKind('connected');
+  conn.forEach((n,i)=>{const a=(i/Math.max(conn.length,1))*Math.PI*2+Math.PI/4;pos[n.id]={x:Math.cos(a)*600,y:Math.sin(a)*600}});
   const disc=byKind('discoverable');
   disc.forEach(n=>{const h=hashId(n.id),h2=hashId(n.id*7+13);const a=h*Math.PI*2;const r=760+h2*980;pos[n.id]={x:Math.cos(a)*r,y:Math.sin(a)*r}});
   const focusPos=pos[state.focusId]||pos[state.personalId]||{x:0,y:0};
@@ -411,11 +432,13 @@ function buildNode(n,p,focused){
   const coreHtml=focused?`<span class="hub"><span class="hub__num">${n.network_score||0}</span><span class="hub__cap">SCORE</span></span>`:esc(initialsOf(n.name));
   const coreStyle=focused?`--c:${c}`:`--c:${c};font-size:${Math.round(s.px*0.28)}px`;
   const lockHtml=n.visibility==='PRIVATE'?`<span class="cnode__lock" title="Private">🔒</span>`:'';
+  const pendCount=(n.is_admin&&n.pending_requests)?n.pending_requests.length:0;
+  const badgeHtml=pendCount?`<span class="cnode__badge">${pendCount}</span>`:'';
   el.innerHTML=`<div class="cnode__inner">
     <div class="cnode__wrap" style="width:${s.px}px;height:${s.px}px;--c:${c}">
       ${rings}${gauge}${radar}
       <div class="cnode__core${focused?' cnode__core--hub':''}" style="${coreStyle}">${coreHtml}</div>
-      ${lockHtml}
+      ${lockHtml}${badgeHtml}
     </div>
     <div class="cnode__label" style="transform:translate(-50%,${s.label}px)">${esc(n.name)}</div>
   </div>`;
@@ -497,6 +520,8 @@ function drawLinks(linksEl,focusId){
       });
     }
   });
+  // explicit connection pairs returned by the API (approved joins)
+  (state.connections||[]).forEach(c=>connect(c.a,c.b,false));
   // attachments around the focused circle -> curved lines from the circle edge
   const focusedNode=state.nodeMap[focusId];
   if(focusedNode){
@@ -756,6 +781,63 @@ async function decideRequest(id,action){
   else toast(r.message||'Failed');
 }
 
+/* ── notifications ──────────────────────────────────────── */
+function incomingRequests(){
+  const out=[];
+  state.nodes.forEach(n=>{
+    if(n.is_admin&&n.pending_requests&&n.pending_requests.length){
+      n.pending_requests.forEach(r=>out.push(Object.assign({circle_id:n.id,circle_name:n.name},r)));
+    }
+  });
+  return out;
+}
+function updateNotifBadge(){
+  const b=document.getElementById('notifBadge');
+  if(!b)return;
+  const total=incomingRequests().length+state.unreadNotifs;
+  b.style.display=total>0?'flex':'none';
+  b.textContent=total>99?'99+':String(total);
+}
+function applyNotifications(list){
+  list=list||[];
+  state.notifications=list;
+  let seen=[];
+  try{seen=JSON.parse(localStorage.getItem('courtly-seen-notifs')||'[]')}catch(e){seen=[]}
+  const fresh=list.filter(n=>seen.indexOf(n.id)===-1);
+  fresh.forEach(n=>{
+    toast(n.status==='APPROVED'
+      ? `Your request to join ${n.circle_name} was approved ✦`
+      : `Your request to join ${n.circle_name} was declined`);
+  });
+  if(fresh.length){
+    try{localStorage.setItem('courtly-seen-notifs',JSON.stringify(list.map(n=>n.id)))}catch(e){}
+    state.unreadNotifs+=fresh.length;
+  }
+  updateNotifBadge();
+}
+function toggleInbox(){
+  const box=document.getElementById('inbox');
+  if(!box)return;
+  const show=box.style.display==='none'||!box.style.display;
+  if(show){renderInbox();box.style.display='block';state.unreadNotifs=0;updateNotifBadge();closePopover()}
+  else box.style.display='none';
+}
+function renderInbox(){
+  const box=document.getElementById('inbox');
+  if(!box)return;
+  const inc=incomingRequests();
+  const items=[];
+  inc.forEach(r=>{
+    items.push(`<div class="inbox-item">🔔 <b>${esc(r.name)}</b> wants to join <b>${esc(r.circle_name)}</b><div style="margin-top:6px;display:flex;gap:8px"><button class="ok" onclick="decideRequest(${r.id},'approve')">Approve</button><button class="no" onclick="decideRequest(${r.id},'decline')">Decline</button></div></div>`);
+  });
+  (state.notifications||[]).forEach(n=>{
+    items.push(n.status==='APPROVED'
+      ? `<div class="inbox-item"><span class="tag-ok">✔ Approved</span> — your request to join <b>${esc(n.circle_name)}</b> was accepted. You're now connected.</div>`
+      : `<div class="inbox-item"><span class="tag-no">✕ Declined</span> — your request to join <b>${esc(n.circle_name)}</b> was declined.</div>`);
+  });
+  box.innerHTML=`<h3>Notifications <button class="x" onclick="toggleInbox()">✕</button></h3>`+(items.length?items.join(''):'<div class="inbox-empty">No notifications.</div>');
+}
+
 async function visitCircle(id){
   if(state.nodeMap[id]){focusOn(id);return}
   const r=await api(`/api/circles/${id}`);
@@ -803,6 +885,8 @@ async function loadMap(){
   state.liveSessions=d.live_sessions||[];
   state.nodes=d.nodes||[];
   state.nodeMap={};state.nodes.forEach(n=>state.nodeMap[n.id]=n);
+  state.connections=d.connections||[];
+  applyNotifications(d.notifications||[]);
   const saved=restoreView();
   if(!saved){
     state.focusId=state.personalId;
@@ -829,6 +913,8 @@ async function refreshMap(){
   const keepFocus=state.focusId;
   state.nodes=d.nodes||[];state.pending=d.pending_requests||[];state.liveSessions=d.live_sessions||[];
   state.nodeMap={};state.nodes.forEach(n=>state.nodeMap[n.id]=n);
+  state.connections=d.connections||[];
+  applyNotifications(d.notifications||[]);
   state.focusId=keepFocus&&state.nodeMap[keepFocus]?keepFocus:(state.personalId||null);
   layout();render();
 }
@@ -997,6 +1083,7 @@ function courtlyCurrentTheme(){var t=document.documentElement.getAttribute('data
 function updateThemeIcon(){var b=document.getElementById('btnTheme');if(!b)return;var t=courtlyCurrentTheme();b.textContent=COURT_GLYPHS[t];b.title='Theme: '+COURT_LABELS[t]+' — click to switch';b.setAttribute('aria-label',b.title)}
 function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme())+1)%COURT_THEMES.length];if(next==='dark')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('courtly-theme',next)}catch(e){}updateThemeIcon()}
 document.getElementById('btnTheme').addEventListener('click',toggleCourtlyTheme);
+document.getElementById('notifBell').addEventListener('click',toggleInbox);
 (function(){try{var s=localStorage.getItem('courtly-theme');if(COURT_THEMES.indexOf(s)!==-1&&s!=='dark')document.documentElement.setAttribute('data-theme',s)}catch(e){}updateThemeIcon()})();
 
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});
