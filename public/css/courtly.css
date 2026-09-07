@@ -769,6 +769,12 @@ textarea,
     opacity: 0.4;
 }
 
+.courts-toolbar__actions .mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* Courts grid */
 .courts-grid {
     display: grid;
@@ -788,7 +794,7 @@ textarea,
 }
 
 @media (max-width: 639px) {
-    .courts-grid { grid-template-columns: 1fr; gap: 10px; margin: 0 8px 14px; padding: 0 4px; }
+    .courts-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0 8px 14px; padding: 0 4px; }
 }
 
 /* Court card — no container, courts shown directly */
@@ -797,6 +803,8 @@ textarea,
     flex-direction: column;
     gap: 8px;
     position: relative;
+    min-width: 0;
+    width: 100%;
 }
 
 /* Court header: name + status */
@@ -1202,7 +1210,7 @@ textarea,
 
 .court-card__pending-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     width: 100%;
 }
@@ -2948,7 +2956,7 @@ textarea,
 @media (max-width: 767px) {
     html { font-size: 121%; }
 
-    body { min-width: 320px; }
+    body { min-width: 0; overflow-x: hidden; }
 
     #courtly-app { padding: 0 12px; }
 
@@ -2985,6 +2993,24 @@ textarea,
 
     .mode-switch { min-height: 40px; }
 
+    /* Courts toolbar — icon-only controls on small screens */
+    .court-toolbar-btn { width: 44px; height: 44px; padding: 0; }
+    .court-toolbar-btn__icon,
+    .courts-toolbar__actions .mode-switch__icon { font-size: 1.2rem; line-height: 1; }
+    .court-toolbar-btn__label,
+    .courts-toolbar__actions .mode-switch__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .courts-toolbar__actions .mode-switch { width: 44px; height: 44px; padding: 0; justify-content: center; }
+
     .courts-grid {
         width: 100%;
         max-width: none;
@@ -2993,6 +3019,41 @@ textarea,
     }
 
     .court-card__court { gap: 6px; }
+
+    .court-card__head {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+
+    .court-card__number {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 1.15rem;
+    }
+
+    .court-card__head-actions {
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        min-width: 0;
+        gap: 6px;
+    }
+
+    .court-card__status {
+        font-size: 0.68rem;
+        padding: 4px 10px;
+    }
+
+    .court-clear-btn {
+        font-size: 0.7rem;
+        padding: 5px 10px;
+    }
+
+    .court-remove-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+    }
 
     .court-card__player {
         white-space: normal;
@@ -3435,6 +3496,7 @@ textarea,
 .app-pill {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     font-size: .82rem;
     letter-spacing: .03em;
     padding: 7px 14px;
@@ -3456,6 +3518,9 @@ textarea,
 }
 .app-actions { display: flex; align-items: center; gap: 8px; }
 .app-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: 1px solid var(--stroke);
     background: var(--surface);
     color: var(--text-muted);
@@ -3469,3 +3534,40 @@ textarea,
 }
 .app-logout:hover { border-color: var(--accent-2); color: var(--text); }
 .app-header .theme-switch { width: 38px; height: 38px; font-size: .95rem; }
+
+/* App header — mobile: brand + actions stay on the top row, nav scrolls underneath */
+@media (max-width: 767px) {
+    .app-header { gap: 10px; padding: 10px 12px; }
+    .app-brand { font-size: 0.95rem; gap: 7px; }
+    .app-brand img { width: 24px; height: 24px; }
+    .app-actions { margin-left: auto; }
+    .app-nav {
+        order: 3;
+        width: 100%;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 6px;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+    }
+    .app-nav::-webkit-scrollbar { display: none; }
+    .app-pill { flex: 0 0 auto; width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
+    .app-pill__icon,
+    .app-logout__icon { font-size: 1.05rem; line-height: 1; }
+    .app-pill__label,
+    .app-logout__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .app-header .theme-switch { width: 34px; height: 34px; font-size: 0.9rem; }
+    .app-logout { width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
+}
