@@ -90,6 +90,10 @@
         </div>
     </div>
 
+    <div v-if="blockedByMissingGender" class="gender-block-banner" role="alert">
+        <span class="gender-block-banner__text">⚡ Set a gender for {{ missingGenderPlayers.map(sp => formatName(sp.player.name)).join(', ') }} to auto-fill the courts.</span>
+    </div>
+
     <div class="courts-grid" :class="'courts-' + courts.length">
         <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')" :data-court-id="court.id">
             <div class="court-card__head">
@@ -194,6 +198,10 @@
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
+                        <template v-if="!sp.player.gender">
+                            <button class="player-card__gender player-card__gender--male" type="button" @click="setPlayerGender(sp.player_id, 'MALE')" title="Set gender: Male">♂</button>
+                            <button class="player-card__gender player-card__gender--female" type="button" @click="setPlayerGender(sp.player_id, 'FEMALE')" title="Set gender: Female">♀</button>
+                        </template>
                         <button class="player-card__pause" :class="{ 'is-busy': uiPending.player[sp.id] }" :disabled="uiPending.player[sp.id]" @click="sp.status === 'PAUSED' ? resumePlayer(sp.id) : pausePlayer(sp.id)" :title="sp.status === 'PAUSED' ? 'Resume' : 'Pause — take out of rotation'">{{ sp.status === 'PAUSED' ? '▶' : '⏸' }}</button>
                         <button class="player-card__remove" type="button" @click="openRemove(sp)" title="Remove from session">×</button>
                     </div>
@@ -533,7 +541,7 @@ createApp({
         const courts = ref([]);
         const updatingCourts = ref(false);
         const sessionActionPending = ref(null);
-        const uiPending = reactive({ mode: false, fill: false, add: false, player: {}, court: {}, clear: {} });
+        const uiPending = reactive({ mode: false, fill: false, add: false, player: {}, court: {}, clear: {}, gender: {} });
         const players = ref([]);
         const tournament = ref(null);
         const history = ref([]);
@@ -559,6 +567,8 @@ createApp({
         const activePlayers = computed(() => players.value.filter(p => p.status !== 'LEFT'));
         const emptyCourts = computed(() => courts.value.filter(court => !court.match));
         const canFillCourts = computed(() => session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0);
+        const missingGenderPlayers = computed(() => waitingPlayers.value.filter(p => !p.player || !p.player.gender));
+        const blockedByMissingGender = computed(() => session.status === 'ACTIVE' && session.type !== 'tournament' && emptyCourts.value.length > 0 && waitingPlayers.value.length >= 4 && missingGenderPlayers.value.length > 0);
         const manualAssignment = reactive({ show: false, court: null, playerIds: [], submitting: false, error: '' });
         const manualDraggedId = ref(null);
         const manualDragOverId = ref(null);
@@ -2067,6 +2077,23 @@ createApp({
         async function resumePlayer(spId) {
             updatePlayerStatus(spId, 'WAITING', 'resume');
         }
+        async function setPlayerGender(playerId, gender) {
+            if (!playerId || uiPending.gender[playerId]) return;
+            const sp = players.value.find(p => p.player_id === playerId);
+            if (!sp || !sp.player) return;
+            const previous = sp.player.gender;
+            sp.player.gender = gender;
+            uiPending.gender[playerId] = true;
+            try {
+                const result = await apiRequest('PATCH', '/api/players/' + playerId, { gender }, 'Set gender for ' + sp.player.name);
+                if (!result.ok) sp.player.gender = previous;
+                await fetchSession();
+            } catch {
+                sp.player.gender = previous;
+            } finally {
+                delete uiPending.gender[playerId];
+            }
+        }
         async function updatePlayerStatus(spId, status, action) {
             if (typeof spId !== 'number' || uiPending.player[spId]) return;
             const player = players.value.find(item => item.id === spId);
@@ -2251,7 +2278,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue, subDragOver, subDragKey, substituteOnCourt, pickedQueuePlayerId, pickedQueuePlayer, pickQueuePlayer, tapEmptyCourt, tapOnCourtPlayer, dragOverPlayingCourtId, dropOnPlayingCourt, touchDrag, onCardPointerDown, onCardPointerMove, onCardPointerUp, onCardPointerCancel, pendingDropSlot, courtPendingSlots, courtPendingCount, onEmptyCourtDragOver, onEmptyCourtDragLeave, onPlayingCourtDragOver, onPlayingCourtDragLeave, clearCourt };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, missingGenderPlayers, blockedByMissingGender, setPlayerGender, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue, subDragOver, subDragKey, substituteOnCourt, pickedQueuePlayerId, pickedQueuePlayer, pickQueuePlayer, tapEmptyCourt, tapOnCourtPlayer, dragOverPlayingCourtId, dropOnPlayingCourt, touchDrag, onCardPointerDown, onCardPointerMove, onCardPointerUp, onCardPointerCancel, pendingDropSlot, courtPendingSlots, courtPendingCount, onEmptyCourtDragOver, onEmptyCourtDragLeave, onPlayingCourtDragOver, onPlayingCourtDragLeave, clearCourt };
     }
 }).mount('#courtly-app');
 </script>
