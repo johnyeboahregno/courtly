@@ -26,7 +26,9 @@ use App\Services\SessionAnalyticsService;
 use App\Services\TournamentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SessionController extends Controller
 {
@@ -129,15 +131,12 @@ class SessionController extends Controller
     {
         $this->authorizeSession($session);
 
-        // The live view only needs the matches currently in play — load courts,
-        // session players, and active matches in minimal queries.
-        $session->load([
-            'courts',
-            'sessionPlayers.player',
-            'matches' => fn ($q) => $q
-                ->where('status', MatchStatus::PLAYING->value)
-                ->with('matchPlayers'),
-        ]);
+        $this->loadLiveRelations($session);
+
+        // Recover a stranded board: if matchmaking was interrupted earlier
+        // (e.g. a transient remote-DB failure during check-in), the live view
+        // re-attempts allocation instead of showing empty courts forever.
+        $this->maybeSelfHeal($session);
 
         $playersMap = $session->sessionPlayers->pluck('player', 'player_id');
 
@@ -178,6 +177,97 @@ class SessionController extends Controller
         }
 
         return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Load the minimal relation set the live view renders.
+     */
+    private function loadLiveRelations(Session $session): void
+    {
+        $session->load([
+            'courts',
+            'sessionPlayers.player',
+            'matches' => fn ($q) => $q
+                ->where('status', MatchStatus::PLAYING->value)
+                ->with('matchPlayers'),
+        ]);
+    }
+
+    /**
+     * Re-attempt allocation when a live board is stranded: an ACTIVE casual
+     * session whose active courts are all idle but has at least four waiting,
+     * fully-gendered players. Normal check-in already fills courts synchronously,
+     * so this only fires when that earlier attempt was interrupted and the board
+     * never recovered.
+     *
+     * Throttled via a short-lived cache key so the 3-second poll can't re-run
+     * the multi-second allocation transaction every cycle while the underlying
+     * cause (e.g. an unreachable database) persists.
+     */
+    private function maybeSelfHeal(Session $session): void
+    {
+        if (! $this->isStrandedForAllocation($session)) {
+            return;
+        }
+
+        if (! Cache::add('matchmaking.self-heal.' . $session->id, true, 10)) {
+            return;
+        }
+
+        try {
+            $this->matchmaking->allocateMatches($session, requireAllCourtsFree: false);
+        } catch (\Throwable $e) {
+            Log::warning('matchmaking.self_heal_failed', [
+                'session_id' => $session->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        // Allocation may have created matches — refresh the relations so the
+        // response reflects the newly filled courts.
+        $session->unsetRelation('courts');
+        $session->unsetRelation('sessionPlayers');
+        $session->unsetRelation('matches');
+        $this->loadLiveRelations($session);
+
+        $this->events->publish($session->id, 'session.updated', [
+            'session_id' => $session->id,
+            'self_healed' => true,
+        ]);
+    }
+
+    /**
+     * Whether the session has idle courts and waiting players that no explicit
+     * action is about to fill — the exact state a self-heal should recover from.
+     */
+    private function isStrandedForAllocation(Session $session): bool
+    {
+        if ($session->isTournament() || $session->status !== SessionStatus::ACTIVE) {
+            return false;
+        }
+
+        // An idle court is enough to self-heal: matchmaking now seats any
+        // eligible group on an open court immediately, even while other courts
+        // are still playing.
+        if (! $session->courts->contains(
+            fn (Court $court) => $court->status === CourtStatus::AVAILABLE
+        )) {
+            return false;
+        }
+
+        $waiting = $session->sessionPlayers->filter(
+            fn (SessionPlayer $sp) => $sp->status === SessionPlayerStatus::WAITING
+        );
+
+        if ($waiting->count() < 4) {
+            return false;
+        }
+
+        return ! $waiting->contains(
+            fn (SessionPlayer $sp) => $sp->player === null || $sp->player->gender === null
+        );
     }
 
     /**
@@ -470,7 +560,7 @@ class SessionController extends Controller
         }
 
         if (! $session->isTournament()) {
-            $this->matchmaking->allocateMatches($session);
+            $this->matchmaking->allocateMatches($session, requireAllCourtsFree: false);
         }
 
         $this->events->publish($session->id, 'session.updated', [
@@ -677,10 +767,36 @@ class SessionController extends Controller
             ]);
         });
 
+        // Adding a court should seat a newly-eligible group on it right away,
+        // exactly like a player check-in does — otherwise the new court sits
+        // empty until the current round finishes on every other court.
+        if ($validated['action'] === 'add'
+            && $session->status === SessionStatus::ACTIVE
+            && ! $session->isTournament()) {
+            $this->matchmaking->allocateMatches($session, requireAllCourtsFree: false);
+            $session->unsetRelation('courts');
+            $session->unsetRelation('sessionPlayers');
+            $session->unsetRelation('matches');
+            $session->load([
+                'courts',
+                'sessionPlayers.player',
+                'matches' => fn ($query) => $query
+                    ->where('status', MatchStatus::PLAYING->value)
+                    ->with('matchPlayers.player'),
+            ]);
+        }
+
         $this->events->publish($session->id, 'session.updated', [
             'session_id' => $session->id,
             'number_of_courts' => $session->number_of_courts,
         ]);
+
+        // INACTIVE courts are kept in the DB for history but are not part of
+        // the live board — omit them so the response matches what's displayed.
+        $session->setRelation(
+            'courts',
+            $session->courts->reject(fn (Court $court) => $court->status === CourtStatus::INACTIVE)->values()
+        );
 
         return response()->json(['data' => $session]);
     }

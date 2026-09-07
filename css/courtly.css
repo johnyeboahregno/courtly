@@ -973,6 +973,37 @@ textarea,
     box-shadow: 0 0 0 2px var(--accent) inset;
 }
 
+/* "Selecting teams…" overlay shown while the server computes the next matchup */
+.court-card__selecting {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--court-surface-empty, rgba(26, 26, 42, .94));
+    pointer-events: none;
+}
+.court-card__selecting-ring {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid var(--accent, #7c5cff);
+    border-top-color: transparent;
+    animation: courtly-selecting-spin .8s linear infinite;
+}
+.court-card__selecting-text {
+    color: var(--text-muted);
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+@keyframes courtly-selecting-spin {
+    to { transform: rotate(360deg); }
+}
+
 .court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
 .court-card__celebration strong {
     position: absolute; left: var(--origin-x); top: var(--origin-y);
@@ -2344,7 +2375,8 @@ textarea,
 
 /* Player leaving the queue (fade out to court) */
 .queue-leave-active {
-    transition: all 0.35s ease;
+    transition: all 0.3s ease;
+    transition-delay: calc(var(--leave-order, 0) * 90ms);
     position: absolute;
 }
 .queue-leave-from {
@@ -2378,6 +2410,19 @@ textarea,
 .court-fade-leave-to {
     opacity: 0;
     transform: scale(0.85);
+}
+
+/* ── Court population: players fade in one at a time ── */
+.court-card__court .court-card__player-box {
+    animation: court-pop-in .42s cubic-bezier(.22, .9, .35, 1) both;
+}
+.court-card__side--team-1 .court-card__player-box:nth-child(1) { animation-delay: 0ms; }
+.court-card__side--team-1 .court-card__player-box:nth-child(2) { animation-delay: 110ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(1) { animation-delay: 220ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(2) { animation-delay: 330ms; }
+@keyframes court-pop-in {
+    from { opacity: 0; transform: translateY(10px) scale(.94); }
+    to { opacity: 1; transform: none; }
 }
 
 /* ── Blue Theme ──────────────────────────────────────────────────────── */
