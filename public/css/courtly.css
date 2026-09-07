@@ -92,7 +92,7 @@ html, * {
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; }
 
 html {
-    font-size: 121%;
+    font-size: 133%;
 }
 
 body {
@@ -839,6 +839,50 @@ textarea,
 .court-card__status--playing { color: #3cae67; }
 .court-card__status--available { color: var(--text-muted); }
 
+.court-clear-btn {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--surface-2);
+    color: #ffb020;
+    border: 1px solid rgba(255, 176, 32, .35);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.court-clear-btn:hover:not(:disabled) {
+    background: #ffb020;
+    border-color: #ffb020;
+    color: #1a1a2a;
+}
+
+.court-clear-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.court-clear-btn.is-busy {
+    color: transparent !important;
+    position: relative;
+    pointer-events: none;
+}
+
+.court-clear-btn.is-busy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, .3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin .6s linear infinite;
+}
+
 .court-card__head-actions {
     display: inline-flex;
     align-items: center;
@@ -1014,6 +1058,13 @@ textarea,
     box-shadow: 0 0 0 2px var(--accent) inset;
 }
 
+.court-card__body--picked {
+    border-color: var(--accent);
+    border-style: dashed;
+    box-shadow: 0 0 0 2px var(--accent) inset;
+    cursor: copy;
+}
+
 .court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
 .court-card__celebration strong {
     position: absolute; left: var(--origin-x); top: var(--origin-y);
@@ -1125,6 +1176,18 @@ textarea,
     background: #32e28af5;
 }
 
+.court-card__player-box--drop-target {
+    outline: 3px dashed var(--accent-2, #ff5da2);
+    outline-offset: -4px;
+    box-shadow: 0 0 10px rgba(255, 93, 162, .35) inset;
+}
+
+.court-card__player-box--picked {
+    outline: 2px dashed var(--accent, #7c5cff);
+    outline-offset: -3px;
+    cursor: copy;
+}
+
 /* Pending (court not yet full) — grayed-out player preview */
 .court-card__pending {
     position: relative;
@@ -1157,6 +1220,16 @@ textarea,
 .court-card__player-box--pending .court-card__rating {
     background: var(--rating-badge-bg);
     color: var(--rating-badge-text);
+}
+
+.court-card__player-box--pending-empty {
+    opacity: 0.55;
+}
+
+.court-card__player--placeholder {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
 }
 
 .court-card__player {
@@ -1680,18 +1753,21 @@ textarea,
 }
 
 .player-card__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.05rem;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
+    min-width: 0;
 }
 
-.player-card__name .gender-dot { margin-left: 1px; }
+.player-card__name .gender-dot { margin: 0; }
 
-.player-card__name .rank-icon {
-    margin-left: 5px;
+.name-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .player-card__rating {
@@ -1779,6 +1855,42 @@ textarea,
 .player-card--next {
     border-color: #00c764;
     animation: courtly-glow 1.8s ease-in-out infinite;
+}
+
+/* A waiting player tapped on touch — awaiting a court/player drop */
+.player-card--picked {
+    box-shadow: 0 0 0 2px var(--accent, #7c5cff) inset;
+    border-color: var(--accent, #7c5cff);
+}
+
+.waiting-list__pick-hint {
+    margin: 2px 0 10px;
+    color: var(--text-muted);
+    font-size: .95rem;
+}
+
+.waiting-list__pick-hint strong {
+    color: var(--accent-2, #ff5da2);
+}
+
+/* Draggable waiting cards: disable native touch panning so pointer drag works */
+.player-card--draggable {
+    touch-action: none;
+}
+
+/* Floating clone of the dragged player card (matches the native drag image) */
+.touch-drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    pointer-events: none;
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .45));
+}
+
+.touch-drag-ghost .player-card {
+    opacity: 0.85;
+    border-color: var(--accent, #7c5cff);
 }
 
 @keyframes courtly-glow {
@@ -1900,6 +2012,7 @@ textarea,
     flex: 1 1 auto;
     max-height: none;
     min-height: 0;
+    align-content: start;
 }
 
 /* Styled confirmation dialog */
@@ -2112,7 +2225,7 @@ textarea,
     box-sizing: border-box;
     width: 28px;
     height: 28px;
-    margin-left: 6px;
+    margin: 0;
     vertical-align: middle;
     border-radius: 50%;
 }
@@ -2227,10 +2340,16 @@ textarea,
 }
 
 .existing-item__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 0.8rem;
     flex: 1;
+    min-width: 0;
 }
+
+.existing-item__name .gender-dot { margin: 0; }
 
 .existing-item__rating {
     font-size: 0.8rem;
@@ -2775,7 +2894,7 @@ textarea,
 }
 .waiting-list__mode {
     margin-left: auto;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -2802,6 +2921,7 @@ textarea,
 .fill-courts-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
 .fill-courts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .fill-courts-btn--start { background: var(--accent); color: #fff; }
+.fill-courts-btn--assign { border-style: dashed; opacity: 0.85; }
 
 .fill-courts-btn.is-busy,
 .player-card__pause.is-busy {
@@ -2826,7 +2946,7 @@ textarea,
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
-    html { font-size: 110%; }
+    html { font-size: 121%; }
 
     body { min-width: 320px; }
 

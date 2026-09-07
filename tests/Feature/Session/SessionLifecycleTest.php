@@ -242,6 +242,41 @@ it('honours an organizer-chosen team split when manually assigning players', fun
     }
 });
 
+it('clears a playing court and returns its players to the queue', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $court = Court::factory()->for($session)->create(['court_number' => 1, 'status' => CourtStatus::PLAYING->value]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::PLAYING->value]));
+
+    $match = GameMatch::factory()->playing()->create([
+        'session_id' => $session->id,
+        'court_id' => $court->id,
+    ]);
+
+    foreach ($players as $index => $player) {
+        MatchPlayer::factory()->create([
+            'match_id' => $match->id,
+            'player_id' => $player->id,
+            'team' => $index < 2 ? 1 : 2,
+        ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", [
+        'action' => 'clear',
+        'court_number' => 1,
+    ])->assertOk();
+
+    $this->assertDatabaseMissing('matches', ['id' => $match->id]);
+    $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::AVAILABLE->value]);
+    $this->assertDatabaseHas('session_players', ['session_id' => $session->id, 'status' => SessionPlayerStatus::WAITING->value]);
+});
+
 it('fills idle courts when an organizer requests it', function () {
     $user = User::factory()->create();
     $session = Session::factory()->active()->for($user, 'createdBy')->create();

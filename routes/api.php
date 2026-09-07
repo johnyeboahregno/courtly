@@ -50,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/circles/{circle}', [CircleController::class, 'show']);
     Route::patch('/circles/{circle}', [CircleController::class, 'update']);
     Route::post('/circles/{circle}/request-join', [CircleController::class, 'requestJoin']);
+    Route::post('/circles/{circle}/invite', [CircleController::class, 'invite']);
     Route::post('/circles/{circle}/leave', [CircleController::class, 'leave']);
     Route::get('/circles/{circle}/leaderboard', [CircleController::class, 'leaderboard']);
     Route::post('/circle-join-requests/{joinRequest}/approve', [CircleController::class, 'approve']);
@@ -88,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/matches/{match}/result', [MatchController::class, 'recordResult']);
     Route::post('/matches/{match}/correct', [MatchController::class, 'correctResult']);
     Route::post('/matches/{match}/feedback', [MatchController::class, 'feedback']);
+    Route::post('/matches/{match}/substitute', [MatchController::class, 'substitute']);
 
     // Players
     Route::get('/players', [PlayerController::class, 'index']);

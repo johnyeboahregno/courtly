@@ -125,6 +125,32 @@ class MatchController extends Controller
     }
 
     /**
+     * Swap a waiting player onto an in-progress court, returning the replaced
+     * player to the queue.
+     */
+    public function substitute(Request $request, GameMatch $match): JsonResponse
+    {
+        $this->authorizeSession($match->session);
+
+        $validated = $request->validate([
+            'out_player_id' => ['required', 'integer'],
+            'in_player_id' => ['required', 'integer', 'different:out_player_id'],
+        ]);
+
+        try {
+            $result = $this->resultService->substitutePlayer(
+                $match,
+                (int) $validated['out_player_id'],
+                (int) $validated['in_player_id'],
+            );
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
      * Scores are optional, but when supplied they must be a legal badminton
      * result: play to the target, win by two, no upper cap.
      *

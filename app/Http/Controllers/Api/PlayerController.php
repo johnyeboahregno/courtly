@@ -24,9 +24,16 @@ class PlayerController extends Controller
     /**
      * List the authenticated user's players (for selecting to add to a session).
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $circleId = $this->currentUser()->personalCircle?->id;
+        $user = $this->currentUser();
+        $circleId = (int) ($request->filled('circle_id') ? $request->input('circle_id') : $user->personalCircle?->id);
+
+        // Fall back to the personal circle when the requested circle is not
+        // one the user belongs to.
+        if (! $user->circles()->whereKey($circleId)->exists()) {
+            $circleId = (int) $user->personalCircle?->id;
+        }
 
         $players = Player::query()
             ->where('circle_id', $circleId)

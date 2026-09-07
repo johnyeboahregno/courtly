@@ -529,7 +529,7 @@ class SessionController extends Controller
         $this->authorizeSession($session);
 
         $validated = $request->validate([
-            'action' => ['required', 'string', 'in:add,remove,rename'],
+            'action' => ['required', 'string', 'in:add,remove,rename,clear'],
             'court_number' => ['nullable', 'integer', 'min:1'],
             'court_name' => ['nullable', 'string', 'max:80'],
         ]);
@@ -562,6 +562,44 @@ class SessionController extends Controller
                 $court->update([
                     'name' => $nextName !== '' ? $nextName : null,
                 ]);
+
+                return $lockedSession->fresh()->load([
+                    'courts',
+                    'sessionPlayers.player',
+                    'matches' => fn ($query) => $query
+                        ->where('status', MatchStatus::PLAYING->value)
+                        ->with('matchPlayers.player'),
+                ]);
+            }
+
+            if ($validated['action'] === 'clear') {
+                if (empty($validated['court_number'])) {
+                    abort(422, 'A court number is required to clear a court.');
+                }
+
+                $court = $lockedSession->courts()
+                    ->where('court_number', (int) $validated['court_number'])
+                    ->where('status', '!=', CourtStatus::INACTIVE->value)
+                    ->firstOrFail();
+
+                $match = $lockedSession->matches()
+                    ->where('court_id', $court->id)
+                    ->where('status', MatchStatus::PLAYING->value)
+                    ->with('matchPlayers')
+                    ->first();
+
+                if ($match) {
+                    $lockedSession->sessionPlayers()
+                        ->whereIn('player_id', $match->matchPlayers->pluck('player_id'))
+                        ->update([
+                            'status' => SessionPlayerStatus::WAITING,
+                            'waiting_since' => now(),
+                        ]);
+
+                    $match->delete();
+                }
+
+                $court->update(['status' => CourtStatus::AVAILABLE]);
 
                 return $lockedSession->fresh()->load([
                     'courts',

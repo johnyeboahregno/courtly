@@ -6,12 +6,16 @@ namespace App\Services;
 
 use App\Enums\CircleJoinRequestStatus;
 use App\Enums\CircleVisibility;
+use App\Enums\SessionStatus;
 use App\Models\Circle;
 use App\Models\CircleJoinRequest;
 use App\Models\CircleMember;
 use App\Models\Player;
+use App\Models\Session;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Circle lifecycle helpers: personal-circle creation, linked player records,
@@ -93,6 +97,60 @@ class CircleService
         }
 
         return $circle;
+    }
+
+    /**
+     * Invite someone to a circle by email. Registered users are added
+     * immediately (with a linked player record); unknown addresses receive an
+     * email carrying the circle's invite code.
+     *
+     * @throws \DomainException when the inviter is not the circle admin
+     */
+    public function inviteByEmail(User $inviter, Circle $circle, string $email): array
+    {
+        if (! $circle->isAdmin($inviter)) {
+            throw new \DomainException('Only the circle owner can invite people.');
+        }
+
+        $email = strtolower(trim($email));
+
+        $existing = User::where('email', $email)->first();
+
+        if ($existing) {
+            if ($circle->hasMember($existing)) {
+                return [
+                    'status' => 'already_member',
+                    'message' => $existing->name.' is already a member of this circle.',
+                ];
+            }
+
+            CircleMember::create([
+                'circle_id' => $circle->id,
+                'user_id' => $existing->id,
+            ]);
+
+            $this->ensureLinkedPlayer($existing, $circle);
+
+            return [
+                'status' => 'joined',
+                'message' => $existing->name.' has been added to '.$circle->name.'.',
+            ];
+        }
+
+        try {
+            Mail::to($email)->send(new \App\Mail\CircleInvite($circle, $inviter));
+        } catch (\Throwable $e) {
+            Log::warning('circle.invite.email.failed', [
+                'circle_id' => $circle->id,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return [
+            'status' => 'emailed',
+            'message' => 'Invite sent to '.$email.'.',
+        ];
     }
 
     /**
@@ -241,10 +299,25 @@ class CircleService
             ])
             ->values();
 
+        $liveSessions = Session::whereIn('circle_id', $myCircles->pluck('id')->all())
+            ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
+            ->orderBy('started_at')
+            ->get()
+            ->map(fn (Session $session) => [
+                'id' => (int) $session->id,
+                'name' => $session->name,
+                'circle_id' => (int) $session->circle_id,
+                'circle_name' => $myCircles->firstWhere('id', $session->circle_id)?->name ?? 'Session',
+                'status' => $session->status->value,
+            ])
+            ->values()
+            ->all();
+
         return [
             'personal_circle_id' => (int) ($user->personalCircle?->id ?? 0),
             'nodes' => $nodes,
             'pending_requests' => $pending,
+            'live_sessions' => $liveSessions,
         ];
     }
 
@@ -327,9 +400,11 @@ class CircleService
         if ($isMine) {
             foreach ($circle->members()->orderBy('name')->get() as $member) {
                 $personal = $member->personalCircle;
+                $linkedPlayer = Player::where('circle_id', $circle->id)->where('user_id', $member->id)->first();
                 $members[] = [
                     'user_id' => $member->id,
                     'name' => $member->name,
+                    'player_id' => $linkedPlayer?->id,
                     'personal_circle_id' => $personal?->id,
                     'personal_circle_public' => $personal?->isDiscoverable() ?? false,
                 ];
@@ -337,6 +412,21 @@ class CircleService
         }
 
         $isAdmin = $viewer !== null && $circle->isAdmin($viewer);
+
+        $pendingRequests = [];
+        if ($isAdmin) {
+            $pendingRequests = $circle->joinRequests()
+                ->with('user')
+                ->where('status', CircleJoinRequestStatus::PENDING->value)
+                ->get()
+                ->map(fn (CircleJoinRequest $r) => [
+                    'id' => $r->id,
+                    'user_id' => $r->user_id,
+                    'name' => $r->user?->name,
+                ])
+                ->values()
+                ->all();
+        }
 
         return [
             'id' => $circle->id,
@@ -351,6 +441,7 @@ class CircleService
             'network_score' => $this->networkScore($circle),
             'invite_code' => $isAdmin ? $circle->invite_code : null,
             'members' => $members,
+            'pending_requests' => $pendingRequests,
         ];
     }
 }

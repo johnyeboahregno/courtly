@@ -40,10 +40,10 @@ class SessionAnalyticsService
         return [
             'total_matches' => (int) ($matchStats->total_matches ?? 0),
             'total_players' => $totalPlayers,
-            'avg_skill_spread' => round($matchStats->avg_skill_spread ?? 0, 2),
+            'avg_skill_spread' => round((float) ($matchStats->avg_skill_spread ?? 0), 2),
             'p95_skill_spread' => $this->percentile($skillSpreads, 95),
-            'avg_team_difference' => round($matchStats->avg_team_difference ?? 0, 2),
-            'avg_match_quality' => round($matchStats->avg_match_quality ?? 0, 2),
+            'avg_team_difference' => round((float) ($matchStats->avg_team_difference ?? 0), 2),
+            'avg_match_quality' => round((float) ($matchStats->avg_match_quality ?? 0), 2),
             'player_stats' => $this->buildPlayerStats($session),
         ];
     }
@@ -100,9 +100,10 @@ class SessionAnalyticsService
             return 0.0;
         }
 
+        $values = array_map('floatval', $values);
         sort($values);
         $index = (int) ceil(($percentile / 100) * count($values)) - 1;
 
-        return round($values[max(0, $index)], 2);
+        return round((float) $values[max(0, $index)], 2);
     }
 }

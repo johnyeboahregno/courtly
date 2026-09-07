@@ -37,7 +37,7 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
 [data-theme="light"] .link{stroke:rgba(15,23,42,.30)}
 [data-theme="light"] .link--soft{stroke:rgba(15,23,42,.16)}
 *{box-sizing:border-box}
-html{font-size:110%}
+html{font-size:121%}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit}
@@ -105,12 +105,25 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .cnode__radar{position:absolute;left:50%;top:50%;width:170px;height:170px;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,rgba(124,92,255,.14),transparent 72deg);animation:radarspin 5.5s linear infinite;pointer-events:none}
 @keyframes radarspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .cnode__members{position:absolute;left:50%;top:50%;width:0;height:0}
+.member-wrap{position:absolute;left:0;top:0;z-index:3}
 .member{position:absolute;left:0;top:0;width:46px;height:46px;transform:translate(0,0) translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.25),transparent 45%),#16204d;border:1.5px solid rgba(140,160,255,.45);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .18s cubic-bezier(.34,1.56,.64,1),border-color .15s}
 .member:hover{border-color:var(--accent2);z-index:5}
 .member::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid transparent;transition:border-color .15s}
 .member:hover::after{border-color:var(--accent2)}
 .cnode.is-spring .cnode__inner{transition:transform .5s cubic-bezier(.34,1.56,.64,1)}
 .cnode--ghost{opacity:.5}
+.cnode__lock{position:absolute;right:2px;top:2px;z-index:4;font-size:.95rem;line-height:1;filter:drop-shadow(0 1px 4px rgba(0,0,0,.55))}
+
+/* ── Live session nodes + pulsing link ─────────────────── */
+.snode{position:absolute;left:0;top:0;transform:translate(-50%,-50%);z-index:3}
+.snode__btn{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(0,199,100,.12);border:1px solid rgba(0,199,100,.45);color:var(--text);cursor:pointer;font-weight:800;font-size:.7rem;white-space:nowrap;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.snode__btn:hover{border-color:var(--team2);box-shadow:0 0 16px rgba(0,199,100,.4)}
+.snode__dot{width:8px;height:8px;border-radius:50%;background:var(--team2);box-shadow:0 0 8px var(--team2);animation:livedot 1.2s ease-in-out infinite}
+.snode__name{max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.snode__live{color:var(--team2);font-size:.6rem;letter-spacing:.14em;font-weight:900}
+@keyframes livedot{0%,100%{opacity:.45;transform:scale(.75)}50%{opacity:1;transform:scale(1.2)}}
+.link--member{stroke:#9aa0b4;stroke-width:1;opacity:.5;stroke-linecap:round}
+.link--session{stroke:var(--team2,#00c764);stroke-width:1.5;opacity:.5;stroke-linecap:round}
 
 /* ── Glass stat cards ───────────────────────────────────── */
 #statcards{position:fixed;top:74px;left:16px;z-index:34;display:flex;flex-direction:column;gap:12px;pointer-events:none}
@@ -124,19 +137,19 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .scard__cell .v{font-size:1.45rem;font-weight:900;color:#fff;line-height:1}
 .scard__cell .t{font-size:.58rem;letter-spacing:.12em;color:var(--muted);font-weight:800;margin-top:4px}
 
-/* ── Bottom sheet ───────────────────────────────────────── */
-#sheet{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:35;width:min(680px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--stroke);border-radius:18px;backdrop-filter:blur(14px);padding:14px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5);transition:transform .25s cubic-bezier(.34,1.3,.64,1)}
-.sheet__head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.sheet__dot{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;background:var(--c,var(--accent));border:1px solid rgba(255,255,255,.25)}
-.sheet__titles{min-width:0;flex:1}
-.sheet__titles h2{margin:0;font-size:1.05rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sheet__titles p{margin:2px 0 0;font-size:.72rem;color:var(--muted)}
-.sheet__actions{display:flex;gap:8px;flex-wrap:wrap}
+/* ── Shared actions + request lists ─────────────────────── */
 .act{border:1px solid var(--stroke);background:rgba(255,255,255,.04);color:var(--text);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:.8rem;font-weight:700;transition:border-color .15s,background .15s}
 .act:hover{border-color:var(--accent)}
 .act--primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
 .act--primary:hover{filter:brightness(1.1)}
 .act:disabled{opacity:.45;cursor:not-allowed}
+.switch{display:flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid var(--stroke);border-radius:999px;cursor:pointer;font-size:.8rem;font-weight:700;margin-bottom:6px}
+.switch input{display:none}
+.switch__track{width:34px;height:18px;border-radius:999px;background:rgba(255,255,255,.14);position:relative;transition:background .15s}
+.switch__track::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .18s}
+.switch input:checked+.switch__track{background:var(--accent)}
+.switch input:checked+.switch__track::after{transform:translateX(16px)}
+.switch em{font-style:normal;color:var(--text)}
 .reqlist{margin-top:10px;border-top:1px solid var(--stroke);padding-top:10px}
 .req{display:flex;align-items:center;gap:10px;padding:6px 0}
 .req .n{flex:1;font-size:.85rem}
@@ -144,7 +157,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .req .no{border:1px solid var(--accent2);color:var(--accent2);background:transparent;border-radius:999px;padding:5px 12px;cursor:pointer;font-weight:700}
 
 /* ── Popover ────────────────────────────────────────────── */
-#popover{position:fixed;z-index:50;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);min-width:210px}
+#popover{position:fixed;z-index:50;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);min-width:210px;max-height:calc(100vh - 20px);overflow-y:auto}
 #popover h3{margin:0 0 2px;font-size:.95rem}
 #popover .p-sub{font-size:.7rem;color:var(--muted);margin:0 0 10px}
 #popover .act{width:100%;text-align:left;margin-bottom:6px}
@@ -155,11 +168,12 @@ input,textarea{user-select:text;-webkit-user-select:text}
 #beacon::before{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.5);animation:ping 2.4s ease-out infinite}
 #beacon::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.35);animation:ping 2.4s ease-out .8s infinite}
 @keyframes ping{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.1);opacity:0}}
-#joinpanel{position:fixed;right:22px;bottom:100px;z-index:39;display:none;width:280px;background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:18px;backdrop-filter:blur(16px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#joinpanel{position:fixed;right:22px;bottom:100px;z-index:39;display:none;width:280px;background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:18px;backdrop-filter:blur(16px);box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:calc(100vh - 140px);overflow:auto}
 #joinpanel h3{margin:0 0 4px;font-size:1rem}
 #joinpanel .p-sub{font-size:.72rem;color:var(--muted);margin:0 0 12px}
 .join-row{display:flex;gap:8px}
-.join-row input{flex:1;padding:10px 12px;border:1px solid var(--stroke);border-radius:999px;background:rgba(255,255,255,.05);color:var(--text);font-size:.9rem;letter-spacing:.08em;text-transform:uppercase}
+.join-row input{flex:0 0 80%;min-width:0;box-sizing:border-box;padding:10px 12px;border:1px solid var(--stroke);border-radius:999px;background:rgba(255,255,255,.05);color:var(--text);font-size:.9rem;letter-spacing:.08em;text-transform:uppercase}
+.join-row .act{flex:1;padding-left:6px;padding-right:6px;display:flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap}
 .join-row input:focus{outline:none;border-color:var(--accent)}
 .join-err{color:var(--accent2);font-size:.75rem;margin-top:8px;display:none}
 
@@ -167,6 +181,23 @@ input,textarea{user-select:text;-webkit-user-select:text}
 #toasts{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
 .toast{background:var(--panel);border:1px solid var(--stroke);border-radius:999px;padding:9px 16px;font-size:.82rem;font-weight:700;backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,.4);animation:toastin .3s cubic-bezier(.34,1.56,.64,1)}
 @keyframes toastin{from{transform:translateY(-14px) scale(.9);opacity:0}to{transform:none;opacity:1}}
+
+/* ── Player stats popup ────────────────────────────────── */
+#statsModal{position:fixed;inset:0;z-index:70;display:none;background:rgba(8,10,30,.5);backdrop-filter:blur(6px)}
+.stats-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));max-height:80vh;overflow:auto;background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.stats-card__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.stats-card__head h3{margin:0;font-size:1.05rem}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{background:rgba(255,255,255,.05);border:1px solid var(--stroke);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:1.4rem;font-weight:900;color:#fff}
+.stat span{font-size:.68rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.stats-note{margin:10px 0 0;font-size:.85rem;color:var(--text)}
+.stats-note b{color:var(--accent2)}
+#leaderModal{position:fixed;inset:0;z-index:70;display:none;background:rgba(8,10,30,.5);backdrop-filter:blur(6px)}
+#manageModal{position:fixed;inset:0;z-index:70;display:none;background:rgba(8,10,30,.5);backdrop-filter:blur(6px)}
+.manage-name{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--stroke);border-radius:8px;background:rgba(255,255,255,.05);color:var(--text);font-size:.9rem}
+.manage-gender{width:20px;text-align:center;font-size:.85rem}
+.manage-rating{font-size:.8rem;color:var(--muted);min-width:34px;text-align:center}
 
 @media(max-width:640px){
   .hud__name{display:none}
@@ -176,7 +207,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </head>
 <body>
 <header class="map-header">
-  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="">COURT<b>LY</b></a>
+  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt=""><span>COURT<b>LY</b></span></a>
   <div class="hud">
     <div class="hud__name" id="hudName">—</div>
     <div class="hud__score"><div class="n" id="hudScore">—</div><div class="l">NETWORK SCORE</div></div>
@@ -184,7 +215,6 @@ input,textarea{user-select:text;-webkit-user-select:text}
   <nav class="map-nav">
     <a class="map-pill map-pill--active" href="<?= $base ?>/circles">Circles</a>
     <a class="map-pill" href="<?= $base ?>/">Sessions</a>
-    <a class="map-pill" href="<?= $base ?>/stats">Player Stats</a>
     <a class="map-pill" href="<?= $base ?>/rankings">Rankings</a>
     <button class="hdr-icon" id="btnTheme" title="Theme">☾</button>
     <form method="POST" action="<?= $base ?>/logout" style="margin:0">
@@ -210,8 +240,6 @@ input,textarea{user-select:text;-webkit-user-select:text}
   </div>
 </div>
 
-<div id="sheet"></div>
-
 <button id="beacon" title="Join a circle">⌖</button>
 <div id="joinpanel">
   <h3>Join a circle</h3>
@@ -235,6 +263,9 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </div>
 
 <div id="popover"></div>
+<div id="statsModal"></div>
+<div id="leaderModal"></div>
+<div id="manageModal"></div>
 <div id="toasts"></div>
 
 <script>
@@ -244,7 +275,7 @@ const ME = <?= json_encode($userName) ?>;
 
 const state = {
   nodes: [], nodeMap: {}, positions: {}, personalId: null,
-  focusId: null, pending: [],
+  focusId: null, pending: [], liveSessions: [], nodePos: {}, focusedAttachments: [], lastFocusId: null, lastClickId: null, lastClickTime: 0,
   view: { x: 0, y: 0, scale: 1 },
   drag: null, pointers: new Map(), lastWheel: 0,
 };
@@ -281,12 +312,27 @@ function layout(){
   disc.forEach(n=>{const h=hashId(n.id),h2=hashId(n.id*7+13);const a=h*Math.PI*2;const r=760+h2*980;pos[n.id]={x:Math.cos(a)*r,y:Math.sin(a)*r}});
   const focusPos=pos[state.focusId]||pos[state.personalId]||{x:0,y:0};
   byKind('visiting').forEach(n=>{const h=hashId(n.id);const a=h*Math.PI*2;pos[n.id]={x:focusPos.x+Math.cos(a)*300,y:focusPos.y+Math.sin(a)*300}});
+  for(const id in state.nodePos){pos[id]=state.nodePos[id];}
   state.positions=pos;
 }
 
-function memberOffsets(node){
-  const list=node.members||[];const R=126;
-  return list.map((m,i)=>{const a=(i/Math.max(list.length,1))*Math.PI*2-Math.PI/2;return Object.assign({},m,{x:Math.cos(a)*R,y:Math.sin(a)*R})});
+function attachmentsFor(node){
+  const list=[];
+  (node.members||[]).forEach(m=>list.push(Object.assign({type:'member',key:'m'+m.user_id},m)));
+  state.liveSessions.filter(s=>s.circle_id===node.id).forEach(s=>list.push(Object.assign({type:'session',key:'s'+s.id},s)));
+  return list;
+}
+
+function computeAttachPositions(){
+  const focusId=state.focusId||state.personalId;
+  const node=state.nodeMap[focusId];
+  const base=state.positions[focusId]||{x:0,y:0};
+  const list=attachmentsFor(node||{members:[]});
+  const R=150;
+  state.focusedAttachments=list.map((item,i)=>{
+    const a=(i/Math.max(list.length,1))*Math.PI*2-Math.PI/2;
+    return Object.assign({},item,{x:base.x+Math.cos(a)*R,y:base.y+Math.sin(a)*R});
+  });
 }
 
 /* ── render ─────────────────────────────────────────────── */
@@ -315,39 +361,68 @@ function buildNode(n,p,focused){
   el.dataset.id=n.id;
   const s=coreSize(n,focused);
   const c=nodeColor(n);
-  const members=(focused?memberOffsets(n):[]).map(m=>{
-    const t=`translate(${m.x}px, ${m.y}px) translate(-50%,-50%)`;
-    return `<div class="member" data-user="${m.user_id}" data-pcircle="${m.personal_circle_id||''}" data-public="${m.personal_circle_public?1:0}" style="transform:${t}" title="${esc(m.name)}">${esc(initialsOf(m.name))}</div>`;
-  }).join('');
-  const ringStyle=[];const rings=focused?`<div class="cnode__rings"><i style="width:${s.px+56}px;height:${s.px+56}px"></i><i style="width:${s.px+112}px;height:${s.px+112}px"></i><i style="width:${s.px+168}px;height:${s.px+168}px"></i></div>`:'';
+  const liveCount=(focused&&n.id===state.personalId)?state.liveSessions.length:0;
+  const ringCount=3+Math.min(liveCount,4);
+  const rings=focused?`<div class="cnode__rings">${Array.from({length:ringCount},(_,i)=>{const d=s.px+56+i*56;return `<i style="width:${d}px;height:${d}px"></i>`}).join('')}</div>`:'';
   const gauge=focused?gaugeSvg(n.network_score||0,s.px+20):'';
   const radar=focused?`<div class="cnode__radar" style="width:${s.px}px;height:${s.px}px"></div>`:'';
   const coreHtml=focused?`<span class="hub"><span class="hub__num">${n.network_score||0}</span><span class="hub__cap">SCORE</span></span>`:esc(initialsOf(n.name));
   const coreStyle=focused?`--c:${c}`:`--c:${c};font-size:${Math.round(s.px*0.28)}px`;
+  const lockHtml=n.visibility==='PRIVATE'?`<span class="cnode__lock" title="Private">🔒</span>`:'';
   el.innerHTML=`<div class="cnode__inner">
     <div class="cnode__wrap" style="width:${s.px}px;height:${s.px}px;--c:${c}">
       ${rings}${gauge}${radar}
       <div class="cnode__core${focused?' cnode__core--hub':''}" style="${coreStyle}">${coreHtml}</div>
-      <div class="cnode__members">${members}</div>
+      ${lockHtml}
     </div>
     <div class="cnode__label" style="transform:translate(-50%,${s.label}px)">${esc(n.name)}</div>
-    <div class="cnode__meta" style="transform:translate(-50%,${s.label+16}px)">${n.player_count} players · ${n.member_count} members</div>
   </div>`;
   el.addEventListener('pointerdown',e=>onNodePointerDown(e,n,el));
+  el.addEventListener('contextmenu',e=>{e.preventDefault();openPopover(el,n)});
   return el;
 }
+
+function buildSessionNode(s,p){
+  const el=document.createElement('div');
+  el.className='snode';
+  el.dataset.key=s.key;
+  el.style.left=p.x+'px';el.style.top=p.y+'px';
+  el.innerHTML=`<button class="snode__btn" type="button" onclick="goToSession(${s.id})"><span class="snode__dot"></span><span class="snode__name" title="${esc(s.circle_name)}">${esc(s.name)}</span><span class="snode__live">${s.status==='PAUSED'?'PAUSED':'LIVE'}</span></button>`;
+  el.addEventListener('pointerdown',e=>onItemPointerDown(e,s.key,el));
+  return el;
+}
+
+function buildMemberNode(m,p){
+  const el=document.createElement('div');
+  el.className='member-wrap';
+  el.dataset.key=m.key;
+  el.style.left=p.x+'px';el.style.top=p.y+'px';
+  el.innerHTML=`<div class="member" data-user="${m.user_id}" data-player="${m.player_id||''}" data-pcircle="${m.personal_circle_id||''}" data-public="${m.personal_circle_public?1:0}" title="${esc(m.name)}">${esc(initialsOf(m.name))}</div>`;
+  el.addEventListener('pointerdown',e=>onItemPointerDown(e,m.key,el));
+  return el;
+}
+
+function goToSession(id){window.location.href=BASE+'/sessions/'+id+'/live'}
 
 function render(){
   const nodesEl=document.getElementById('nodes');nodesEl.replaceChildren();
   const linksEl=document.getElementById('links');linksEl.replaceChildren();
   const focusId=state.focusId||state.personalId;
+  if(focusId!==state.lastFocusId){
+    state.lastFocusId=focusId;
+    computeAttachPositions();
+  }
   for(const n of state.nodes){
     const p=state.positions[n.id]||{x:0,y:0};
     nodesEl.appendChild(buildNode(n,p,n.id===focusId));
   }
+  state.focusedAttachments.forEach(a=>{
+    const p={x:a.x,y:a.y};
+    if(a.type==='session')nodesEl.appendChild(buildSessionNode(a,p));
+    else nodesEl.appendChild(buildMemberNode(a,p));
+  });
   drawLinks(linksEl,focusId);
   updateHud(focusId);
-  updateSheet(focusId);
 }
 
 function drawLinks(linksEl,focusId){
@@ -380,6 +455,70 @@ function drawLinks(linksEl,focusId){
       });
     }
   });
+  // attachments around the focused circle -> curved lines from the circle edge
+  const focusedNode=state.nodeMap[focusId];
+  if(focusedNode){
+    const fc=state.positions[focusedNode.id];
+    if(fc){
+      const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('id','attachGroup');
+      const coreR=coreSize(focusedNode,true).px/2;
+      state.focusedAttachments.forEach(a=>{
+        attachConnector(g,fc.x,fc.y,a,coreR,O,a.type==='member'?'link--member':'link--session');
+      });
+      linksEl.appendChild(g);
+    }
+  }
+}
+
+function attachConnector(g,cx,cy,a,coreR,O,cls){
+  const len=Math.hypot(a.x-cx,a.y-cy)||1;
+  const ux=(a.x-cx)/len,uy=(a.y-cy)/len;
+  const sx=cx+ux*coreR+O, sy=cy+uy*coreR+O;
+  const ex=a.x+O, ey=a.y+O;
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',sx.toFixed(1));line.setAttribute('y1',sy.toFixed(1));
+  line.setAttribute('x2',ex.toFixed(1));line.setAttribute('y2',ey.toFixed(1));
+  line.setAttribute('class',cls);
+  g.appendChild(line);
+}
+
+function redrawAttach(dx,dy){
+  const g=document.getElementById('attachGroup');
+  if(!g)return;
+  const focusId=state.focusId||state.personalId;
+  const focusedNode=state.nodeMap[focusId];
+  if(!focusedNode)return;
+  const fc=state.positions[focusedNode.id];
+  if(!fc)return;
+  const O=2400;
+  const coreR=coreSize(focusedNode,true).px/2;
+  g.replaceChildren();
+  state.focusedAttachments.forEach(a=>{
+    attachConnector(g,fc.x+dx,fc.y+dy,a,coreR,O,a.type==='member'?'link--member':'link--session');
+  });
+}
+
+function onItemPointerDown(e,key,el){
+  if(e.button!==undefined&&e.button!==0)return;
+  e.stopPropagation();
+  const a=state.focusedAttachments.find(x=>x.key===key);
+  if(!a)return;
+  const start={sx:e.clientX,sy:e.clientY,ox:a.x,oy:a.y};
+  let moved=false;
+  const onMove=ev=>{
+    const dx=(ev.clientX-start.sx)/state.view.scale,dy=(ev.clientY-start.sy)/state.view.scale;
+    if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+    if(moved){
+      a.x=start.ox+dx;a.y=start.oy+dy;
+      el.style.left=a.x+'px';el.style.top=a.y+'px';
+      redrawAttach(0,0);
+    }
+  };
+  const onUp=ev=>{
+    window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);window.removeEventListener('pointercancel',onUp);
+  };
+  window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',onUp);
 }
 
 function updateHud(focusId){
@@ -428,42 +567,7 @@ function focusOn(id){
   animateView(map.clientWidth/2-p.x*state.view.scale,map.clientHeight/2-p.y*state.view.scale,Math.max(state.view.scale,1));
 }
 
-/* ── sheet ──────────────────────────────────────────────── */
-function updateSheet(focusId){
-  const n=state.nodeMap[focusId];const sheet=document.getElementById('sheet');
-  if(!n){sheet.innerHTML='';return}
-  const c=nodeColor(n);
-  const isMember=n.kind==='mine'||n.kind==='joined';
-  let acts=[];
-  if(isMember)acts.push(`<button class="act act--primary" onclick="startMeetup(${n.id})">▶ Start meetup</button>`);
-  acts.push(`<button class="act" onclick="openLeaderboard(${n.id})">Rankings</button>`);
-  if(n.is_admin)acts.push(`<button class="act" onclick="copyCode()">Invite code</button>`);
-  if(!isMember&&n.kind==='discoverable')acts.push(`<button class="act act--primary" onclick="askJoin(${n.id})">Ask to join</button>`);
-  if(isMember&&!n.is_admin)acts.push(`<button class="act" onclick="leaveCircle(${n.id})">Leave</button>`);
-  if(n.is_admin)acts.push(`<button class="act" onclick="toggleVisibility(${n.id})">${n.visibility==='PUBLIC'?'Make private':'Make public'}</button>`);
-  let reqHtml='';
-  if(n.is_admin&&state.nodeMap[n.id]&&state.nodeMap[n.id].pending_requests&&state.nodeMap[n.id].pending_requests.length){
-    reqHtml='<div class="reqlist">'+state.nodeMap[n.id].pending_requests.map(r=>`<div class="req"><span class="n">${esc(r.name)}</span><button class="ok" onclick="decideRequest(${r.id},'approve')">Approve</button><button class="no" onclick="decideRequest(${r.id},'decline')">Decline</button></div>`).join('')+'</div>';
-  }
-  sheet.innerHTML=`<div class="sheet__head">
-    <div class="sheet__dot" style="--c:${c}">${esc(initialsOf(n.name))}</div>
-    <div class="sheet__titles"><h2>${esc(n.name)}</h2><p>${esc(n.location_label||'No location set')} · ${n.player_count} players · ${n.member_count} members · ${n.kind.toUpperCase()}</p></div>
-  </div>
-  <div class="sheet__actions">${acts.join('')}</div>${reqHtml}`;
-}
-
-async function refreshSheet(){
-  const id=state.focusId||state.personalId;if(!id)return;
-  const r=await api(`/api/circles/${id}`);
-  if(r.ok&&r.data){
-    if(state.nodeMap[id]){
-      const oldKind=state.nodeMap[id].kind;
-      state.nodeMap[id]=Object.assign({},state.nodeMap[id],r.data);
-      state.nodeMap[id].kind=oldKind;
-      updateSheet(id);updateHud(id);
-    }
-  }
-}
+/* ── (bottom sheet removed — all actions live in the click menu) ── */
 
 /* ── actions ────────────────────────────────────────────── */
 function closePopover(){document.getElementById('popover').style.display='none'}
@@ -471,20 +575,37 @@ function closePopover(){document.getElementById('popover').style.display='none'}
 function openPopover(nodeEl,node){
   const pop=document.getElementById('popover');
   const isMember=node.kind==='mine'||node.kind==='joined';
-  let acts=`<button class="act" onclick="focusOn(${node.id});closePopover()">🔭 Focus</button>`;
-  if(isMember)acts+=`<button class="act" onclick="startMeetup(${node.id})">▶ Start meetup</button>`;
-  acts+=`<button class="act" onclick="openLeaderboard(${node.id})">Rankings</button>`;
+  let acts='';
+  if(isMember)acts+=`<button class="act act--primary" onclick="startMeetup(${node.id})">▶ Start meetup</button>`;
+  if(isMember)acts+=`<button class="act" onclick="openManagePlayers(${node.id})">👥 Manage players</button>`;
+  acts+=`<button class="act" onclick="showLeaderboard(${node.id})">Rankings</button>`;
   if(!isMember&&node.kind==='discoverable'){
     const pending=state.pending.some(p=>p.circle_id===node.id);
     acts+=pending?`<button class="act" disabled>⏳ Request pending</button>`:`<button class="act act--primary" onclick="askJoin(${node.id})">➕ Ask to join</button>`;
   }
-  if(node.is_admin)acts+=`<button class="act" onclick="copyCode()">Invite code: ${esc(node.invite_code||'')}</button>`;
-  pop.innerHTML=`<h3>${esc(node.name)}</h3><p class="p-sub">${node.kind.toUpperCase()} · ${node.network_score||0} network score</p>${acts}`;
+  if(node.is_admin){
+    acts+=`<button class="act" onclick="copyCode(${node.id})">Invite code: ${esc(node.invite_code||'')}</button>`;
+    acts+=`<button class="act" onclick="toggleInvite()">Invite by email</button>`;
+    acts+=`<label class="switch"><input type="checkbox" ${node.visibility!=='PRIVATE'?'checked':''} onchange="toggleVisibility(${node.id})"><span class="switch__track"></span><em>${node.visibility==='PRIVATE'?'🔒 Private':'🌐 Public'}</em></label>`;
+  }
+  if(isMember&&!node.is_admin)acts+=`<button class="act" onclick="leaveCircle(${node.id})">Leave</button>`;
+  let reqHtml='';
+  if(node.is_admin&&node.pending_requests&&node.pending_requests.length){
+    reqHtml='<div class="reqlist">'+node.pending_requests.map(r=>`<div class="req"><span class="n">${esc(r.name)}</span><button class="ok" onclick="decideRequest(${r.id},'approve')">Approve</button><button class="no" onclick="decideRequest(${r.id},'decline')">Decline</button></div>`).join('')+'</div>';
+  }
+  const inviteRow = node.is_admin
+    ? `<div class="join-row" id="inviteRow" style="display:none;margin-top:8px">
+        <input id="inviteEmail" type="email" placeholder="friend@example.com" autocomplete="off" style="text-transform:none;letter-spacing:0">
+        <button class="act act--primary" onclick="sendInvite(${node.id})">Send</button>
+      </div>`
+    : '';
+  pop.innerHTML=`<h3>${esc(node.name)}</h3><p class="p-sub">${node.kind.toUpperCase()} · ${node.network_score||0} network score · ${node.player_count} players · ${node.member_count} members</p>${acts}${reqHtml}${inviteRow}`;
   pop.style.display='block';
   const r=nodeEl.getBoundingClientRect();
   const pw=pop.offsetWidth,ph=pop.offsetHeight;
   let x=r.left+r.width/2-pw/2,y=r.top-ph-12;
   x=clamp(x,8,window.innerWidth-pw-8);if(y<60)y=r.bottom+12;
+  y=clamp(y,8,window.innerHeight-ph-8);
   pop.style.left=x+'px';pop.style.top=y+'px';
 }
 
@@ -492,7 +613,6 @@ async function askJoin(id){
   const r=await api(`/api/circles/${id}/request-join`,{method:'POST',body:{}});
   if(r.ok){toast('Join request sent ✦');closePopover();state.pending.push({circle_id:id});}
   else toast(r.message||'Could not send request');
-  refreshSheet();
 }
 
 async function startMeetup(id){
@@ -502,35 +622,88 @@ async function startMeetup(id){
   else toast((r.message||'Could not start meetup'));
 }
 
-function openLeaderboard(id){
+function closeLeaderboard(){document.getElementById('leaderModal').style.display='none'}
+
+function closeManage(){document.getElementById('manageModal').style.display='none'}
+
+function openManagePlayers(id){
   const n=state.nodeMap[id];
-  const sheet=document.getElementById('sheet');
+  const modal=document.getElementById('manageModal');
+  modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>Manage players — ${esc(n?n.name:'')}</h3><button class="act" onclick="closeManage()">✕</button></div><p class="p-sub">Loading…</p></div>`;
+  modal.style.display='block';
+  closePopover();
+  api(`/api/players?circle_id=${id}`).then(r=>{
+    if(!r.ok){modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>Manage players</h3><button class="act" onclick="closeManage()">✕</button></div><p class="p-sub">${esc(r.message||'Could not load players')}</p></div>`;return}
+    const rows=(r.data||[]).map(p=>`<div class="req"><input class="manage-name" value="${esc(p.name)}" onchange="savePlayerName(${p.id},this.value)"><span class="manage-gender">${p.gender==='MALE'?'♂':p.gender==='FEMALE'?'♀':'–'}</span><span class="manage-rating">${Math.round(p.rating)}</span><button class="no" onclick="deleteCirclePlayer(${p.id},${id})">✕</button></div>`).join('')||'<div class="req"><span class="n">No players yet.</span></div>';
+    modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>Manage players — ${esc(n?n.name:'')}</h3><button class="act" onclick="closeManage()">✕</button></div><div class="reqlist" style="max-height:320px;overflow:auto">${rows}</div></div>`;
+  });
+}
+
+async function savePlayerName(id,name){
+  const r=await api(`/api/players/${id}`,{method:'PATCH',body:{name:name}});
+  if(r.ok)toast('Player updated');else toast(r.message||'Could not rename');
+}
+
+async function deleteCirclePlayer(id,circleId){
+  if(!confirm('Delete this player?'))return;
+  const r=await api(`/api/players/${id}`,{method:'DELETE'});
+  if(r.ok){toast('Player deleted');refreshMap();openManagePlayers(circleId)}else toast(r.message||'Could not delete');
+}
+function showLeaderboard(id){
+  const n=state.nodeMap[id];
   if(!n)return;
+  const modal=document.getElementById('leaderModal');
+  modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>${esc(n.name)} — Rankings</h3><button class="act" onclick="closeLeaderboard()">✕</button></div><p class="p-sub">Loading…</p></div>`;
+  modal.style.display='block';
+  closePopover();
   api(`/api/circles/${id}/leaderboard`).then(r=>{
-    if(!r.ok){toast(r.message||'Could not load rankings');return}
+    if(!r.ok){modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>${esc(n.name)} — Rankings</h3><button class="act" onclick="closeLeaderboard()">✕</button></div><p class="p-sub">${esc(r.message||'Could not load rankings')}</p></div>`;return}
     const rows=(r.data||[]).map((p,i)=>`<div class="req"><span class="n"><b style="color:var(--muted)">${i+1}.</b> ${esc(p.name)} <span style="color:var(--accent2)">${esc(p.tier)}</span></span><span style="color:var(--muted);font-size:.8rem">${Math.round(p.rating)} · ${p.wins}W/${p.losses}L</span></div>`).join('')||'<div class="req"><span class="n">No ranked players yet.</span></div>';
-    sheet.innerHTML=`<div class="sheet__head"><div class="sheet__dot" style="--c:${nodeColor(n)}">${esc(initialsOf(n.name))}</div><div class="sheet__titles"><h2>${esc(n.name)} — Rankings</h2><p>Tier · rating · record</p></div></div><div class="reqlist" style="max-height:220px;overflow:auto">${rows}</div><div class="sheet__actions" style="margin-top:10px"><button class="act" onclick="render()">Back</button></div>`;
+    modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>${esc(n.name)} — Rankings</h3><button class="act" onclick="closeLeaderboard()">✕</button></div><div class="reqlist" style="max-height:300px;overflow:auto">${rows}</div></div>`;
   });
 }
 
 async function leaveCircle(id){
   const r=await api(`/api/circles/${id}/leave`,{method:'POST',body:{}});
-  if(r.ok){toast('Left circle');state.nodes=state.nodes.filter(n=>n.id!==id);delete state.nodeMap[id];layout();render();refreshMap()}
+  if(r.ok){toast('Left circle');closePopover();state.nodes=state.nodes.filter(n=>n.id!==id);delete state.nodeMap[id];layout();render();refreshMap()}
   else toast(r.message||'Could not leave');
 }
 
 async function toggleVisibility(id){
   const n=state.nodeMap[id];
   const r=await api(`/api/circles/${id}`,{method:'PATCH',body:{visibility:n.visibility==='PUBLIC'?'PRIVATE':'PUBLIC'}});
-  if(r.ok){toast('Visibility updated');refreshMap()}
+  if(r.ok){toast('Visibility updated');closePopover();refreshMap()}
   else toast(r.message||'Could not update');
 }
 
-function copyCode(){
-  const n=state.nodeMap[state.focusId||state.personalId];
+function copyCode(id){
+  const n=state.nodeMap[id];
   if(!n||!n.invite_code){toast('No invite code');return}
   if(navigator.clipboard)navigator.clipboard.writeText(n.invite_code).then(()=>toast('Invite code copied ✦'));
   else toast(n.invite_code);
+}
+
+function toggleInvite(){
+  const row=document.getElementById('inviteRow');
+  if(!row)return;
+  const show=row.style.display==='none'||!row.style.display;
+  row.style.display=show?'flex':'none';
+  if(show){const input=document.getElementById('inviteEmail');if(input)setTimeout(()=>input.focus(),0)}
+}
+
+async function sendInvite(id){
+  const input=document.getElementById('inviteEmail');
+  if(!input)return;
+  const email=input.value.trim();
+  if(!email){toast('Enter an email address');return}
+  const r=await api(`/api/circles/${id}/invite`,{method:'POST',body:{email}});
+  if(r.ok){
+    toast((r.data&&r.data.message)||'Invite sent');
+    if(r.data&&r.data.status==='joined'){refreshMap();closePopover()}
+    else if(input){input.value='';const row=document.getElementById('inviteRow');if(row)row.style.display='none'}
+  }else{
+    toast(r.message||'Could not send invite');
+  }
 }
 
 async function decideRequest(id,action){
@@ -547,6 +720,35 @@ async function visitCircle(id){
   state.nodes.push(node);state.nodeMap[id]=node;layout();render();focusOn(id);
 }
 
+function closeStats(){document.getElementById('statsModal').style.display='none'}
+
+async function openPlayerStats(playerId){
+  const modal=document.getElementById('statsModal');
+  modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>Loading…</h3><button class="act" onclick="closeStats()">✕</button></div></div>`;
+  modal.style.display='block';
+  const r=await api(`/api/players/${playerId}/stats`);
+  const s=(r.ok&&r.data)?r.data:null;
+  if(!s){modal.innerHTML=`<div class="stats-card"><div class="stats-card__head"><h3>Stats unavailable</h3><button class="act" onclick="closeStats()">✕</button></div></div>`;return}
+  const sum=s.summary||{};
+  const pct=v=>v==null?'—':Math.round(v)+'%';
+  const tm=sum.most_common_teammate;const to=sum.toughest_opponent;
+  modal.innerHTML=`<div class="stats-card">
+    <div class="stats-card__head"><h3>${esc(s.name)}</h3><button class="act" onclick="closeStats()">✕</button></div>
+    <div class="stats-grid">
+      <div class="stat"><b>${Math.round(sum.rating||0)}</b><span>Rating</span></div>
+      <div class="stat"><b>${sum.wins||0}–${sum.losses||0}</b><span>Record</span></div>
+      <div class="stat"><b>${pct(sum.win_percentage)}</b><span>Win %</span></div>
+      <div class="stat"><b>${sum.peak_rating!=null?Math.round(sum.peak_rating):'—'}</b><span>Peak</span></div>
+      <div class="stat"><b>${sum.longest_win_streak||0}</b><span>Win streak</span></div>
+      <div class="stat"><b>${sum.sessions_attended||0}</b><span>Sessions</span></div>
+      <div class="stat"><b>${pct(sum.upset_rate)}</b><span>Upset rate</span></div>
+      <div class="stat"><b>${pct(sum.clutch_rate)}</b><span>Clutch rate</span></div>
+    </div>
+    ${tm?`<p class="stats-note">Top teammate: <b>${esc(tm.name)}</b> (${tm.games} games)</p>`:''}
+    ${to?`<p class="stats-note">Toughest opponent: <b>${esc(to.name)}</b> (${to.games} games)</p>`:''}
+  </div>`;
+}
+
 /* ── data ───────────────────────────────────────────────── */
 async function loadMap(){
   const r=await api('/api/circles/map');
@@ -554,6 +756,7 @@ async function loadMap(){
   const d=r.data||{nodes:[],pending_requests:[],personal_circle_id:null};
   state.personalId=d.personal_circle_id;
   state.pending=d.pending_requests||[];
+  state.liveSessions=d.live_sessions||[];
   state.nodes=d.nodes||[];
   state.nodeMap={};state.nodes.forEach(n=>state.nodeMap[n.id]=n);
   const saved=restoreView();
@@ -574,17 +777,16 @@ async function loadMap(){
       centerView();
     }
   }
-  viewLoaded=true;
-  setTimeout(refreshSheet,400);}
+  viewLoaded=true;}
 async function refreshMap(){
   const r=await api('/api/circles/map');
   if(!r.ok)return;
   const d=r.data||{nodes:[],pending_requests:[],personal_circle_id:state.personalId};
   const keepFocus=state.focusId;
-  state.nodes=d.nodes||[];state.pending=d.pending_requests||[];
+  state.nodes=d.nodes||[];state.pending=d.pending_requests||[];state.liveSessions=d.live_sessions||[];
   state.nodeMap={};state.nodes.forEach(n=>state.nodeMap[n.id]=n);
   state.focusId=keepFocus&&state.nodeMap[keepFocus]?keepFocus:(state.personalId||null);
-  layout();render();refreshSheet();
+  layout();render();
 }
 
 /* ── input: pan / zoom / node drag ──────────────────────── */
@@ -601,20 +803,37 @@ function onNodePointerDown(e,n,el){
   const onMove=ev=>{
     const dx=(ev.clientX-start.sx)/state.view.scale,dy=(ev.clientY-start.sy)/state.view.scale;
     if(Math.abs(dx)+Math.abs(dy)>6)moved=true;
-    if(moved){el.classList.remove('is-spring');inner.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px)`}
+    if(moved){
+      el.classList.remove('is-spring');
+      inner.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px)`;
+      if(n.id===(state.focusId||state.personalId))redrawAttach(dx,dy);
+    }
   };
   const onUp=ev=>{
     window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);window.removeEventListener('pointercancel',onUp);
-    el.classList.add('is-spring');inner.style.transform='';
     if(moved){
       const w=screenToWorld(ev.clientX,ev.clientY);
       const target=findNodeAt(w.x,w.y,90);
       if(target&&target.id!==n.id){
+        el.classList.add('is-spring');inner.style.transform='';
         if(n.kind==='mine'&&target.kind==='discoverable'){askJoin(target.id)}
         else if(target.kind==='discoverable'||target.kind==='joined'||target.kind==='visiting'){visitCircle(target.id)}
+      }else{
+        state.nodePos[n.id]={x:w.x,y:w.y};
+        layout();render();
       }
     }else{
-      openPopover(el,n);
+      el.classList.add('is-spring');inner.style.transform='';
+      const now=Date.now();
+      if(n.id===state.lastClickId && now-state.lastClickTime<350){
+        state.lastClickId=null;state.lastClickTime=0;
+        state.focusId=n.id;
+        computeAttachPositions();
+        render();
+      }else{
+        state.lastClickId=n.id;state.lastClickTime=now;
+        focusOn(n.id);
+      }
     }
   };
   window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',onUp);
@@ -627,7 +846,7 @@ function findNodeAt(wx,wy,thresh){
 }
 
 map.addEventListener('pointerdown',e=>{
-  if(e.target.closest('.cnode')||e.target.closest('#sheet')||e.target.closest('#popover')||e.target.closest('#joinpanel')||e.target.closest('#beacon'))return;
+  if(e.target.closest('.cnode')||e.target.closest('.member-wrap')||e.target.closest('.snode')||e.target.closest('#popover')||e.target.closest('#joinpanel')||e.target.closest('#beacon'))return;
   map.setPointerCapture(e.pointerId);
   state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(state.pointers.size===1){
@@ -699,6 +918,8 @@ document.addEventListener('click',e=>{
   const m=e.target.closest('.member');
   if(!m)return;
   e.stopPropagation();
+  const pid=parseInt(m.dataset.player,10);
+  if(pid){openPlayerStats(pid);return}
   const id=parseInt(m.dataset.pcircle,10);
   if(id)visitCircle(id);else toast('This member has no circle');
 });
