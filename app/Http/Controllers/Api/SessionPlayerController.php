@@ -98,7 +98,7 @@ class SessionPlayerController extends Controller
         // 1. Add existing players by id (only the user's own players)
         if (! empty($playerIds)) {
             $players = Player::whereIn('id', $playerIds)
-                ->where('user_id', $this->currentUser()->id)
+                ->where('circle_id', $session->circle_id)
                 ->get();
 
             foreach ($players as $player) {
@@ -117,12 +117,13 @@ class SessionPlayerController extends Controller
         //    one request can check in many players and run matchmaking once.
         foreach ($names as $nameIndex => $newName) {
             $player = Player::where('name', $newName)
-                ->where('user_id', $this->currentUser()->id)
+                ->where('circle_id', $session->circle_id)
                 ->first();
 
             if (! $player) {
                 $player = Player::create([
-                    'user_id' => $this->currentUser()->id,
+                    'circle_id' => $session->circle_id,
+                    'user_id' => null,
                     'name' => $newName,
                     'gender' => count($names) === 1 ? $newGender : ($genders[$nameIndex] ?? null),
                     'rating' => config('courtly.rating.default_rating', 0.00),

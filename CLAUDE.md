@@ -599,6 +599,7 @@ Only valid when `session.type === tournament`; every method 422s via `assertTour
 | `POST` | `/api/matches/{match}/result` | Record result: `winning_team` (1 or 2, required), plus optional `close_game`, `team_1_score`/`team_2_score`. Court reallocation is queued (`next_matches` is always `[]`); the frontend picks up the new match via the next event poll. |
 | `POST` | `/api/matches/{match}/correct` | Correct a previously recorded match result |
 | `POST` | `/api/matches/{match}/feedback` | Rate match quality (`quality_rating`: POOR/GOOD/GREAT) — one row per player per match, upserted |
+| `POST` | `/api/matches/{match}/substitute` | Swap a waiting player onto an in-progress court (`out_player_id` + `in_player_id`); the replaced player returns to WAITING and the match's stored balance metrics are recomputed. Ratings are untouched until the match completes. 422 for non-PLAYING matches, non-waiting incoming players, or tournament sessions |
 
 ### Players (🔒)
 | Method | Path | Purpose |
@@ -675,6 +676,7 @@ All API controllers use the `AuthorizesOwnership` trait (`app/Http/Controllers/A
 - `recordResult(Request, GameMatch)` — Validates `winning_team` (1 or 2) + optional `close_game`/`team_1_score`/`team_2_score`, delegates to `MatchResultService`
 - `correctResult(Request, GameMatch)` — Corrects a completed match's winner
 - `feedback(Request, GameMatch)` — 422 unless the match is COMPLETED; validates `quality_rating` (POOR/GOOD/GREAT); upserts `MatchFeedback` on `[match_id, current user's player_id]`
+- `substitute(Request, GameMatch)` — Validates `out_player_id` + `in_player_id` (different), delegates to `MatchResultService::substitutePlayer()`; `DomainException` → 422
 
 ### `Api\PlayerController`
 - No constructor — every service dependency is method-injected per action.
@@ -745,6 +747,7 @@ Atomic match result recording with full idempotency. Depends on `RatingService`,
 **Public Methods:**
 - `recordResult(GameMatch, int $winningTeam, bool $closeGame = false, ?int $team1Score = null, ?int $team2Score = null): array` — Runs in a DB transaction with row locking. For a **tournament** match, delegates to `applyTournamentResult()` (ratings untouched, only WIN/LOSS recorded) and calls `TournamentService::handleMatchCompleted()` instead of triggering matchmaking. For a normal match: derives `close_game` (explicit flag OR score margin ≤ `rating.margin_close_threshold`), calculates rating changes via `RatingService`, batch-upserts session player stats, marks the court AVAILABLE, publishes events, and returns match + rating_changes (`next_matches` always `[]`). After the transaction commits, it queues `AllocateSessionMatches::dispatch($sessionId)->afterResponse()` instead of calling `MatchmakingService::allocateMatches()` inline — that call's DB round-trips cost multiple seconds on their own, which was adding directly to the client's wait on every result submission. **Idempotent**: if already COMPLETED, returns the existing result.
 - `correctResult(GameMatch, int, ?int $team1Score = null, ?int $team2Score = null): array` — Reverts the previous result (`revertTournamentResult()` for tournament matches — undoes just the win/loss bookkeeping), recalculates with the new winner/scores. Only works on COMPLETED matches.
+- `substitutePlayer(GameMatch, int $outPlayerId, int $inPlayerId): array` — Swaps a WAITING session player onto a PLAYING match (row-locked transaction; 422 via `DomainException` otherwise). Re-points the outgoing `match_players` row at the incoming player (re-snapshotting `rating_before`/`rating_confidence_before`), returns the outgoing player to WAITING, sets the incoming player to PLAYING, recomputes `team_1_rating`/`team_2_rating`/`team_balance_difference`/`skill_spread` via `refreshMatchBalance()`, and publishes a `match.substituted` event. Tournament sessions are rejected.
 
 ### `RatingService`
 Elo-based rating system with K-factor, streak bonuses, and result-shape multipliers. Tournament matches never call into the rating-adjustment path at all (see `GameMatch` above).
@@ -1023,34 +1026,52 @@ File: `resources/views/session-live.php`
 
 File: `public/css/courtly.css` (single file, cache-busted via `?v=` — the suffix comes from `config('courtly.app.version')` in `config/courtly.php`; bump `app.version` on user-visible releases to invalidate stale CSS/favicon caches)
 
+### Themes
+
+The theme is selected by `data-theme` on `<html>` and persisted to `localStorage['courtly-theme']`. The header button (`.theme-switch` / `#themeSwitch`, `#btnTheme` on the Circles map) **cycles through** the full list rather than toggling two states:
+
+1. `dark` — default (no `data-theme` attribute; `:root` values): deep navy + violet accent
+2. `blue` — navy + blue accent
+3. `cyber` — teal-black + cyan/mint accent
+4. `emerald` — deep green + green/cyan accent
+5. `light` — white + violet accent (full semantic overrides)
+
+Dark variants override only brand/surface/text/glow variables (`--bg`, `--bg-accent`, `--bg-overlay-*`, `--surface*`, `--text*`, `--accent*`, `--stroke`, `--court-*`, `--glow-1/2`, `--rating-badge-*`, `--win-badge-*`, `--scrollbar-*`) and inherit the dark `:root` semantic status/tag colors. The `light` theme overrides everything.
+
+The same theme list is mirrored in three places (keep in sync):
+- `public/css/courtly.css` (served copy) and `css/courtly.css` (legacy FTP copy) — `[data-theme="…"] { … }` blocks
+- `resources/views/circles-map.php` — its own inline `:root`/`[data-theme="…"]` variable set
+- The cycle script (`COURT_THEMES` array) lives inline in `partials/app-header.php`, `session-live.php`, `circles-map.php`, and `AuthController` (injected into login/register pages)
+
 ### Theme Variables
 ```css
 :root {
-  --bg: #12121f;
-  --surface: #1e1e32;
-  --stroke: #2e2e4a;
-  --text: #e4e4f0;
-  --text-muted: #8888a8;
-  --accent: #ff2d55;
-  --team-1: #0084ff;
-  --team-2: #00c764;
-  --shadow-card: 0 4px 20px rgba(0,0,0,.3);
+  --bg: #0b0e2a;
+  --surface: rgba(16,20,48,.82);
+  --stroke: rgba(120,140,255,.16);
+  --text: #e6e8ff;
+  --text-muted: #8f96c9;
+  --accent: #7c5cff;
+  --accent-2: #ff5da2;
+  --shadow-card: 0 14px 36px rgba(0,0,0,.40);
+  --glow-1: rgba(60,60,160,.28);   /* body ambient radial glow */
+  --glow-2: rgba(120,50,160,.18);
 }
 
 [data-theme="light"] {
-  --bg: #f5f5fa;
-  --surface: #ffffff;
-  --stroke: #dde;
-  --text: #1a1a2e;
-  --text-muted: #777;
-  --accent: #0f62fe;
-  --shadow-card: 0 2px 12px rgba(0,0,0,.08);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) { /* light overrides */ }
+  --bg: #ffffff;
+  --surface: rgba(255,255,255,.95);
+  --stroke: rgba(15,23,42,.15);
+  --text: #0f172a;
+  --text-muted: #475569;
+  --accent: #6d4fff;
+  --shadow-card: 0 10px 28px rgba(0,0,0,.08);
+  --glow-1: rgba(99,102,241,.10);
+  --glow-2: rgba(217,70,239,.06);
 }
 ```
+
+> Note: `--glow-1`/`--glow-2` only exist in `public/css/courtly.css` (and `circles-map.php` as `--glow1`/`--glow2`); the legacy `css/courtly.css` still uses a fixed `court-background.jpg` with `--bg-overlay-*` instead of radial glows.
 
 ### Key Class Prefixes
 - `.session-header`, `.session-header__logo`, `.session-header__badge`

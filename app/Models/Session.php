@@ -28,6 +28,7 @@ class Session extends Model
         'type',
         'tournament_format',
         'created_by',
+        'circle_id',
         'started_at',
         'finished_at',
         'tournament_finished_at',
@@ -52,6 +53,11 @@ class Session extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function circle(): BelongsTo
+    {
+        return $this->belongsTo(Circle::class);
     }
 
     public function courts(): HasMany
@@ -114,10 +120,11 @@ class Session extends Model
     }
 
     /**
-     * Whether this session belongs to the given user.
+     * Whether the given user can access this session — i.e. the user is a
+     * member of the circle the session belongs to.
      */
-    public function belongsToUser(User $user): bool
+    public function isAccessibleBy(User $user): bool
     {
-        return (int) $this->created_by === (int) $user->id;
+        return $this->circle->hasMember($user);
     }
 }

@@ -12,7 +12,7 @@ return [
     'app' => [
         // Single source of truth for the app version. Displayed in the
         // session header and used as the cache-busting (?v=) suffix for CSS/favicon assets.
-        'version' => '1.0.9',
+        'version' => '1.0.12',
     ],
 
     /*
@@ -134,6 +134,22 @@ return [
         'max_courts' => 8,
         'min_courts' => 1,
         'match_points' => 21,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Courtly Circles Configuration
+    |--------------------------------------------------------------------------
+    */
+    'circles' => [
+        // Player tier badges: highest tier whose thresholds are met.
+        'tiers' => [
+            ['name' => 'Rookie', 'min_rating' => 0, 'min_games' => 0],
+            ['name' => 'Bronze', 'min_rating' => 20, 'min_games' => 3],
+            ['name' => 'Silver', 'min_rating' => 40, 'min_games' => 5],
+            ['name' => 'Gold', 'min_rating' => 60, 'min_games' => 10],
+            ['name' => 'Ace', 'min_rating' => 80, 'min_games' => 15],
+        ],
     ],
 
     /*

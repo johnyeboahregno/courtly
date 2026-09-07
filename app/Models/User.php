@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Mail\VerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, HasApiTokens, Notifiable;
 
@@ -38,9 +44,59 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Send the verification email using a self-contained HTML mailable.
+     * The default notification relies on compiled Blade views, which are not
+     * available on the server.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        try {
+            Mail::to($this->getEmailForVerification())->send(new VerifyEmail($this));
+        } catch (\Throwable $e) {
+            // A mail-delivery failure must never break registration or login.
+            Log::error('Failed to send verification email: '.$e->getMessage(), [
+                'email' => $this->getEmailForVerification(),
+            ]);
+        }
+    }
+
+    /**
+     * The circle this user administers (their personal circle, created at
+     * registration).
+     */
+    public function personalCircle(): HasOne
+    {
+        return $this->hasOne(Circle::class, 'admin_id');
+    }
+
+    /**
+     * Every circle the user belongs to (their own plus any they have joined).
+     */
+    public function circles(): BelongsToMany
+    {
+        return $this->belongsToMany(Circle::class, 'circle_members')->withTimestamps();
+    }
+
+    /**
+     * The user's own player record inside their personal circle.
+     */
     public function player(): HasOne
     {
-        return $this->hasOne(Player::class);
+        return $this->hasOne(Player::class, 'user_id')
+            ->whereIn('circle_id', function ($query) {
+                $query->select('id')
+                    ->from('circles')
+                    ->whereColumn('circles.admin_id', 'players.user_id');
+            });
+    }
+
+    /**
+     * Join requests this user has sent (status PENDING/APPROVED/DECLINED).
+     */
+    public function joinRequests(): HasMany
+    {
+        return $this->hasMany(CircleJoinRequest::class);
     }
 
     public function isOrganiser(): bool

@@ -43,6 +43,29 @@ class PlayerFactory extends Factory
         ]);
     }
 
+    /**
+     * Resolve the player's circle from its account (or the `for($user)`
+     * relationship). A player with no account and no circle stays a guest.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Player $player) {
+            if ($player->circle_id !== null) {
+                return;
+            }
+
+            try {
+                $user = $player->user_id instanceof User
+                    ? $player->user_id
+                    : User::find($player->user_id);
+
+                $player->circle_id = $user?->personalCircle?->id;
+            } catch (\Throwable) {
+                // No database available (e.g. Unit tests using make()).
+            }
+        });
+    }
+
     public function withRating(float $rating): static
     {
         return $this->state(fn () => ['rating' => $rating]);

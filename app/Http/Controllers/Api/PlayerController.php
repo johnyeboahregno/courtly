@@ -24,15 +24,24 @@ class PlayerController extends Controller
     /**
      * List the authenticated user's players (for selecting to add to a session).
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $user = $this->currentUser();
+        $circleId = (int) ($request->filled('circle_id') ? $request->input('circle_id') : $user->personalCircle?->id);
+
+        // Fall back to the personal circle when the requested circle is not
+        // one the user belongs to.
+        if (! $user->circles()->whereKey($circleId)->exists()) {
+            $circleId = (int) $user->personalCircle?->id;
+        }
+
         $players = Player::query()
-            ->where('user_id', $this->currentUser()->id)
+            ->where('circle_id', $circleId)
             ->orderBy('name')
             ->get();
 
         $activePlayerIds = Player::query()
-            ->where('user_id', $this->currentUser()->id)
+            ->where('circle_id', $circleId)
             ->whereHas('matchPlayers.match', fn ($query) => $query
                 ->where('status', MatchStatus::PLAYING->value)
                 ->whereHas('session', fn ($sessionQuery) => $sessionQuery
@@ -155,7 +164,7 @@ class PlayerController extends Controller
                 'string',
                 'max:255',
                 Rule::unique('players', 'name')
-                    ->where('user_id', $this->currentUser()->id)
+                    ->where('circle_id', $player->circle_id)
                     ->ignore($player->id),
             ],
                 'gender' => ['sometimes', 'nullable', Rule::enum(PlayerGender::class)],
@@ -212,7 +221,7 @@ class PlayerController extends Controller
      */
     public function resetAll(): JsonResponse
     {
-        $players = Player::where('user_id', $this->currentUser()->id)->get();
+        $players = Player::where('circle_id', $this->currentUser()->personalCircle?->id)->get();
 
         $reset = 0;
         $skipped = 0;

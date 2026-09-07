@@ -24,7 +24,7 @@ trait AuthorizesOwnership
     protected function authorizeSession(Session $session): void
     {
         abort_unless(
-            $session->belongsToUser($this->currentUser()),
+            $session->isAccessibleBy($this->currentUser()),
             403,
             'You do not have access to this session.'
         );
@@ -36,7 +36,7 @@ trait AuthorizesOwnership
     protected function authorizePlayer(Player $player): void
     {
         abort_unless(
-            $player->belongsToUser($this->currentUser()),
+            $player->isAccessibleBy($this->currentUser()),
             403,
             'You do not have access to this player.'
         );

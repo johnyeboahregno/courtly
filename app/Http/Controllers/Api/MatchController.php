@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Concerns\AuthorizesOwnership;
 
 use App\Models\GameMatch;
 use App\Models\MatchFeedback;
+use App\Models\Player;
+use App\Services\CircleService;
 use App\Services\MatchResultService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,10 +71,19 @@ class MatchController extends Controller
             'quality_rating' => ['required', 'string', 'in:POOR,GOOD,GREAT'],
         ]);
 
+        $circle = $match->session->circle;
+        $player = Player::where('circle_id', $circle->id)
+            ->where('user_id', $this->currentUser()->id)
+            ->first();
+
+        if (! $player) {
+            $player = app(CircleService::class)->ensureLinkedPlayer($this->currentUser(), $circle);
+        }
+
         MatchFeedback::query()->updateOrCreate(
             [
                 'match_id' => $match->id,
-                'player_id' => $this->currentUser()->player?->id,
+                'player_id' => $player->id,
             ],
             ['quality_rating' => $validated['quality_rating']],
         );
@@ -109,6 +120,32 @@ class MatchController extends Controller
             $team1Score,
             $team2Score,
         );
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Swap a waiting player onto an in-progress court, returning the replaced
+     * player to the queue.
+     */
+    public function substitute(Request $request, GameMatch $match): JsonResponse
+    {
+        $this->authorizeSession($match->session);
+
+        $validated = $request->validate([
+            'out_player_id' => ['required', 'integer'],
+            'in_player_id' => ['required', 'integer', 'different:out_player_id'],
+        ]);
+
+        try {
+            $result = $this->resultService->substitutePlayer(
+                $match,
+                (int) $validated['out_player_id'],
+                (int) $validated['in_player_id'],
+            );
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
 
         return response()->json(['data' => $result]);
     }

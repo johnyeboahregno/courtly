@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\Api\SessionController;
@@ -29,7 +30,31 @@ Route::post('/reset-password', fn () => response()->json(['message' => 'Password
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/email/verification-notification', fn () => response()->json(['message' => 'Verification email resent.']));
+    Route::get('/me/overview', [AuthController::class, 'overview']);
+    Route::post('/email/verification-notification', function (\Illuminate\Http\Request $request) {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json(['message' => 'Verification email sent.']);
+    });
+
+    // Everything below requires a verified email address.
+    Route::middleware('verified')->group(function () {
+    // Circles
+    Route::get('/circles', [CircleController::class, 'index']);
+    Route::post('/circles/join', [CircleController::class, 'join']);
+    Route::get('/circles/map', [CircleController::class, 'map']);
+    Route::get('/circles/{circle}', [CircleController::class, 'show']);
+    Route::patch('/circles/{circle}', [CircleController::class, 'update']);
+    Route::post('/circles/{circle}/request-join', [CircleController::class, 'requestJoin']);
+    Route::post('/circles/{circle}/invite', [CircleController::class, 'invite']);
+    Route::post('/circles/{circle}/leave', [CircleController::class, 'leave']);
+    Route::get('/circles/{circle}/leaderboard', [CircleController::class, 'leaderboard']);
+    Route::post('/circle-join-requests/{joinRequest}/approve', [CircleController::class, 'approve']);
+    Route::post('/circle-join-requests/{joinRequest}/decline', [CircleController::class, 'decline']);
 
     // Sessions
     Route::get('/sessions', [SessionController::class, 'index']);
@@ -64,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/matches/{match}/result', [MatchController::class, 'recordResult']);
     Route::post('/matches/{match}/correct', [MatchController::class, 'correctResult']);
     Route::post('/matches/{match}/feedback', [MatchController::class, 'feedback']);
+    Route::post('/matches/{match}/substitute', [MatchController::class, 'substitute']);
 
     // Players
     Route::get('/players', [PlayerController::class, 'index']);
@@ -75,4 +101,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/players/reset-all', [PlayerController::class, 'resetAll']);
     Route::post('/players/{player}/reset-rating', [PlayerController::class, 'resetRating']);
     Route::delete('/players/{player}', [PlayerController::class, 'destroy']);
+    });
 });

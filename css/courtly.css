@@ -90,7 +90,7 @@ html, * {
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; }
 
 html {
-    font-size: 110%;
+    font-size: 121%;
 }
 
 body {
@@ -973,6 +973,37 @@ textarea,
     box-shadow: 0 0 0 2px var(--accent) inset;
 }
 
+/* "Selecting teams…" overlay shown while the server computes the next matchup */
+.court-card__selecting {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--court-surface-empty, rgba(26, 26, 42, .94));
+    pointer-events: none;
+}
+.court-card__selecting-ring {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid var(--accent, #7c5cff);
+    border-top-color: transparent;
+    animation: courtly-selecting-spin .8s linear infinite;
+}
+.court-card__selecting-text {
+    color: var(--text-muted);
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+@keyframes courtly-selecting-spin {
+    to { transform: rotate(360deg); }
+}
+
 .court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
 .court-card__celebration strong {
     position: absolute; left: var(--origin-x); top: var(--origin-y);
@@ -1639,18 +1670,21 @@ textarea,
 }
 
 .player-card__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.05rem;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
+    min-width: 0;
 }
 
-.player-card__name .gender-dot { margin-left: 1px; }
+.player-card__name .gender-dot { margin: 0; }
 
-.player-card__name .rank-icon {
-    margin-left: 5px;
+.name-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .player-card__rating {
@@ -1859,6 +1893,7 @@ textarea,
     flex: 1 1 auto;
     max-height: none;
     min-height: 0;
+    align-content: start;
 }
 
 /* Styled confirmation dialog */
@@ -2071,7 +2106,7 @@ textarea,
     box-sizing: border-box;
     width: 28px;
     height: 28px;
-    margin-left: 6px;
+    margin: 0;
     vertical-align: middle;
     border-radius: 50%;
 }
@@ -2186,10 +2221,16 @@ textarea,
 }
 
 .existing-item__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 0.8rem;
     flex: 1;
+    min-width: 0;
 }
+
+.existing-item__name .gender-dot { margin: 0; }
 
 .existing-item__rating {
     font-size: 0.8rem;
@@ -2334,7 +2375,8 @@ textarea,
 
 /* Player leaving the queue (fade out to court) */
 .queue-leave-active {
-    transition: all 0.35s ease;
+    transition: all 0.3s ease;
+    transition-delay: calc(var(--leave-order, 0) * 90ms);
     position: absolute;
 }
 .queue-leave-from {
@@ -2368,6 +2410,100 @@ textarea,
 .court-fade-leave-to {
     opacity: 0;
     transform: scale(0.85);
+}
+
+/* ── Court population: players fade in one at a time ── */
+.court-card__court .court-card__player-box {
+    animation: court-pop-in .42s cubic-bezier(.22, .9, .35, 1) both;
+}
+.court-card__side--team-1 .court-card__player-box:nth-child(1) { animation-delay: 0ms; }
+.court-card__side--team-1 .court-card__player-box:nth-child(2) { animation-delay: 110ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(1) { animation-delay: 220ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(2) { animation-delay: 330ms; }
+@keyframes court-pop-in {
+    from { opacity: 0; transform: translateY(10px) scale(.94); }
+    to { opacity: 1; transform: none; }
+}
+
+/* ── Blue Theme ──────────────────────────────────────────────────────── */
+
+[data-theme="blue"] {
+    --bg: #0f172a;
+    --bg-accent: #17243b;
+    --bg-overlay-1: rgba(15, 23, 42, .82);
+    --bg-overlay-2: rgba(15, 23, 42, .90);
+    --surface: rgba(15, 23, 42, .92);
+    --surface-2: rgba(59, 130, 246, .18);
+    --text: #e5e7eb;
+    --text-muted: #b7c1d1;
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --stroke: rgba(147, 197, 253, .28);
+    --court-deep-blue: #0f172a;
+    --court-blue: #3b82f6;
+    --court-cyan: #93c5fd;
+    --court-green: #34d399;
+    --court-green-light: #a7f3d0;
+    --rating-badge-bg: #38bdf8;
+    --rating-badge-text: #06263d;
+    --win-badge-bg: #fbbf24;
+    --win-badge-text: #3d2a00;
+    --scrollbar-thumb: #1e293b;
+    --scrollbar-thumb-hover: #334155;
+}
+
+/* ── Cyber Theme ─────────────────────────────────────────────────────── */
+
+[data-theme="cyber"] {
+    --bg: #04151f;
+    --bg-accent: #0a2a38;
+    --bg-overlay-1: rgba(4, 21, 31, .86);
+    --bg-overlay-2: rgba(4, 21, 31, .94);
+    --surface: rgba(6, 30, 40, .88);
+    --surface-2: rgba(0, 229, 255, .14);
+    --text: #d8f7ff;
+    --text-muted: #7fb8c8;
+    --accent: #00e5ff;
+    --accent-2: #00ff9d;
+    --stroke: rgba(0, 229, 255, .22);
+    --court-deep-blue: #04151f;
+    --court-blue: #00e5ff;
+    --court-cyan: #7df3ff;
+    --court-green: #00ff9d;
+    --court-green-light: #7dffce;
+    --rating-badge-bg: #00e5ff;
+    --rating-badge-text: #003039;
+    --win-badge-bg: #ffd700;
+    --win-badge-text: #3d2e00;
+    --scrollbar-thumb: #0e3b47;
+    --scrollbar-thumb-hover: #155666;
+}
+
+/* ── Emerald Theme ───────────────────────────────────────────────────── */
+
+[data-theme="emerald"] {
+    --bg: #061711;
+    --bg-accent: #0d2b1f;
+    --bg-overlay-1: rgba(6, 23, 17, .88);
+    --bg-overlay-2: rgba(6, 23, 17, .95);
+    --surface: rgba(8, 28, 20, .88);
+    --surface-2: rgba(0, 199, 100, .14);
+    --text: #e1fff0;
+    --text-muted: #8fc7aa;
+    --accent: #00c764;
+    --accent-2: #22d3ee;
+    --stroke: rgba(0, 199, 100, .22);
+    --court-deep-blue: #061711;
+    --court-blue: #00c764;
+    --court-cyan: #22d3ee;
+    --court-green: #00c764;
+    --court-green-light: #7cf0b8;
+    --rating-badge-bg: #00d1a0;
+    --rating-badge-text: #00301f;
+    --win-badge-bg: #ffd700;
+    --win-badge-text: #3d2e00;
+    --scrollbar-thumb: #0e3426;
+    --scrollbar-thumb-hover: #164a37;
 }
 
 /* ── Light Theme ─────────────────────────────────────────────────────── */
@@ -2644,7 +2780,7 @@ textarea,
 }
 .waiting-list__mode {
     margin-left: auto;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -2695,7 +2831,7 @@ textarea,
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
-    html { font-size: 100%; }
+    html { font-size: 110%; }
 
     body { min-width: 320px; }
 

@@ -19,7 +19,9 @@ class Player extends Model
 
     protected $fillable = [
         'user_id',
+        'circle_id',
         'name',
+        'email',
         'gender',
         'rating',
         'rating_status',
@@ -49,6 +51,11 @@ class Player extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function circle(): BelongsTo
+    {
+        return $this->belongsTo(Circle::class);
     }
 
     public function sessionPlayers(): HasMany
@@ -96,10 +103,11 @@ class Player extends Model
     }
 
     /**
-     * Whether this player belongs to the given user.
+     * Whether the given user can access this player — i.e. the user is a
+     * member of the circle the player belongs to.
      */
-    public function belongsToUser(User $user): bool
+    public function isAccessibleBy(User $user): bool
     {
-        return (int) $this->user_id === (int) $user->id;
+        return $this->circle->hasMember($user);
     }
 }

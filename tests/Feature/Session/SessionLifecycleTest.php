@@ -114,7 +114,7 @@ it('returns players to next up when removing an active court', function () {
     $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'remove'])
         ->assertOk()
         ->assertJsonPath('data.number_of_courts', 1)
-        ->assertJsonCount(2, 'data.courts');
+        ->assertJsonCount(1, 'data.courts');
 
     expect($session->fresh()->number_of_courts)->toBe(1);
     $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::INACTIVE->value]);
@@ -140,6 +140,53 @@ it('does not allow court changes after a session has finished', function () {
 
     $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'add'])
         ->assertStatus(409);
+});
+
+it('fills a newly added court immediately when players are waiting', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->for($user, 'createdBy')->active()->create([
+        'number_of_courts' => 1,
+    ]);
+    Court::factory()->for($session)->create([
+        'court_number' => 1,
+        'status' => CourtStatus::PLAYING->value,
+    ]);
+    $courtOne = Court::where('session_id', $session->id)->where('court_number', 1)->first();
+
+    $playing = Player::factory()->count(4)->for($user)->create();
+    $playing->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::PLAYING->value]));
+    $match = GameMatch::factory()->for($session)->for($courtOne)->playing()->create();
+    $playing->each(fn (Player $player, int $index) => MatchPlayer::factory()
+        ->for($match, 'match')
+        ->for($player)
+        ->create(['team' => $index < 2 ? 1 : 2]));
+
+    foreach (['MALE', 'FEMALE', 'MALE', 'FEMALE'] as $gender) {
+        $player = Player::factory()->for($user)->create(['gender' => $gender]);
+        SessionPlayer::factory()
+            ->for($session)
+            ->for($player)
+            ->create([
+                'status' => SessionPlayerStatus::WAITING->value,
+                'waiting_since' => now(),
+            ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", ['action' => 'add'])
+        ->assertOk()
+        ->assertJsonPath('data.number_of_courts', 2);
+
+    $this->assertDatabaseCount('matches', 2);
+    $this->assertDatabaseHas('courts', [
+        'session_id' => $session->id,
+        'court_number' => 2,
+        'status' => CourtStatus::PLAYING->value,
+    ]);
 });
 
 it('starts an upcoming session and marks waiting players as eligible', function () {
@@ -215,7 +262,11 @@ it('honours an organizer-chosen team split when manually assigning players', fun
     $user = User::factory()->create();
     $session = Session::factory()->active()->for($user, 'createdBy')->create();
     $court = Court::factory()->for($session)->create(['court_number' => 1]);
-    $players = Player::factory()->count(4)->for($user)->create();
+    // Fixed genders keep the chosen split (mixed teams) valid regardless of
+    // the random ratings the factory assigns.
+    $players = collect(['MALE', 'MALE', 'FEMALE', 'FEMALE'])->map(
+        fn (string $gender) => Player::factory()->for($user)->create(['gender' => $gender])
+    );
     $players->each(fn (Player $player) => SessionPlayer::factory()
         ->for($session)
         ->for($player)
@@ -242,6 +293,41 @@ it('honours an organizer-chosen team split when manually assigning players', fun
     }
 });
 
+it('clears a playing court and returns its players to the queue', function () {
+    $user = User::factory()->create();
+    $session = Session::factory()->active()->for($user, 'createdBy')->create();
+    $court = Court::factory()->for($session)->create(['court_number' => 1, 'status' => CourtStatus::PLAYING->value]);
+    $players = Player::factory()->count(4)->for($user)->create();
+    $players->each(fn (Player $player) => SessionPlayer::factory()
+        ->for($session)
+        ->for($player)
+        ->create(['status' => SessionPlayerStatus::PLAYING->value]));
+
+    $match = GameMatch::factory()->playing()->create([
+        'session_id' => $session->id,
+        'court_id' => $court->id,
+    ]);
+
+    foreach ($players as $index => $player) {
+        MatchPlayer::factory()->create([
+            'match_id' => $match->id,
+            'player_id' => $player->id,
+            'team' => $index < 2 ? 1 : 2,
+        ]);
+    }
+
+    Sanctum::actingAs($user);
+
+    $this->patchJson("/api/sessions/{$session->id}/courts", [
+        'action' => 'clear',
+        'court_number' => 1,
+    ])->assertOk();
+
+    $this->assertDatabaseMissing('matches', ['id' => $match->id]);
+    $this->assertDatabaseHas('courts', ['id' => $court->id, 'status' => CourtStatus::AVAILABLE->value]);
+    $this->assertDatabaseHas('session_players', ['session_id' => $session->id, 'status' => SessionPlayerStatus::WAITING->value]);
+});
+
 it('fills idle courts when an organizer requests it', function () {
     $user = User::factory()->create();
     $session = Session::factory()->active()->for($user, 'createdBy')->create();
@@ -264,7 +350,7 @@ it('fills idle courts when an organizer requests it', function () {
     ]);
 });
 
-it('does not fill a free court while another court in the session is still playing', function () {
+it('fills a free court even while another court in the session is still playing', function () {
     $user = User::factory()->create();
     $session = Session::factory()->active()->for($user, 'createdBy')->create();
     $freeCourt = Court::factory()->for($session)->create(['court_number' => 1, 'status' => CourtStatus::AVAILABLE->value]);
@@ -281,18 +367,20 @@ it('does not fill a free court while another court in the session is still playi
         ->for($player)
         ->create(['team' => $index < 2 ? 1 : 2]));
 
-    $waitingPlayers = Player::factory()->count(4)->for($user)->create();
-    $waitingPlayers->each(fn (Player $player) => SessionPlayer::factory()
-        ->for($session)
-        ->for($player)
-        ->create(['status' => SessionPlayerStatus::WAITING->value]));
+    foreach (['MALE', 'FEMALE', 'MALE', 'FEMALE'] as $gender) {
+        $player = Player::factory()->for($user)->create(['gender' => $gender]);
+        SessionPlayer::factory()
+            ->for($session)
+            ->for($player)
+            ->create(['status' => SessionPlayerStatus::WAITING->value]);
+    }
 
     Sanctum::actingAs($user);
 
     $this->postJson("/api/sessions/{$session->id}/fill")->assertOk();
 
-    $this->assertDatabaseHas('courts', ['id' => $freeCourt->id, 'status' => CourtStatus::AVAILABLE->value]);
-    $this->assertDatabaseMissing('matches', [
+    $this->assertDatabaseHas('courts', ['id' => $freeCourt->id, 'status' => CourtStatus::PLAYING->value]);
+    $this->assertDatabaseHas('matches', [
         'session_id' => $session->id,
         'court_id' => $freeCourt->id,
     ]);

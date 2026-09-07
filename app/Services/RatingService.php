@@ -225,6 +225,7 @@ class RatingService
             $playerRows[] = [
                 'id' => $player->id,
                 'user_id' => $player->user_id,
+                'circle_id' => $player->circle_id,
                 'name' => $player->name,
                 'rating' => $change['rating_after'],
                 'rated_games_count' => $newRatedGames,

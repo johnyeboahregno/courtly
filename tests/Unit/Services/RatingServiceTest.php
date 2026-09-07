@@ -9,8 +9,8 @@ use App\Services\RatingService;
 it('calculates doubles team rating as the average of both players', function () {
     $service = app(RatingService::class);
 
-    $firstPlayer = Player::factory()->make(['rating' => 48.00]);
-    $secondPlayer = Player::factory()->make(['rating' => 72.00]);
+    $firstPlayer = Player::factory()->make(['user_id' => 1, 'rating' => 48.00]);
+    $secondPlayer = Player::factory()->make(['user_id' => 1, 'rating' => 72.00]);
 
     expect($service->calculateTeamRating($firstPlayer, $secondPlayer))->toBe(60.0);
 });
@@ -38,11 +38,13 @@ it('uses provisional and established k factors with a streak cap', function () {
     $service = app(RatingService::class);
 
     $provisionalPlayer = Player::factory()->make([
+        'user_id' => 1,
         'rating_status' => RatingStatus::PROVISIONAL->value,
         'consecutive_wins' => 4,
     ]);
 
     $establishedPlayer = Player::factory()->make([
+        'user_id' => 1,
         'rating_status' => RatingStatus::ESTABLISHED->value,
         'consecutive_wins' => 2,
     ]);
@@ -73,12 +75,14 @@ it('clamps player adjustments to rating bounds', function () {
     $service = app(RatingService::class);
 
     $nearCeiling = Player::factory()->make([
+        'user_id' => 1,
         'rating' => 99.50,
         'rating_status' => RatingStatus::ESTABLISHED->value,
         'consecutive_wins' => 0,
     ]);
 
     $nearFloor = Player::factory()->make([
+        'user_id' => 1,
         'rating' => 0.50,
         'rating_status' => RatingStatus::ESTABLISHED->value,
         'consecutive_wins' => 0,

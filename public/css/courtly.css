@@ -1,28 +1,30 @@
 /* Courtly brand system */
 
 :root {
-    --court-deep-blue: #0f172a;
-    --court-blue: #3b82f6;
-    --court-cyan: #93c5fd;
-    --court-green: #3b82f6;
-    --court-green-light: #93c5fd;
+    --court-deep-blue: #0b0e2a;
+    --court-blue: #7c5cff;
+    --court-cyan: #39d0ff;
+    --court-green: #00c764;
+    --court-green-light: #7cf0b8;
 
-    --bg: #0f172a;
-    --bg-accent: #17243b;
-    --bg-overlay-1: rgba(15,23,42,.82);
-    --bg-overlay-2: rgba(15,23,42,.90);
-    --surface: rgba(15,23,42,.92);
-    --surface-2: rgba(59,130,246,.18);
-    --text: #e5e7eb;
-    --text-muted: #b7c1d1;
-    --accent: #3b82f6;
-    --accent-2: #93c5fd;
+    --bg: #0b0e2a;
+    --bg-accent: #151a3f;
+    --bg-overlay-1: rgba(11,14,42,.86);
+    --bg-overlay-2: rgba(11,14,42,.94);
+    --glow-1: rgba(60,60,160,.28);
+    --glow-2: rgba(120,50,160,.18);
+    --surface: rgba(16,20,48,.82);
+    --surface-2: rgba(124,92,255,.16);
+    --text: #e6e8ff;
+    --text-muted: #8f96c9;
+    --accent: #7c5cff;
+    --accent-2: #ff5da2;
 
-    --radius: 8px;
-    --radius-sm: 6px;
-    --shadow-card: 0 14px 36px rgba(0,13,43,0.34);
-    --shadow-soft: 0 5px 16px rgba(0,13,43,0.24);
-    --stroke: rgba(147,197,253,.28);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-card: 0 14px 36px rgba(0,0,0,.40);
+    --shadow-soft: 0 5px 16px rgba(0,0,0,.30);
+    --stroke: rgba(120,140,255,.16);
     --min-touch: 56px;
 
     /* Semantic Theme Custom Properties */
@@ -90,16 +92,17 @@ html, * {
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; }
 
 html {
-    font-size: 110%;
+    font-size: 133%;
+    zoom: 0.9;
 }
 
 body {
-    font-family: "Manrope", "Segoe UI", sans-serif !important;
-    background: var(--bg);
-    background-image: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') !important;
-    background-position: center center;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 40%, var(--glow-1), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 80% 85%, var(--glow-2), transparent 70%),
+        var(--bg) !important;
     background-repeat: no-repeat;
-    background-size: cover;
     background-attachment: fixed;
     color: var(--text);
     caret-color: transparent;
@@ -107,8 +110,12 @@ body {
 }
 
 .auth-page {
-    background: linear-gradient(var(--bg-overlay-1), var(--bg-overlay-2)), url('/assets/court-background.jpg') center center / 100% 100% no-repeat fixed !important;
-    font-family: "Manrope", "Segoe UI", sans-serif !important;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 40%, var(--glow-1), transparent 70%),
+        radial-gradient(ellipse 70% 55% at 80% 85%, var(--glow-2), transparent 70%),
+        var(--bg) !important;
+    background-repeat: no-repeat;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
 }
 
 .theme-switch {
@@ -129,7 +136,7 @@ body {
 
 .theme-switch:hover,
 .theme-switch:focus-visible {
-    border-color: var(--court-blue);
+    border-color: var(--accent);
     background: var(--bg-accent);
     outline: none;
     transform: translateY(-1px);
@@ -765,6 +772,12 @@ textarea,
     opacity: 0.4;
 }
 
+.courts-toolbar__actions .mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* Courts grid */
 .courts-grid {
     display: grid;
@@ -784,7 +797,7 @@ textarea,
 }
 
 @media (max-width: 639px) {
-    .courts-grid { grid-template-columns: 1fr; gap: 10px; margin: 0 8px 14px; padding: 0 4px; }
+    .courts-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0 8px 14px; padding: 0 4px; }
 }
 
 /* Court card — no container, courts shown directly */
@@ -793,6 +806,8 @@ textarea,
     flex-direction: column;
     gap: 8px;
     position: relative;
+    min-width: 0;
+    width: 100%;
 }
 
 /* Court header: name + status */
@@ -834,6 +849,50 @@ textarea,
 
 .court-card__status--playing { color: #3cae67; }
 .court-card__status--available { color: var(--text-muted); }
+
+.court-clear-btn {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--surface-2);
+    color: #ffb020;
+    border: 1px solid rgba(255, 176, 32, .35);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.court-clear-btn:hover:not(:disabled) {
+    background: #ffb020;
+    border-color: #ffb020;
+    color: #1a1a2a;
+}
+
+.court-clear-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.court-clear-btn.is-busy {
+    color: transparent !important;
+    position: relative;
+    pointer-events: none;
+}
+
+.court-clear-btn.is-busy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, .3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin .6s linear infinite;
+}
 
 .court-card__head-actions {
     display: inline-flex;
@@ -1010,6 +1069,44 @@ textarea,
     box-shadow: 0 0 0 2px var(--accent) inset;
 }
 
+.court-card__body--picked {
+    border-color: var(--accent);
+    border-style: dashed;
+    box-shadow: 0 0 0 2px var(--accent) inset;
+    cursor: copy;
+}
+
+/* "Selecting teams…" overlay shown while the server computes the next matchup */
+.court-card__selecting {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--court-surface-empty, rgba(26, 26, 42, .94));
+    pointer-events: none;
+}
+.court-card__selecting-ring {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid var(--accent, #7c5cff);
+    border-top-color: transparent;
+    animation: courtly-selecting-spin .8s linear infinite;
+}
+.court-card__selecting-text {
+    color: var(--text-muted);
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+@keyframes courtly-selecting-spin {
+    to { transform: rotate(360deg); }
+}
+
 .court-card__celebration { position: absolute; inset: 0; z-index: 8; overflow: hidden; pointer-events: none; }
 .court-card__celebration strong {
     position: absolute; left: var(--origin-x); top: var(--origin-y);
@@ -1121,6 +1218,18 @@ textarea,
     background: #32e28af5;
 }
 
+.court-card__player-box--drop-target {
+    outline: 3px dashed var(--accent-2, #ff5da2);
+    outline-offset: -4px;
+    box-shadow: 0 0 10px rgba(255, 93, 162, .35) inset;
+}
+
+.court-card__player-box--picked {
+    outline: 2px dashed var(--accent, #7c5cff);
+    outline-offset: -3px;
+    cursor: copy;
+}
+
 /* Pending (court not yet full) — grayed-out player preview */
 .court-card__pending {
     position: relative;
@@ -1135,7 +1244,7 @@ textarea,
 
 .court-card__pending-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     width: 100%;
 }
@@ -1153,6 +1262,16 @@ textarea,
 .court-card__player-box--pending .court-card__rating {
     background: var(--rating-badge-bg);
     color: var(--rating-badge-text);
+}
+
+.court-card__player-box--pending-empty {
+    opacity: 0.55;
+}
+
+.court-card__player--placeholder {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
 }
 
 .court-card__player {
@@ -1676,18 +1795,21 @@ textarea,
 }
 
 .player-card__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.05rem;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
+    min-width: 0;
 }
 
-.player-card__name .gender-dot { margin-left: 1px; }
+.player-card__name .gender-dot { margin: 0; }
 
-.player-card__name .rank-icon {
-    margin-left: 5px;
+.name-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .player-card__rating {
@@ -1775,6 +1897,42 @@ textarea,
 .player-card--next {
     border-color: #00c764;
     animation: courtly-glow 1.8s ease-in-out infinite;
+}
+
+/* A waiting player tapped on touch — awaiting a court/player drop */
+.player-card--picked {
+    box-shadow: 0 0 0 2px var(--accent, #7c5cff) inset;
+    border-color: var(--accent, #7c5cff);
+}
+
+.waiting-list__pick-hint {
+    margin: 2px 0 10px;
+    color: var(--text-muted);
+    font-size: .95rem;
+}
+
+.waiting-list__pick-hint strong {
+    color: var(--accent-2, #ff5da2);
+}
+
+/* Draggable waiting cards: disable native touch panning so pointer drag works */
+.player-card--draggable {
+    touch-action: none;
+}
+
+/* Floating clone of the dragged player card (matches the native drag image) */
+.touch-drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    pointer-events: none;
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, .45));
+}
+
+.touch-drag-ghost .player-card {
+    opacity: 0.85;
+    border-color: var(--accent, #7c5cff);
 }
 
 @keyframes courtly-glow {
@@ -1896,6 +2054,7 @@ textarea,
     flex: 1 1 auto;
     max-height: none;
     min-height: 0;
+    align-content: start;
 }
 
 /* Styled confirmation dialog */
@@ -2108,7 +2267,7 @@ textarea,
     box-sizing: border-box;
     width: 28px;
     height: 28px;
-    margin-left: 6px;
+    margin: 0;
     vertical-align: middle;
     border-radius: 50%;
 }
@@ -2223,10 +2382,16 @@ textarea,
 }
 
 .existing-item__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 0.8rem;
     flex: 1;
+    min-width: 0;
 }
+
+.existing-item__name .gender-dot { margin: 0; }
 
 .existing-item__rating {
     font-size: 0.8rem;
@@ -2371,7 +2536,8 @@ textarea,
 
 /* Player leaving the queue (fade out to court) */
 .queue-leave-active {
-    transition: all 0.35s ease;
+    transition: all 0.3s ease;
+    transition-delay: calc(var(--leave-order, 0) * 90ms);
     position: absolute;
 }
 .queue-leave-from {
@@ -2407,6 +2573,106 @@ textarea,
     transform: scale(0.85);
 }
 
+/* ── Court population: players fade in one at a time ── */
+.court-card__court .court-card__player-box {
+    animation: court-pop-in .42s cubic-bezier(.22, .9, .35, 1) both;
+}
+.court-card__side--team-1 .court-card__player-box:nth-child(1) { animation-delay: 0ms; }
+.court-card__side--team-1 .court-card__player-box:nth-child(2) { animation-delay: 110ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(1) { animation-delay: 220ms; }
+.court-card__side--team-2 .court-card__player-box:nth-child(2) { animation-delay: 330ms; }
+@keyframes court-pop-in {
+    from { opacity: 0; transform: translateY(10px) scale(.94); }
+    to { opacity: 1; transform: none; }
+}
+
+/* ── Blue Theme ──────────────────────────────────────────────────────── */
+
+[data-theme="blue"] {
+    --bg: #0f172a;
+    --bg-accent: #17243b;
+    --bg-overlay-1: rgba(15, 23, 42, .82);
+    --bg-overlay-2: rgba(15, 23, 42, .90);
+    --surface: rgba(15, 23, 42, .92);
+    --surface-2: rgba(59, 130, 246, .18);
+    --text: #e5e7eb;
+    --text-muted: #b7c1d1;
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --stroke: rgba(147, 197, 253, .28);
+    --glow-1: rgba(59, 130, 246, .22);
+    --glow-2: rgba(147, 197, 253, .14);
+    --court-deep-blue: #0f172a;
+    --court-blue: #3b82f6;
+    --court-cyan: #93c5fd;
+    --court-green: #34d399;
+    --court-green-light: #a7f3d0;
+    --rating-badge-bg: #38bdf8;
+    --rating-badge-text: #06263d;
+    --win-badge-bg: #fbbf24;
+    --win-badge-text: #3d2a00;
+    --scrollbar-thumb: #1e293b;
+    --scrollbar-thumb-hover: #334155;
+}
+
+/* ── Cyber Theme ─────────────────────────────────────────────────────── */
+
+[data-theme="cyber"] {
+    --bg: #04151f;
+    --bg-accent: #0a2a38;
+    --bg-overlay-1: rgba(4, 21, 31, .86);
+    --bg-overlay-2: rgba(4, 21, 31, .94);
+    --surface: rgba(6, 30, 40, .88);
+    --surface-2: rgba(0, 229, 255, .14);
+    --text: #d8f7ff;
+    --text-muted: #7fb8c8;
+    --accent: #00e5ff;
+    --accent-2: #00ff9d;
+    --stroke: rgba(0, 229, 255, .22);
+    --glow-1: rgba(0, 229, 255, .20);
+    --glow-2: rgba(0, 255, 157, .12);
+    --court-deep-blue: #04151f;
+    --court-blue: #00e5ff;
+    --court-cyan: #7df3ff;
+    --court-green: #00ff9d;
+    --court-green-light: #7dffce;
+    --rating-badge-bg: #00e5ff;
+    --rating-badge-text: #003039;
+    --win-badge-bg: #ffd700;
+    --win-badge-text: #3d2e00;
+    --scrollbar-thumb: #0e3b47;
+    --scrollbar-thumb-hover: #155666;
+}
+
+/* ── Emerald Theme ───────────────────────────────────────────────────── */
+
+[data-theme="emerald"] {
+    --bg: #061711;
+    --bg-accent: #0d2b1f;
+    --bg-overlay-1: rgba(6, 23, 17, .88);
+    --bg-overlay-2: rgba(6, 23, 17, .95);
+    --surface: rgba(8, 28, 20, .88);
+    --surface-2: rgba(0, 199, 100, .14);
+    --text: #e1fff0;
+    --text-muted: #8fc7aa;
+    --accent: #00c764;
+    --accent-2: #22d3ee;
+    --stroke: rgba(0, 199, 100, .22);
+    --glow-1: rgba(0, 199, 100, .20);
+    --glow-2: rgba(34, 211, 238, .12);
+    --court-deep-blue: #061711;
+    --court-blue: #00c764;
+    --court-cyan: #22d3ee;
+    --court-green: #00c764;
+    --court-green-light: #7cf0b8;
+    --rating-badge-bg: #00d1a0;
+    --rating-badge-text: #00301f;
+    --win-badge-bg: #ffd700;
+    --win-badge-text: #3d2e00;
+    --scrollbar-thumb: #0e3426;
+    --scrollbar-thumb-hover: #164a37;
+}
+
 /* ── Light Theme ─────────────────────────────────────────────────────── */
 
 [data-theme="light"] {
@@ -2418,8 +2684,8 @@ textarea,
     --surface-2: rgba(226, 232, 240, 0.8);
     --text: #0f172a;
     --text-muted: #475569;
-    --accent: #3b82f6;
-    --accent-2: #2563eb;
+    --accent: #6d4fff;
+    --accent-2: #d61e7b;
     --stroke: rgba(15, 23, 42, 0.15);
     --shadow-card: 0 10px 28px rgba(0,0,0,.08);
     --shadow-soft: 0 4px 10px rgba(0,0,0,.05);
@@ -2467,10 +2733,13 @@ textarea,
 
     --scrollbar-thumb: #cbd5e1;
     --scrollbar-thumb-hover: #94a3b8;
+
+    --glow-1: rgba(99, 102, 241, .10);
+    --glow-2: rgba(217, 70, 239, .06);
 }
 
 [data-theme="light"] body {
-    font-family: "Manrope", "Segoe UI", sans-serif;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
 [data-theme="light"] .court-card__body { background: #ffffff; }
@@ -2502,8 +2771,8 @@ textarea,
         --surface-2: rgba(226, 232, 240, 0.8);
         --text: #0f172a;
         --text-muted: #475569;
-        --accent: #3b82f6;
-        --accent-2: #2563eb;
+        --accent: #6d4fff;
+        --accent-2: #d61e7b;
         --stroke: rgba(15, 23, 42, 0.15);
         --shadow-card: 0 10px 28px rgba(0,0,0,.08);
         --shadow-soft: 0 4px 10px rgba(0,0,0,.05);
@@ -2552,7 +2821,7 @@ textarea,
         --scrollbar-thumb: #cbd5e1;
         --scrollbar-thumb-hover: #94a3b8;
     }
-    :root:not([data-theme]) body { font-family: "Manrope", "Segoe UI", sans-serif; }
+    :root:not([data-theme]) body { font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace; }
     :root:not([data-theme]) .court-card__body { background: #ffffff; }
     :root:not([data-theme]) .court-card__body--empty { background: #f5f8f7; }
     :root:not([data-theme]) .court-card__lines::before,
@@ -2681,7 +2950,7 @@ textarea,
 }
 .waiting-list__mode {
     margin-left: auto;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -2708,6 +2977,7 @@ textarea,
 .fill-courts-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
 .fill-courts-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .fill-courts-btn--start { background: var(--accent); color: #fff; }
+.fill-courts-btn--assign { border-style: dashed; opacity: 0.85; }
 
 .fill-courts-btn.is-busy,
 .player-card__pause.is-busy {
@@ -2732,9 +3002,9 @@ textarea,
 
 /* Responsive layout safeguards shared by every rendered page. */
 @media (max-width: 767px) {
-    html { font-size: 100%; }
+    html { font-size: 121%; }
 
-    body { min-width: 320px; }
+    body { min-width: 0; overflow-x: hidden; }
 
     #courtly-app { padding: 0 12px; }
 
@@ -2771,6 +3041,24 @@ textarea,
 
     .mode-switch { min-height: 40px; }
 
+    /* Courts toolbar — icon-only controls on small screens */
+    .court-toolbar-btn { width: 44px; height: 44px; padding: 0; }
+    .court-toolbar-btn__icon,
+    .courts-toolbar__actions .mode-switch__icon { font-size: 1.2rem; line-height: 1; }
+    .court-toolbar-btn__label,
+    .courts-toolbar__actions .mode-switch__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .courts-toolbar__actions .mode-switch { width: 44px; height: 44px; padding: 0; justify-content: center; }
+
     .courts-grid {
         width: 100%;
         max-width: none;
@@ -2779,6 +3067,41 @@ textarea,
     }
 
     .court-card__court { gap: 6px; }
+
+    .court-card__head {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+
+    .court-card__number {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 1.15rem;
+    }
+
+    .court-card__head-actions {
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        min-width: 0;
+        gap: 6px;
+    }
+
+    .court-card__status {
+        font-size: 0.68rem;
+        padding: 4px 10px;
+    }
+
+    .court-clear-btn {
+        font-size: 0.7rem;
+        padding: 5px 10px;
+    }
+
+    .court-remove-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+    }
 
     .court-card__player {
         white-space: normal;
@@ -3186,3 +3509,150 @@ textarea,
     color: var(--text);
     opacity: 1;
 }
+
+/* ==========================================================================
+   App header + nav (shared across Circles / Sessions / Stats / Rankings)
+   ========================================================================== */
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    background: linear-gradient(180deg, rgba(8,10,30,.92), rgba(8,10,30,.55));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--stroke);
+}
+.app-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: .01em;
+    color: var(--text);
+    text-decoration: none;
+}
+.app-brand img { width: 30px; height: 30px; object-fit: contain; display: block; }
+.app-brand b { color: var(--accent-2); font-weight: 900; }
+.app-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.app-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .82rem;
+    letter-spacing: .03em;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    color: var(--text-muted);
+    background: transparent;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.app-pill:hover { border-color: var(--accent); color: var(--text); }
+.app-pill--active {
+    border-color: var(--accent);
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.app-actions { display: flex; align-items: center; gap: 8px; }
+.app-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--stroke);
+    background: var(--surface);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 700;
+    font-family: inherit;
+    transition: border-color .15s, color .15s;
+}
+.app-logout:hover { border-color: var(--accent-2); color: var(--text); }
+.app-header .theme-switch { width: 38px; height: 38px; font-size: .95rem; }
+
+/* App header — mobile: brand + actions stay on the top row, nav scrolls underneath */
+@media (max-width: 767px) {
+    .app-header { gap: 10px; padding: 10px 12px; }
+    .app-brand { font-size: 0.95rem; gap: 7px; }
+    .app-brand img { width: 24px; height: 24px; }
+    .app-actions { margin-left: auto; }
+    .app-nav {
+        order: 3;
+        width: 100%;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 6px;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+    }
+    .app-nav::-webkit-scrollbar { display: none; }
+    .app-pill { flex: 0 0 auto; width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
+    .app-pill__icon,
+    .app-logout__icon { font-size: 1.05rem; line-height: 1; }
+    .app-pill__label,
+    .app-logout__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .app-header .theme-switch { width: 34px; height: 34px; font-size: 0.9rem; }
+    .app-logout { width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
+}
+
+/* Gender-block warning — courts can't auto-fill until every waiting player has a gender */
+.gender-block-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 auto 12px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 176, 32, .45);
+    border-radius: 10px;
+    background: rgba(255, 176, 32, .08);
+    color: #ffb020;
+    font-size: 0.85rem;
+    font-weight: 700;
+    box-sizing: border-box;
+}
+
+.player-card__gender {
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.player-card__gender--male:hover { border-color: #3b82f6; color: #3b82f6; }
+.player-card__gender--female:hover { border-color: #ff5da2; color: #ff5da2; }
+.player-card__gender:disabled { opacity: .4; cursor: not-allowed; }
