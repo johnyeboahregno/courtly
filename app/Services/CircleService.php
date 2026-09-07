@@ -64,7 +64,7 @@ class CircleService
             $player = Player::create([
                 'circle_id' => $circle->id,
                 'user_id' => $user->id,
-                'name' => $user->name,
+                'name' => $this->uniquePlayerName($circle->id, $user->name),
                 'email' => $user->email,
                 'gender' => $gender,
                 'rating' => config('courtly.rating.default_rating', 0.00),
@@ -74,6 +74,69 @@ class CircleService
         }
 
         return $player;
+    }
+
+    /**
+     * Connect two users' circles in both directions: the joiner becomes a
+     * member of the given circle, and the circle's owner becomes a member of
+     * the joiner's personal circle — so both sides can see each other's
+     * players and sessions.
+     */
+    private function connect(User $joiner, Circle $circle): void
+    {
+        if (! $circle->hasMember($joiner)) {
+            $circle->members()->attach($joiner->id);
+        }
+
+        $this->ensureLinkedPlayer($joiner, $circle);
+
+        $owner = $circle->admin;
+        $joinerCircle = $joiner->personalCircle;
+
+        if ($owner && $joinerCircle && (int) $joinerCircle->id !== (int) $circle->id) {
+            if (! $joinerCircle->hasMember($owner)) {
+                $joinerCircle->members()->attach($owner->id);
+            }
+
+            $this->ensureLinkedPlayer($owner, $joinerCircle);
+        }
+    }
+
+    /**
+     * Remove the connection between a user and a circle in both directions.
+     */
+    private function disconnect(User $user, Circle $circle): void
+    {
+        if ($circle->hasMember($user)) {
+            $circle->members()->detach($user->id);
+        }
+
+        $owner = $circle->admin;
+        $userCircle = $user->personalCircle;
+
+        if ($owner && $userCircle && (int) $userCircle->id !== (int) $circle->id) {
+            if ($userCircle->hasMember($owner)) {
+                $userCircle->members()->detach($owner->id);
+            }
+        }
+    }
+
+    /**
+     * Return a player name unique within the circle (the players table has a
+     * [circle_id, name] unique index — a same-named guest must not collide).
+     */
+    private function uniquePlayerName(int $circleId, string $desired): string
+    {
+        $base = trim($desired) !== '' ? trim($desired) : 'Player';
+        $name = $base;
+        $suffix = 2;
+
+        while (Player::where('circle_id', $circleId)->where('name', $name)->exists()) {
+            $name = $base.' '.$suffix;
+            $suffix++;
+        }
+
+        return $name;
     }
 
     /**
@@ -87,14 +150,7 @@ class CircleService
     {
         $circle = Circle::where('invite_code', strtoupper(trim($code)))->firstOrFail();
 
-        if (! CircleMember::where('circle_id', $circle->id)->where('user_id', $user->id)->exists()) {
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $user->id,
-            ]);
-
-            $this->ensureLinkedPlayer($user, $circle);
-        }
+        $this->connect($user, $circle);
 
         return $circle;
     }
@@ -124,12 +180,7 @@ class CircleService
                 ];
             }
 
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $existing->id,
-            ]);
-
-            $this->ensureLinkedPlayer($existing, $circle);
+            $this->connect($existing, $circle);
 
             // Still notify them by email — "invite by email" should always send one.
             $emailSent = $this->sendInviteEmail($circle, $inviter, $email);
@@ -216,17 +267,7 @@ class CircleService
         $joinRequest->status = CircleJoinRequestStatus::APPROVED;
         $joinRequest->save();
 
-        $circle = $joinRequest->circle;
-        $user = $joinRequest->user;
-
-        if (! CircleMember::where('circle_id', $circle->id)->where('user_id', $user->id)->exists()) {
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $user->id,
-            ]);
-        }
-
-        $this->ensureLinkedPlayer($user, $circle);
+        $this->connect($joinRequest->user, $joinRequest->circle);
     }
 
     /**
@@ -246,14 +287,10 @@ class CircleService
     public function leaveCircle(User $user, Circle $circle): void
     {
         if ($circle->isAdmin($user)) {
-            throw new \DomainException('You cannot leave your own circle.');
+            throw new \DomainException('You cannot disconnect from your own circle.');
         }
 
-        if (! $circle->hasMember($user)) {
-            return;
-        }
-
-        $circle->members()->detach($user->id);
+        $this->disconnect($user, $circle);
     }
 
     /**

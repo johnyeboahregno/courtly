@@ -39,7 +39,7 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
 *{box-sizing:border-box}
 html{font-size:121%}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:"SF Mono","JetBrains Mono","Fira Code",monospace;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit}
 input,textarea{user-select:text;-webkit-user-select:text}
 
@@ -171,9 +171,9 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .inbox-empty{color:var(--muted);font-size:.8rem;padding:4px 0}
 
 /* ── Popover ────────────────────────────────────────────── */
-#popover{position:fixed;z-index:50;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);min-width:210px;max-height:calc(100vh - 20px);overflow-y:auto}
-#popover h3{margin:0 0 2px;font-size:.95rem}
-#popover .p-sub{font-size:.7rem;color:var(--muted);margin:0 0 10px}
+#popover{position:fixed;z-index:50;display:none;background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:12px;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.55);min-width:210px;max-width:min(320px,calc(100vw - 16px));max-height:calc(100vh - 20px);overflow-y:auto;box-sizing:border-box}
+#popover h3{margin:0 0 2px;font-size:.95rem;word-break:break-word}
+#popover .p-sub{font-size:.7rem;color:var(--muted);margin:0 0 10px;word-break:break-word}
 #popover .act{width:100%;text-align:left;margin-bottom:6px}
 #popover .act:last-child{margin-bottom:0}
 
@@ -182,6 +182,8 @@ input,textarea{user-select:text;-webkit-user-select:text}
 #beacon::before{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.5);animation:ping 2.4s ease-out infinite}
 #beacon::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.35);animation:ping 2.4s ease-out .8s infinite}
 @keyframes ping{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.1);opacity:0}}
+#recenter{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:38;width:52px;height:52px;border-radius:50%;border:1px solid var(--stroke);background:var(--panel);color:var(--text);cursor:pointer;font-size:1.15rem;backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+#recenter:hover{border-color:var(--accent)}
 #joinpanel{position:fixed;right:22px;bottom:100px;z-index:39;display:none;width:280px;background:var(--panel);border:1px solid var(--stroke);border-radius:18px;padding:18px;backdrop-filter:blur(16px);box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:calc(100vh - 140px);overflow:auto}
 #joinpanel h3{margin:0 0 4px;font-size:1rem}
 #joinpanel .p-sub{font-size:.72rem;color:var(--muted);margin:0 0 12px}
@@ -190,6 +192,10 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .join-row .act{flex:1;padding-left:6px;padding-right:6px;display:flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap}
 .join-row input:focus{outline:none;border-color:var(--accent)}
 .join-err{color:var(--accent2);font-size:.75rem;margin-top:8px;display:none}
+.qr{margin-top:10px;padding-top:10px;border-top:1px solid var(--stroke);text-align:center}
+.qr img{display:block;margin:0 auto;border-radius:10px;background:#fff;padding:4px;box-sizing:border-box}
+.qr__cap{font-size:.66rem;letter-spacing:.14em;color:var(--muted);margin-top:8px;font-weight:800}
+.qr__code{font-size:.95rem;letter-spacing:.18em;margin-top:4px;font-weight:800}
 
 /* ── Toasts ─────────────────────────────────────────────── */
 #toasts{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -266,14 +272,13 @@ input,textarea{user-select:text;-webkit-user-select:text}
   <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt=""><span>COURT<b>LY</b></span></a>
   <div class="hud">
     <div class="hud__name" id="hudName">—</div>
-    <div class="hud__score"><div class="n" id="hudScore">—</div><div class="l">NETWORK SCORE</div></div>
   </div>
   <nav class="map-nav">
     <a class="map-pill map-pill--active" href="<?= $base ?>/circles" title="Circles"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="map-pill__label">Circles</span></a>
     <a class="map-pill" href="<?= $base ?>/" title="Sessions"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="map-pill__label">Sessions</span></a>
     <a class="map-pill" href="<?= $base ?>/rankings" title="Rankings"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="map-pill__label">Rankings</span></a>
     <div class="notif-wrap">
-      <button class="hdr-icon" id="notifBell" title="Notifications" aria-label="Notifications">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
+      <button class="hdr-icon" id="notifBell" title="Notifications" aria-label="Notifications"><svg viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
     </div>
     <button class="hdr-icon" id="btnTheme" title="Theme">☾</button>
     <form method="POST" action="<?= $base ?>/logout" style="margin:0">
@@ -300,6 +305,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </div>
 
 <button id="beacon" title="Join a circle">⌖</button>
+<button id="recenter" title="Recenter on my circle" aria-label="Recenter">◎</button>
 <div id="joinpanel">
   <h3>Join a circle</h3>
   <p class="p-sub">Enter an invite code, or drag your circle onto another on the map.</p>
@@ -314,10 +320,6 @@ input,textarea{user-select:text;-webkit-user-select:text}
   <div class="scard">
     <div class="scard__ring" id="scRing"><span class="n" id="scScore">—</span></div>
     <div class="scard__txt"><div class="t">NETWORK SCORE</div><div class="s" id="scScoreCap">0–100 engagement</div></div>
-  </div>
-  <div class="scard scard--row">
-    <div class="scard__cell"><div class="v" id="scMembers">—</div><div class="t">MEMBERS</div></div>
-    <div class="scard__cell"><div class="v" id="scPlayers">—</div><div class="t">PLAYERS</div></div>
   </div>
 </div>
 
@@ -590,18 +592,18 @@ function onItemPointerDown(e,key,el){
 
 function updateHud(focusId){
   const n=state.nodeMap[focusId];
-  document.getElementById('hudScore').textContent=n?(n.network_score||0):'—';
-  document.getElementById('hudName').innerHTML=n?esc(n.name)+'<small>FOCUSED CIRCLE</small>':'—';
+  const name=document.getElementById('hudName');
+  if(name)name.innerHTML=n?esc(n.name)+'<small>FOCUSED CIRCLE</small>':'—';
   updateStatCards(focusId);
 }
 
 function updateStatCards(focusId){
   const n=state.nodeMap[focusId];
   const score=n?(n.network_score||0):0;
-  document.getElementById('scScore').textContent=n?score:'—';
-  document.getElementById('scMembers').textContent=n?(n.member_count||0):'—';
-  document.getElementById('scPlayers').textContent=n?(n.player_count||0):'—';
-  document.getElementById('scRing').style.setProperty('--p',score);
+  const sc=document.getElementById('scScore');
+  if(sc)sc.textContent=n?score:'—';
+  const ring=document.getElementById('scRing');
+  if(ring)ring.style.setProperty('--p',score);
 }
 
 /* ── view transform ─────────────────────────────────────── */
@@ -655,18 +657,19 @@ function openPopover(nodeEl,node){
     acts+=`<button class="act" onclick="toggleInvite()">Invite by email</button>`;
     acts+=`<label class="switch"><input type="checkbox" ${node.visibility!=='PRIVATE'?'checked':''} onchange="toggleVisibility(${node.id})"><span class="switch__track"></span><em>${node.visibility==='PRIVATE'?'🔒 Private':'🌐 Public'}</em></label>`;
   }
-  if(isMember&&!node.is_admin)acts+=`<button class="act" onclick="leaveCircle(${node.id})">Leave</button>`;
+  if(isMember&&!node.is_admin)acts+=`<button class="act" onclick="leaveCircle(${node.id})">Disconnect</button>`;
   let reqHtml='';
   if(node.is_admin&&node.pending_requests&&node.pending_requests.length){
     reqHtml='<div class="reqlist">'+node.pending_requests.map(r=>`<div class="req"><span class="n">${esc(r.name)}</span><button class="ok" onclick="decideRequest(${r.id},'approve')">Approve</button><button class="no" onclick="decideRequest(${r.id},'decline')">Decline</button></div>`).join('')+'</div>';
   }
+  const qrHtml = node.is_admin && node.invite_code ? inviteQr(node) : '';
   const inviteRow = node.is_admin
     ? `<div class="join-row" id="inviteRow" style="display:none;margin-top:8px">
         <input id="inviteEmail" type="email" placeholder="friend@example.com" autocomplete="off" style="text-transform:none;letter-spacing:0">
         <button class="act act--primary" onclick="sendInvite(${node.id})">Send</button>
       </div>`
     : '';
-  pop.innerHTML=`<h3>${esc(node.name)}</h3><p class="p-sub">${node.kind.toUpperCase()} · ${node.network_score||0} network score · ${node.player_count} players · ${node.member_count} members</p>${acts}${reqHtml}${inviteRow}`;
+  pop.innerHTML=`<h3>${esc(node.name)}</h3><p class="p-sub">${node.kind.toUpperCase()} · ${node.network_score||0} network score · ${node.player_count} players · ${node.member_count} members</p>${acts}${qrHtml}${reqHtml}${inviteRow}`;
   pop.style.display='block';
   const r=nodeEl.getBoundingClientRect();
   const pw=pop.offsetWidth,ph=pop.offsetHeight;
@@ -732,7 +735,7 @@ function showLeaderboard(id){
 
 async function leaveCircle(id){
   const r=await api(`/api/circles/${id}/leave`,{method:'POST',body:{}});
-  if(r.ok){toast('Left circle');closePopover();state.nodes=state.nodes.filter(n=>n.id!==id);delete state.nodeMap[id];layout();render();refreshMap()}
+  if(r.ok){toast('Disconnected');closePopover();state.nodes=state.nodes.filter(n=>n.id!==id);delete state.nodeMap[id];layout();render();refreshMap()}
   else toast(r.message||'Could not leave');
 }
 
@@ -746,8 +749,36 @@ async function toggleVisibility(id){
 function copyCode(id){
   const n=state.nodeMap[id];
   if(!n||!n.invite_code){toast('No invite code');return}
-  if(navigator.clipboard)navigator.clipboard.writeText(n.invite_code).then(()=>toast('Invite code copied ✦'));
-  else toast(n.invite_code);
+  const fallback=()=>toast('Invite code: '+n.invite_code);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(n.invite_code).then(()=>toast('Invite code copied ✦'),fallback);
+  }else fallback();
+}
+
+function inviteQr(node){
+  const url=location.origin+BASE+'/circles?join='+encodeURIComponent(node.invite_code);
+  const img='https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data='+encodeURIComponent(url);
+  return `<div class="qr"><img src="${img}" alt="Invite QR code"><div class="qr__cap">SCAN TO JOIN</div><div class="qr__code">${esc(node.invite_code)}</div></div>`;
+}
+
+function recenter(){
+  if(!state.personalId)return;
+  state.focusId=state.personalId;
+  computeAttachPositions();
+  render();
+  const p=state.positions[state.personalId]||{x:0,y:0};
+  const mapEl=document.getElementById('map');
+  state.view={x:mapEl.clientWidth/2-p.x,y:mapEl.clientHeight/2-p.y,scale:1};
+  applyView();
+}
+
+async function handleJoinParam(){
+  const code=new URLSearchParams(location.search).get('join');
+  if(!code)return;
+  history.replaceState(null,'',location.pathname);
+  const r=await api('/api/circles/join',{method:'POST',body:{invite_code:code}});
+  if(r.ok){toast('Joined '+((r.data&&r.data.circle&&r.data.circle.name)||'circle')+' ✦');refreshMap();}
+  else toast(r.message||'Invalid invite code.');
 }
 
 function toggleInvite(){
@@ -922,6 +953,8 @@ async function refreshMap(){
 /* ── input: pan / zoom / node drag ──────────────────────── */
 const map=document.getElementById('map');
 
+let nodePressTimer=null;
+let nodeLongPressed=false;
 function onNodePointerDown(e,n,el){
   if(e.target.closest('.member')){e.stopPropagation();return}
   if(e.button!==undefined&&e.button!==0)return;
@@ -930,9 +963,15 @@ function onNodePointerDown(e,n,el){
   let moved=false;
   const inner=el.querySelector('.cnode__inner');
   const p=state.positions[n.id]||{x:0,y:0};
+  if(nodePressTimer){clearTimeout(nodePressTimer);nodePressTimer=null}
+  nodeLongPressed=false;
+  nodePressTimer=setTimeout(()=>{
+    nodePressTimer=null;
+    if(!moved){nodeLongPressed=true;openPopover(el,n);}
+  },500);
   const onMove=ev=>{
     const dx=(ev.clientX-start.sx)/state.view.scale,dy=(ev.clientY-start.sy)/state.view.scale;
-    if(Math.abs(dx)+Math.abs(dy)>6)moved=true;
+    if(Math.abs(dx)+Math.abs(dy)>6){if(!moved){moved=true;if(nodePressTimer){clearTimeout(nodePressTimer);nodePressTimer=null}}}
     if(moved){
       el.classList.remove('is-spring');
       inner.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px)`;
@@ -941,6 +980,8 @@ function onNodePointerDown(e,n,el){
   };
   const onUp=ev=>{
     window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);window.removeEventListener('pointercancel',onUp);
+    if(nodePressTimer){clearTimeout(nodePressTimer);nodePressTimer=null}
+    if(nodeLongPressed){nodeLongPressed=false;return}
     if(moved){
       const w=screenToWorld(ev.clientX,ev.clientY);
       const target=findNodeAt(w.x,w.y,90);
@@ -1084,12 +1125,13 @@ function updateThemeIcon(){var b=document.getElementById('btnTheme');if(!b)retur
 function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtlyCurrentTheme())+1)%COURT_THEMES.length];if(next==='dark')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('courtly-theme',next)}catch(e){}updateThemeIcon()}
 document.getElementById('btnTheme').addEventListener('click',toggleCourtlyTheme);
 document.getElementById('notifBell').addEventListener('click',toggleInbox);
+document.getElementById('recenter').addEventListener('click',recenter);
 (function(){try{var s=localStorage.getItem('courtly-theme');if(COURT_THEMES.indexOf(s)!==-1&&s!=='dark')document.documentElement.setAttribute('data-theme',s)}catch(e){}updateThemeIcon()})();
 
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});
 
 /* boot */
-loadMap();
+(async()=>{ await loadMap(); await handleJoinParam(); })();
 setInterval(refreshMap,15000);
 </script>
 </body>

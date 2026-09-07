@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\Circle;
 use App\Models\CircleJoinRequest;
 use App\Models\Player;
+use App\Models\Session;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
 
@@ -181,4 +182,74 @@ it('shows a joined member\'s private personal circle as a connected node on the 
 
     $pair = collect($res->json('data.connections'))->first(fn ($c) => $c['a'] === $circle->id && $c['b'] === $joiner->personalCircle->id);
     expect($pair)->not->toBeNull();
+});
+
+it('connects both circles reciprocally when a join request is approved', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    Sanctum::actingAs($joiner);
+    $this->postJson("/api/circles/{$circle->id}/request-join")->assertCreated();
+    $request = CircleJoinRequest::where('circle_id', $circle->id)->where('user_id', $joiner->id)->firstOrFail();
+
+    Sanctum::actingAs($admin);
+    $this->postJson("/api/circle-join-requests/{$request->id}/approve")->assertOk();
+
+    // The admin is now a member of the joiner's personal circle too.
+    $this->assertDatabaseHas('circle_members', [
+        'circle_id' => $joiner->personalCircle->id,
+        'user_id' => $admin->id,
+    ]);
+    $this->assertDatabaseHas('players', [
+        'circle_id' => $joiner->personalCircle->id,
+        'user_id' => $admin->id,
+    ]);
+});
+
+it('joins both circles reciprocally via invite code', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    Sanctum::actingAs($joiner);
+    $this->postJson('/api/circles/join', ['invite_code' => $circle->invite_code])->assertCreated();
+
+    $this->assertDatabaseHas('circle_members', [
+        'circle_id' => $joiner->personalCircle->id,
+        'user_id' => $admin->id,
+    ]);
+});
+
+it('disconnects both circles when a member leaves', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    Sanctum::actingAs($joiner);
+    $this->postJson("/api/circles/{$circle->id}/request-join")->assertCreated();
+    $request = CircleJoinRequest::where('circle_id', $circle->id)->where('user_id', $joiner->id)->firstOrFail();
+
+    Sanctum::actingAs($admin);
+    $this->postJson("/api/circle-join-requests/{$request->id}/approve")->assertOk();
+
+    Sanctum::actingAs($joiner);
+    $this->postJson("/api/circles/{$circle->id}/leave")->assertStatus(204);
+
+    $this->assertDatabaseMissing('circle_members', ['circle_id' => $circle->id, 'user_id' => $joiner->id]);
+    $this->assertDatabaseMissing('circle_members', ['circle_id' => $joiner->personalCircle->id, 'user_id' => $admin->id]);
+});
+
+it('grants the admin access to the joiner\'s sessions after connecting', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $joiner = User::factory()->create();
+    $joinerSession = Session::factory()->for($joiner, 'createdBy')->create(['circle_id' => $joiner->personalCircle->id]);
+
+    Sanctum::actingAs($joiner);
+    $this->postJson('/api/circles/join', ['invite_code' => $circle->invite_code])->assertCreated();
+
+    Sanctum::actingAs($admin);
+    $this->getJson("/api/sessions/{$joinerSession->id}")->assertOk();
 });
