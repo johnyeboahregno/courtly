@@ -50,7 +50,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .map-brand img{width:30px;height:30px;object-fit:contain}
 .map-brand b{color:var(--accent2)}
 .map-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.map-pill{display:inline-flex;align-items:center;font-size:.8rem;letter-spacing:.03em;padding:6px 13px;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);background:transparent;text-decoration:none;font-weight:700;transition:border-color .15s,color .15s,background .15s}
+.map-pill{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;letter-spacing:.03em;padding:6px 13px;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);background:transparent;text-decoration:none;font-weight:700;transition:border-color .15s,color .15s,background .15s}
 .map-pill:hover{border-color:var(--accent);color:var(--text)}
 .map-pill--active{border-color:var(--accent);color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
 .hud{display:flex;align-items:center;gap:14px}
@@ -59,7 +59,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .hud__score .l{font-size:.6rem;letter-spacing:.14em;color:var(--muted)}
 .hud__name{font-size:.95rem;font-weight:700}
 .hud__name small{display:block;color:var(--muted);font-weight:400;font-size:.68rem;letter-spacing:.06em}
-.hdr-btn{border:1px solid var(--stroke);background:var(--panel);color:var(--text);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:.85rem;font-weight:700;backdrop-filter:blur(6px)}
+.hdr-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);background:var(--panel);color:var(--text);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:.85rem;font-weight:700;backdrop-filter:blur(6px)}
 .hdr-btn:hover{border-color:var(--accent)}
 .hdr-icon{border:1px solid var(--stroke);background:var(--panel);color:var(--text);border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:1rem;backdrop-filter:blur(6px)}
 
@@ -200,8 +200,50 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .manage-rating{font-size:.8rem;color:var(--muted);min-width:34px;text-align:center}
 
 @media(max-width:640px){
+  /* Header — compact two-row layout: brand + score on top, nav scrolls below */
+  .map-header{padding:8px 10px;gap:8px;min-height:0;justify-content:space-between}
+  .map-brand{font-size:.92rem;gap:6px}
+  .map-brand img{width:24px;height:24px}
+  .hud{margin-left:auto;gap:10px}
   .hud__name{display:none}
-  #beacon{right:16px;bottom:16px;width:56px;height:56px;font-size:1.3rem}
+  .hud__score .n{font-size:1.25rem}
+  .hud__score .l{font-size:.5rem;letter-spacing:.1em}
+  .map-nav{order:3;width:100%;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding-bottom:2px;scrollbar-width:none}
+  .map-nav::-webkit-scrollbar{display:none}
+  .map-pill{flex:0 0 auto;width:34px;height:34px;padding:0;justify-content:center;gap:0}
+  .map-pill__icon{font-size:1rem;line-height:1}
+  .map-pill__label,
+  .hdr-btn__label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .hdr-btn{width:34px;height:34px;padding:0;justify-content:center;gap:0}
+  .hdr-btn__icon{font-size:1rem;line-height:1}
+  .hdr-icon{width:32px;height:32px;font-size:.9rem}
+
+  /* Stat cards — compact, pinned bottom-left so they never cover the focused circle */
+  #statcards{top:auto;bottom:14px;left:10px;right:auto;gap:8px}
+  .scard{padding:10px 12px;gap:10px;min-width:0;border-radius:14px}
+  .scard__ring{width:52px;height:52px}
+  .scard__ring::before{inset:5px}
+  .scard__ring .n{font-size:1.05rem}
+  .scard__txt .t{font-size:.5rem;letter-spacing:.1em}
+  .scard__txt .s{font-size:.6rem}
+  .scard--row{gap:14px;padding:10px 14px}
+  .scard__cell .v{font-size:1.15rem}
+  .scard__cell .t{font-size:.5rem}
+
+  /* Beacon + join panel */
+  #beacon{right:14px;bottom:14px;width:54px;height:54px;font-size:1.25rem}
+  #joinpanel{left:12px;right:12px;width:auto;bottom:82px;max-height:calc(100vh - 110px);padding:16px}
+
+  /* Popover — let it stretch on small screens */
+  #popover{min-width:0}
+
+  /* Toasts — clear the taller header */
+  #toasts{top:104px;width:calc(100vw - 24px)}
+  .toast{max-width:100%;text-align:center}
+
+  /* Modals */
+  .stats-card{padding:16px}
+  .stats-grid{gap:8px}
 }
 </style>
 </head>
@@ -213,13 +255,13 @@ input,textarea{user-select:text;-webkit-user-select:text}
     <div class="hud__score"><div class="n" id="hudScore">—</div><div class="l">NETWORK SCORE</div></div>
   </div>
   <nav class="map-nav">
-    <a class="map-pill map-pill--active" href="<?= $base ?>/circles">Circles</a>
-    <a class="map-pill" href="<?= $base ?>/">Sessions</a>
-    <a class="map-pill" href="<?= $base ?>/rankings">Rankings</a>
+    <a class="map-pill map-pill--active" href="<?= $base ?>/circles" title="Circles"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="map-pill__label">Circles</span></a>
+    <a class="map-pill" href="<?= $base ?>/" title="Sessions"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="map-pill__label">Sessions</span></a>
+    <a class="map-pill" href="<?= $base ?>/rankings" title="Rankings"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="map-pill__label">Rankings</span></a>
     <button class="hdr-icon" id="btnTheme" title="Theme">☾</button>
     <form method="POST" action="<?= $base ?>/logout" style="margin:0">
       <input type="hidden" name="_token" value="<?= e($csrf) ?>">
-      <button type="submit" class="hdr-btn" title="Log out">Logout</button>
+      <button type="submit" class="hdr-btn" title="Log out"><svg class="hdr-btn__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span class="hdr-btn__label">Logout</span></button>
     </form>
   </nav>
 </header>
