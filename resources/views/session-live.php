@@ -73,7 +73,6 @@
                     <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'online' }" @click="setOfflinePreference('online')">Online</button>
                 </div>
             </div>
-            <a href="<?= $base ?? '/courtly' ?>/circles" class="mode-switch" title="Back to circles">CIRCLES</a>
             <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
         </div>
     </header>
@@ -92,55 +91,80 @@
     </div>
 
     <div class="courts-grid" :class="'courts-' + courts.length">
-        <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')">
+        <div v-for="court in courts" :key="court.id" class="court-card" :class="'court-card--' + (session.sport || 'badminton')" :data-court-id="court.id">
             <div class="court-card__head">
                 <span class="court-card__number" :class="{ 'court-card__number--editable': session.status !== 'FINISHED' && !updatingCourts }" @click="openCourtRename(court, $event)" :title="session.status !== 'FINISHED' ? ('Rename ' + (court.name || ('Court ' + court.court_number))) : null">{{ court.name || ('COURT ' + court.court_number) }}</span>
                 <span class="court-card__head-actions">
+                    <button v-if="session.status !== 'FINISHED'" class="court-clear-btn" type="button" :class="{ 'is-busy': uiPending.clear[court.id] }" :disabled="uiPending.clear[court.id]" @click="clearCourt(court)" :title="court.match ? 'Cancel this match' : 'Clear this court'">CLEAR</button>
                     <span class="court-card__status" :class="'court-card__status--' + (court.match ? 'playing' : 'available')">{{ court.match ? 'PLAYING' : 'AVAILABLE' }}</span>
                     <button v-if="session.status !== 'FINISHED'" class="court-remove-btn" type="button" :disabled="courts.length <= 1 || updatingCourts" @click="adjustCourts('remove', court.court_number)" title="Remove this court" :aria-label="'Remove court ' + court.court_number">×</button>
                 </span>
             </div>
             <div v-if="!court.match" class="court-card__body court-card__body--empty"
-                :class="{ 'court-card__body--drop': dragOverCourtId === court.id }"
-                @dragover.prevent="dragOverCourtId = court.id"
-                @dragleave="dragOverCourtId === court.id && (dragOverCourtId = null)"
-                @drop="dropPlayerOnCourt($event, court)">
+                :class="{ 'court-card__body--drop': dragOverCourtId === court.id, 'court-card__body--picked': pickedQueuePlayerId != null }"
+                @dragover.prevent="onEmptyCourtDragOver(court, $event)"
+                @dragleave="onEmptyCourtDragLeave(court, $event)"
+                @drop="dropPlayerOnCourt(court, $event.clientX, $event.clientY, $event)"
+                @click="tapEmptyCourt(court, $event)">
                 <div class="court-card__lines"></div>
-                <div v-if="pendingCourtPlayers[court.id] && pendingCourtPlayers[court.id].length" class="court-card__pending">
+                <div class="court-card__pending">
                     <div class="court-card__pending-grid">
-                        <div v-for="sp in pendingCourtPlayers[court.id]" :key="sp.player_id" class="court-card__player-box court-card__player-box--pending" @click="removePendingPlayer(court.id, sp.player_id)" title="Tap to return to NEXT UP">
-                            <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}</span>
+                        <div v-for="(sp, index) in courtPendingSlots(court.id)" :key="court.id + '-' + index"
+                            class="court-card__player-box court-card__player-box--pending"
+                            :class="{ 'court-card__player-box--pending-empty': !sp, 'court-card__player-box--drop-target': pendingDropSlot === court.id + '-' + index }"
+                            @click="sp ? removePendingPlayer(court.id, sp.player_id) : null"
+                            :title="sp ? 'Tap to return to NEXT UP' : null">
+                            <span v-if="sp" class="court-card__player"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}</span>
+                            <span v-else class="court-card__player court-card__player--placeholder">+</span>
                         </div>
                     </div>
-                    <span class="court-empty-text">{{ pendingCourtPlayers[court.id].length >= 4 ? 'Ready to start' : 'Waiting for ' + (4 - pendingCourtPlayers[court.id].length) + ' more…' }}</span>
-                    <button v-if="pendingCourtPlayers[court.id].length >= 4" class="fill-courts-btn fill-courts-btn--start" :class="{ 'is-busy': uiPending.court[court.id] }" type="button" :disabled="uiPending.court[court.id]" @click="startCourtMatch(court.id)">START MATCH</button>
+                    <span v-if="courtPendingCount(court.id) >= 4" class="court-empty-text">Ready to start</span>
+                    <button v-if="courtPendingCount(court.id) >= 4" class="fill-courts-btn fill-courts-btn--start" :class="{ 'is-busy': uiPending.court[court.id] }" type="button" :disabled="uiPending.court[court.id]" @click="startCourtMatch(court.id)">START MATCH</button>
                 </div>
-                <template v-else>
-                    <div class="court-card__empty">
-                        <button class="fill-courts-btn" type="button" @click="openManualAssignment(court.id)">ASSIGN</button>
-                    </div>
-                </template>
             </div>
-            <div v-else class="court-card__body">
+            <div v-else class="court-card__body"
+                @dragover.prevent="onPlayingCourtDragOver(court, $event)"
+                @dragleave="onPlayingCourtDragLeave(court, $event)"
+                @drop="dropOnPlayingCourt(court, $event.clientX, $event.clientY, $event)">
                 <div class="court-card__lines"></div>
                 <div class="court-card__court">
                     <div class="court-card__side court-card__side--team-1" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 1, $event)" title="Tap to record a win for this team">
-                        <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3 }">
+                        <div class="court-card__player-box court-card__player-box--team-1"
+                            :class="{ 'court-card__player-box--streak': court.match.t1[0].streak >= 3, 'court-card__player-box--drop-target': subDragOver === subDragKey(court.match.id, 1, 0), 'court-card__player-box--picked': pickedQueuePlayerId != null }"
+                            @drop="substituteOnCourt(court, court.match.t1[0].player_id, $event)"
+                            @click="tapOnCourtPlayer(court, court.match.t1[0].player_id, $event)"
+                            :data-player-id="court.match.t1[0].player_id"
+                            title="Swap in a waiting player (drag or tap)">
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t1[0].gender)" :title="genderLabel(court.match.t1[0].gender)"></span>{{ formatName(court.match.t1[0].name) }}</span>
                             <span v-if="court.match.t1[0].wins || court.match.t1[0].streak > 3" class="court-card__player-meta"><i v-if="court.match.t1[0].wins" class="court-card__win">{{ court.match.t1[0].wins }}W</i><i v-if="court.match.t1[0].streak > 3" class="court-card__streak">{{ court.match.t1[0].streak }}</i></span>
                         </div>
-                        <div class="court-card__player-box court-card__player-box--team-1" :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3 }">
+                        <div class="court-card__player-box court-card__player-box--team-1"
+                            :class="{ 'court-card__player-box--streak': court.match.t1[1].streak >= 3, 'court-card__player-box--drop-target': subDragOver === subDragKey(court.match.id, 1, 1), 'court-card__player-box--picked': pickedQueuePlayerId != null }"
+                            @drop="substituteOnCourt(court, court.match.t1[1].player_id, $event)"
+                            @click="tapOnCourtPlayer(court, court.match.t1[1].player_id, $event)"
+                            :data-player-id="court.match.t1[1].player_id"
+                            title="Swap in a waiting player (drag or tap)">
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t1[1].gender)" :title="genderLabel(court.match.t1[1].gender)"></span>{{ formatName(court.match.t1[1].name) }}</span>
                             <span v-if="court.match.t1[1].wins || court.match.t1[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t1[1].wins" class="court-card__win">{{ court.match.t1[1].wins }}W</i><i v-if="court.match.t1[1].streak > 3" class="court-card__streak">{{ court.match.t1[1].streak }}</i></span>
                         </div>
                     </div>
                     <div class="court-card__divider"><span>VS</span></div>
                     <div class="court-card__side court-card__side--team-2" :class="{ 'court-card__side--locked': submitting[court.match.id + '_1'] || submitting[court.match.id + '_2'] }" @click="openScorePicker(court, 2, $event)" title="Tap to record a win for this team">
-                        <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3 }">
+                        <div class="court-card__player-box court-card__player-box--team-2"
+                            :class="{ 'court-card__player-box--streak': court.match.t2[0].streak >= 3, 'court-card__player-box--drop-target': subDragOver === subDragKey(court.match.id, 2, 0), 'court-card__player-box--picked': pickedQueuePlayerId != null }"
+                            @drop="substituteOnCourt(court, court.match.t2[0].player_id, $event)"
+                            @click="tapOnCourtPlayer(court, court.match.t2[0].player_id, $event)"
+                            :data-player-id="court.match.t2[0].player_id"
+                            title="Swap in a waiting player (drag or tap)">
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[0].gender)" :title="genderLabel(court.match.t2[0].gender)"></span>{{ formatName(court.match.t2[0].name) }}</span>
                             <span v-if="court.match.t2[0].wins || court.match.t2[0].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[0].wins" class="court-card__win">{{ court.match.t2[0].wins }}W</i><i v-if="court.match.t2[0].streak > 3" class="court-card__streak">{{ court.match.t2[0].streak }}</i></span>
                         </div>
-                        <div class="court-card__player-box court-card__player-box--team-2" :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3 }">
+                        <div class="court-card__player-box court-card__player-box--team-2"
+                            :class="{ 'court-card__player-box--streak': court.match.t2[1].streak >= 3, 'court-card__player-box--drop-target': subDragOver === subDragKey(court.match.id, 2, 1), 'court-card__player-box--picked': pickedQueuePlayerId != null }"
+                            @drop="substituteOnCourt(court, court.match.t2[1].player_id, $event)"
+                            @click="tapOnCourtPlayer(court, court.match.t2[1].player_id, $event)"
+                            :data-player-id="court.match.t2[1].player_id"
+                            title="Swap in a waiting player (drag or tap)">
                             <span class="court-card__player"><span class="gender-dot" :class="genderDotClass(court.match.t2[1].gender)" :title="genderLabel(court.match.t2[1].gender)"></span>{{ formatName(court.match.t2[1].name) }}</span>
                             <span v-if="court.match.t2[1].wins || court.match.t2[1].streak > 3" class="court-card__player-meta"><i v-if="court.match.t2[1].wins" class="court-card__win">{{ court.match.t2[1].wins }}W</i><i v-if="court.match.t2[1].streak > 3" class="court-card__streak">{{ court.match.t2[1].streak }}</i></span>
                         </div>
@@ -161,11 +185,12 @@
             <span class="waiting-list__players">👥 {{ players.length }} Players</span>
             <span class="waiting-list__mode" :class="'waiting-list__mode--' + matchmakingMode">{{ modeLabel }}</span>
         </div>
+        <p v-if="pickedQueuePlayer" class="waiting-list__pick-hint">Picked <strong>{{ formatName(pickedQueuePlayer.player.name) }}</strong> — tap an empty court or a player on court to place, or tap again to cancel.</p>
         <div class="waiting-list__cards">
             <TransitionGroup name="queue" tag="div" class="waiting-list__row">
-                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id) }" :draggable="sp.status === 'WAITING'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd">
+                <div v-for="sp in queuePlayers" :key="sp.player_id" class="player-card" :class="{ 'player-card--paused': sp.status === 'PAUSED', 'player-card--next': nextFourIds.includes(sp.player_id), 'player-card--picked': pickedQueuePlayerId === sp.player_id, 'player-card--draggable': sp.status === 'WAITING' || sp.status === 'PAUSED' }" :draggable="sp.status === 'WAITING' || sp.status === 'PAUSED'" @dragstart="dragPlayerToCourtStart(sp, $event)" @dragend="dragPlayerToCourtEnd" @click="pickQueuePlayer(sp, $event)" @pointerdown="onCardPointerDown(sp, $event)" @pointermove="onCardPointerMove(sp, $event)" @pointerup="onCardPointerUp(sp, $event)" @pointercancel="onCardPointerCancel(sp, $event)">
                     <div class="player-card__col">
-                        <span class="player-card__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}<span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span></span>
+                        <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="name-label">{{ formatName(sp.player.name) }}</span></span>
                         <span class="player-card__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span>-{{ sp.wins }}-{{ sitOuts(sp) }}</span>
                     </div>
                     <div class="player-card__actions">
@@ -230,6 +255,19 @@
         <p v-else class="match-history__empty">{{ history.length ? 'No matching players.' : 'No completed matches yet.' }}</p>
     </details>
 
+    <div v-if="touchDrag.active && touchDrag.sp" class="touch-drag-ghost" :style="{ transform: 'translate(' + (touchDrag.x - touchDrag.halfW) + 'px, ' + (touchDrag.y - touchDrag.halfH) + 'px)' }">
+        <div class="player-card">
+            <div class="player-card__col">
+                <span class="player-card__name"><span class="rank-icon" v-html="rankIcon(touchDrag.sp.player.rating)"></span><span class="gender-dot" :class="genderDotClass(touchDrag.sp.player.gender)" :title="genderLabel(touchDrag.sp.player.gender)"></span><span class="name-label">{{ formatName(touchDrag.sp.player.name) }}</span></span>
+                <span class="player-card__rating"><span class="rating-value">{{ Math.round(touchDrag.sp.player.rating) }}</span>-{{ touchDrag.sp.wins }}-{{ sitOuts(touchDrag.sp) }}</span>
+            </div>
+            <div class="player-card__actions">
+                <button class="player-card__pause" type="button" disabled>⏸</button>
+                <button class="player-card__remove" type="button" disabled>×</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="session-controls">
         <button v-if="session.status === 'PAUSED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'resume' }" :disabled="sessionActionPending === 'resume'" @click="resumeSession">▶ RESUME</button>
         <button v-if="session.status === 'FINISHED'" class="btn btn--primary" :class="{ 'is-busy': sessionActionPending === 'newSession' }" :disabled="sessionActionPending === 'newSession' || offlineMode" :title="offlineMode ? 'Unavailable offline — reconnect to start a new session' : ''" @click="startNewSession">▶ START NEW SESSION</button>
@@ -244,7 +282,7 @@
             <p class="add-section__label">Select four waiting players, then drag between teams to swap.</p>
             <div class="existing-list manual-assign__list">
                 <button v-for="sp in waitingPlayers" :key="sp.id" type="button" class="existing-item manual-assignment__player" :class="{ 'existing-item--selected': manualAssignment.playerIds.includes(sp.player_id) }" @click="toggleManualPlayer(sp.player_id)">
-                    <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span>{{ formatName(sp.player.name) }}<span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span></span>
+                    <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(sp.player.rating)"></span><span class="gender-dot" :class="genderDotClass(sp.player.gender)" :title="genderLabel(sp.player.gender)"></span><span class="name-label">{{ formatName(sp.player.name) }}</span></span>
                     <span class="existing-item__rating"><span class="rating-value">{{ Math.round(sp.player.rating) }}</span></span>
                 </button>
             </div>
@@ -300,7 +338,7 @@
                     <p class="add-section__label">{{ newPlayerName.trim() ? 'Suggestions:' : 'Top players:' }}</p>
                     <div class="existing-list">
                         <div v-for="p in playerSuggestions" :key="p.id" class="existing-item" @mousedown.prevent @click="addExistingPlayer(p.id)">
-                            <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span>{{ formatName(p.name) }}<span class="rank-icon" v-html="rankIcon(p.rating)"></span></span>
+                            <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="name-label">{{ formatName(p.name) }}</span></span>
                             <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                         </div>
                     </div>
@@ -332,7 +370,7 @@
                         @dragleave="dragOverPlayerId === p.player_id && (dragOverPlayerId = null)"
                         @drop="onPlayerDrop(p.player_id, $event)">
                         <span class="team-card__handle">⠿</span>
-                        <span class="existing-item__name"><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span>{{ formatName(p.name) }}<span class="rank-icon" v-html="rankIcon(p.rating)"></span></span>
+                        <span class="existing-item__name"><span class="rank-icon" v-html="rankIcon(p.rating)"></span><span class="gender-dot" :class="genderDotClass(p.gender)" :title="genderLabel(p.gender)"></span><span class="name-label">{{ formatName(p.name) }}</span></span>
                         <span class="existing-item__rating"><span class="rating-value">{{ Math.round(p.rating) }}</span></span>
                     </div>
                 </div>
@@ -495,7 +533,7 @@ createApp({
         const courts = ref([]);
         const updatingCourts = ref(false);
         const sessionActionPending = ref(null);
-        const uiPending = reactive({ mode: false, fill: false, add: false, player: {}, court: {} });
+        const uiPending = reactive({ mode: false, fill: false, add: false, player: {}, court: {}, clear: {} });
         const players = ref([]);
         const tournament = ref(null);
         const history = ref([]);
@@ -534,17 +572,32 @@ createApp({
         });
         const dragOverCourtId = ref(null);
         const draggedQueuePlayerId = ref(null);
+        const subDragOver = ref(null);
+        const dragOverPlayingCourtId = ref(null);
+        const pendingDropSlot = ref(null);
+        const pickedQueuePlayerId = ref(null);
+        const pickedQueuePlayer = computed(() => players.value.find(p => p.player_id === pickedQueuePlayerId.value) || null);
+        const touchDrag = reactive({ active: false, playerId: null, sp: null, x: 0, y: 0, startX: 0, startY: 0, moved: false, halfW: 130, halfH: 35 });
+        const TOUCH_DRAG_THRESHOLD = 8;
+        let suppressPickClickUntil = 0;
         // Players manually dragged from NEXT UP onto each empty court, keyed by
         // court id. When a court reaches four, START MATCH submits them (the
         // server auto-balances the teams).
         const pendingCourtPlayers = reactive({});
+        function courtPendingSlots(courtId) {
+            const list = pendingCourtPlayers[courtId];
+            return (list && list.length) ? list : [null, null, null, null];
+        }
+        function courtPendingCount(courtId) {
+            return courtPendingSlots(courtId).filter(Boolean).length;
+        }
 
         // Player ids currently shown on a court preview — hidden from NEXT UP
         // so a player never appears in two places at once.
         const previewedPlayerIds = computed(() => {
             const ids = new Set();
             Object.values(pendingCourtPlayers).forEach(list => {
-                list.forEach(sp => ids.add(sp.player_id));
+                list.forEach(sp => { if (sp) ids.add(sp.player_id); });
             });
             return ids;
         });
@@ -1004,6 +1057,10 @@ createApp({
                 });
                 const serverPlayers = d.session_players || [];
                 players.value = serverPlayers;
+                if (pickedQueuePlayerId.value != null) {
+                    const picked = serverPlayers.find(sp => sp.player_id === pickedQueuePlayerId.value);
+                    if (!picked || picked.status !== 'WAITING') pickedQueuePlayerId.value = null;
+                }
                 const confirmedIds = new Set(serverPlayers.map(sp => sp.player_id));
                 pendingAddedPlayers.value = pendingAddedPlayers.value.filter(sp => !confirmedIds.has(sp.player_id));
                 pendingExistingPlayerIds.value = new Set(
@@ -1369,6 +1426,52 @@ createApp({
                 updatingCourts.value = false;
             }
         }
+        function clearCourt(court) {
+            if (!court || uiPending.clear[court.id]) return;
+
+            // Empty court: clear the drag-to-place preview instantly.
+            if (!court.match) {
+                delete pendingCourtPlayers[court.id];
+                return;
+            }
+
+            const onCourt = [...court.match.t1, ...court.match.t2];
+            const snapshot = JSON.parse(JSON.stringify(court.match));
+
+            // Optimistic: free the court and return its players to the queue
+            // immediately, then let the server confirm in the background.
+            court.match = null;
+            onCourt.forEach(mp => {
+                const sp = players.value.find(p => p.player_id === mp.player_id);
+                if (sp) sp.status = 'WAITING';
+            });
+
+            const revert = () => {
+                court.match = snapshot;
+                onCourt.forEach(mp => {
+                    const sp = players.value.find(p => p.player_id === mp.player_id);
+                    if (sp) sp.status = 'PLAYING';
+                });
+            };
+
+            const label = 'Clear ' + (court.name || ('Court ' + court.court_number));
+            uiPending.clear[court.id] = true;
+
+            if (offlineMode.value) {
+                queueAction('PATCH', '/api/sessions/' + SESSION_ID + '/courts', { action: 'clear', court_number: court.court_number }, label);
+                delete uiPending.clear[court.id];
+                return;
+            }
+
+            apiRequest('PATCH', '/api/sessions/' + SESSION_ID + '/courts', { action: 'clear', court_number: court.court_number }, label)
+                .then(result => {
+                    if (!result.ok) { revert(); return; }
+                    if (result.queued) return;
+                    applySessionData(result.data.data);
+                })
+                .catch(() => revert())
+                .finally(() => { delete uiPending.clear[court.id]; });
+        }
         function openManualAssignment(courtId) {
             const court = courts.value.find(c => c.id === courtId);
             if (!court || court.match) return;
@@ -1388,8 +1491,9 @@ createApp({
             manualTapId.value = null;
         }
         function dragPlayerToCourtStart(sp, event) {
-            if (sp.status !== 'WAITING') return;
+            if (sp.status !== 'WAITING' && sp.status !== 'PAUSED') return;
             draggedQueuePlayerId.value = sp.player_id;
+            pickedQueuePlayerId.value = null;
             if (event && event.dataTransfer) {
                 event.dataTransfer.effectAllowed = 'move';
                 event.dataTransfer.setData('text/plain', String(sp.player_id));
@@ -1398,26 +1502,304 @@ createApp({
         function dragPlayerToCourtEnd() {
             draggedQueuePlayerId.value = null;
             dragOverCourtId.value = null;
+            subDragOver.value = null;
+            dragOverPlayingCourtId.value = null;
+            pendingDropSlot.value = null;
         }
-        function dropPlayerOnCourt(event, court) {
-            if (event) event.preventDefault();
-            const playerId = draggedQueuePlayerId.value;
-            dragOverCourtId.value = null;
+        // Touch fallback for native drag-and-drop: tap a waiting player to pick
+        // them up, then tap a court (or a player on court) to place/swap them.
+        function pickQueuePlayer(sp, event) {
+            if (sp.status !== 'WAITING' && sp.status !== 'PAUSED') return;
+            if (Date.now() < suppressPickClickUntil) return;
+            if (event && event.target.closest('button')) return;
+            pickedQueuePlayerId.value = pickedQueuePlayerId.value === sp.player_id ? null : sp.player_id;
+        }
+        // Resolve the player being moved onto a court from either a native
+        // drag (desktop) or a tap-to-pick (touch). Consumes whichever is set.
+        function takeIncomingPlayerId() {
+            const id = draggedQueuePlayerId.value ?? pickedQueuePlayerId.value;
             draggedQueuePlayerId.value = null;
-            if (!playerId || court.match) return;
-            const sp = waitingPlayers.value.find(p => p.player_id === playerId);
-            if (!sp) return;
-            const alreadyPending = Object.values(pendingCourtPlayers).some(list => list.some(p => p.player_id === playerId));
-            if (alreadyPending) return;
-            const list = pendingCourtPlayers[court.id] || [];
-            if (list.length >= 4) return;
-            pendingCourtPlayers[court.id] = [...list, sp];
+            pickedQueuePlayerId.value = null;
+            return id;
         }
+        function dropPlayerOnCourt(court, x, y, event) {
+            if (event) event.preventDefault();
+            const playerId = takeIncomingPlayerId();
+            dragOverCourtId.value = null;
+            pendingDropSlot.value = null;
+            if (!playerId || court.match) return;
+            const sp = players.value.find(p => p.player_id === playerId && (p.status === 'WAITING' || p.status === 'PAUSED'));
+            if (!sp) return;
+            // Move the player out of any court's pending slots first.
+            for (const key of Object.keys(pendingCourtPlayers)) {
+                const list = pendingCourtPlayers[key];
+                const idx = list.findIndex(slot => slot && slot.player_id === playerId);
+                if (idx !== -1) {
+                    list[idx] = null;
+                    pendingCourtPlayers[key] = list;
+                }
+            }
+            const list = courtPendingSlots(court.id);
+            list[quadrantIndex(court.id, x, y)] = sp;
+            pendingCourtPlayers[court.id] = list;
+        }
+        // Tap-to-place fallback: an empty court body becomes a drop target for
+        // a picked player, without hijacking its ASSIGN/START buttons.
+        function tapEmptyCourt(court, event) {
+            if (pickedQueuePlayerId.value == null) return;
+            if (event.target.closest('button')) return;
+            const box = event.target.closest('.court-card__player-box');
+            if (box && !box.classList.contains('court-card__player-box--pending-empty')) return;
+            dropPlayerOnCourt(court, event.clientX, event.clientY, null);
+        }
+
+        // Identifies a drop target on a playing court, used to highlight the
+        // player box a waiting player is being dragged over.
+        function subDragKey(matchId, team, index) {
+            return matchId + '-' + team + '-' + index;
+        }
+
+        // Swap a waiting player (dragged from NEXT UP) onto a court in place of
+        // the player they were dropped on. The replaced player returns to the
+        // queue; ratings are untouched until the match actually finishes.
+        function substituteOnCourt(court, outPlayerId, event, inPlayerIdOverride) {
+            if (event) event.preventDefault();
+            const inPlayerId = inPlayerIdOverride != null ? inPlayerIdOverride : takeIncomingPlayerId();
+            subDragOver.value = null;
+            dragOverPlayingCourtId.value = null;
+            if (!court || !court.match || !inPlayerId || inPlayerId === outPlayerId) return;
+            if (session.type === 'tournament') return;
+
+            const inSp = players.value.find(p => p.player_id === inPlayerId);
+            if (!inSp || (inSp.status !== 'WAITING' && inSp.status !== 'PAUSED')) return;
+
+            const match = court.match;
+            const onCourt = [...match.t1, ...match.t2];
+            if (onCourt.some(p => p.player_id === inPlayerId)) return;
+
+            const outSp = players.value.find(p => p.player_id === outPlayerId);
+            const snapshot = JSON.parse(JSON.stringify(match));
+            const outStatus = outSp ? outSp.status : null;
+            const inStatus = inSp.status;
+
+            const applyLocal = () => {
+                const incoming = { player_id: inSp.player_id, name: inSp.player.name, rating: inSp.player.rating, gender: inSp.player.gender, wins: inSp.wins || 0, streak: inSp.player.consecutive_wins || 0 };
+                for (const team of ['t1', 't2']) {
+                    const idx = match[team].findIndex(p => p.player_id === outPlayerId);
+                    if (idx !== -1) match[team].splice(idx, 1, incoming);
+                }
+                if (outSp) outSp.status = 'WAITING';
+                inSp.status = 'PLAYING';
+            };
+            const revertLocal = () => {
+                court.match = snapshot;
+                if (outSp) outSp.status = outStatus;
+                inSp.status = inStatus;
+            };
+
+            const label = 'Swap player on ' + (court.name || ('Court ' + court.court_number));
+            if (offlineMode.value) {
+                applyLocal();
+                queueAction('POST', '/api/matches/' + match.id + '/substitute', { out_player_id: outPlayerId, in_player_id: inPlayerId }, label);
+                return;
+            }
+
+            applyLocal();
+            apiRequest('POST', '/api/matches/' + match.id + '/substitute', { out_player_id: outPlayerId, in_player_id: inPlayerId }, label)
+                .then(result => {
+                    if (!result.ok) { revertLocal(); return; }
+                    if (result.queued) return;
+                    fetchSession().catch(() => { connectionState.value = 'offline'; });
+                })
+                .catch(() => { revertLocal(); });
+        }
+        // Tap-to-swap fallback: when a waiting player is picked, tapping an
+        // on-court player swaps them in. Otherwise the tap falls through to
+        // the score picker on the team side.
+        function tapOnCourtPlayer(court, playerId, event) {
+            if (pickedQueuePlayerId.value == null) return;
+            if (event) event.stopPropagation();
+            substituteOnCourt(court, playerId, null);
+        }
+
+        // Map a drop point on a court to its corner index (0=TL,1=TR,2=BL,3=BR).
+        function quadrantIndex(courtId, x, y) {
+            const el = document.querySelector('.court-card[data-court-id="' + courtId + '"] .court-card__body');
+            const rect = el ? el.getBoundingClientRect() : null;
+            if (!rect) return 0;
+            const left = x < rect.left + rect.width / 2;
+            const top = y < rect.top + rect.height / 2;
+            return top ? (left ? 0 : 1) : (left ? 2 : 3);
+        }
+        // The player occupying the corner a drop point lands on (playing court).
+        function cornerPlayerId(court, x, y) {
+            const el = document.querySelector('.court-card[data-court-id="' + court.id + '"] .court-card__body');
+            const rect = el ? el.getBoundingClientRect() : null;
+            const left = rect ? x < rect.left + rect.width / 2 : false;
+            const top = rect ? y < rect.top + rect.height / 2 : false;
+            const match = court.match;
+            if (!match) return null;
+            if (top) return left ? match.t1[0].player_id : match.t2[0].player_id;
+            return left ? match.t1[1].player_id : match.t2[1].player_id;
+        }
+        // Highlight the specific empty-court slot under the pointer during a
+        // native mouse drag.
+        function onEmptyCourtDragOver(court, event) {
+            dragOverCourtId.value = court.id;
+            pendingDropSlot.value = court.id + '-' + quadrantIndex(court.id, event.clientX, event.clientY);
+        }
+        function onEmptyCourtDragLeave(court, event) {
+            const next = event.relatedTarget;
+            if (next && event.currentTarget && event.currentTarget.contains(next)) return;
+            dragOverCourtId.value = null;
+            pendingDropSlot.value = null;
+        }
+        // Highlight the specific playing-court corner box under the pointer.
+        function onPlayingCourtDragOver(court, event) {
+            const playerId = cornerPlayerId(court, event.clientX, event.clientY);
+            if (playerId == null) return;
+            const t1i = court.match.t1.findIndex(p => p.player_id === playerId);
+            if (t1i !== -1) subDragOver.value = subDragKey(court.match.id, 1, t1i);
+            else {
+                const t2i = court.match.t2.findIndex(p => p.player_id === playerId);
+                if (t2i !== -1) subDragOver.value = subDragKey(court.match.id, 2, t2i);
+            }
+        }
+        function onPlayingCourtDragLeave(court, event) {
+            const next = event.relatedTarget;
+            if (next && event.currentTarget && event.currentTarget.contains(next)) return;
+            subDragOver.value = null;
+        }
+
+        // Whole-card drop target for a playing court: a drop on the card (but
+        // not directly on a player box) swaps the dragged player in for the
+        // player occupying the corner the drop landed on.
+        function dropOnPlayingCourt(court, x, y, event) {
+            if (event) {
+                if (event.target && event.target.closest && event.target.closest('.court-card__player-box')) return;
+                event.preventDefault();
+            }
+            const inPlayerId = takeIncomingPlayerId();
+            dragOverPlayingCourtId.value = null;
+            subDragOver.value = null;
+            if (!inPlayerId || !court || !court.match) return;
+            const outPlayerId = cornerPlayerId(court, x, y);
+            if (outPlayerId == null) return;
+            substituteOnCourt(court, outPlayerId, null, inPlayerId);
+        }
+
+        // --- Touch drag (pointer events) ---------------------------------
+        // Native HTML5 drag-and-drop never fires on touch, so waiting-player
+        // cards are also draggable via pointer events. A quick tap still falls
+        // through to pickQueuePlayer; a press-and-move becomes a drag with a
+        // floating ghost that drops on whichever court is under the finger.
+        function onCardPointerDown(sp, event) {
+            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+            if (sp.status !== 'WAITING' && sp.status !== 'PAUSED') return;
+            if (event.target && event.target.closest && event.target.closest('button')) return;
+            touchDrag.playerId = sp.player_id;
+            touchDrag.sp = sp;
+            touchDrag.halfW = (event.currentTarget.offsetWidth || 260) / 2;
+            touchDrag.halfH = (event.currentTarget.offsetHeight || 70) / 2;
+            touchDrag.x = event.clientX;
+            touchDrag.y = event.clientY;
+            touchDrag.startX = event.clientX;
+            touchDrag.startY = event.clientY;
+            touchDrag.moved = false;
+            touchDrag.active = false;
+            try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+        }
+        function onCardPointerMove(sp, event) {
+            if (touchDrag.playerId !== sp.player_id) return;
+            touchDrag.x = event.clientX;
+            touchDrag.y = event.clientY;
+            if (!touchDrag.moved) {
+                const dx = event.clientX - touchDrag.startX;
+                const dy = event.clientY - touchDrag.startY;
+                if (Math.hypot(dx, dy) < TOUCH_DRAG_THRESHOLD) return;
+                touchDrag.moved = true;
+                touchDrag.active = true;
+                draggedQueuePlayerId.value = touchDrag.playerId;
+            }
+            updateTouchDragTarget(event.clientX, event.clientY);
+        }
+        function onCardPointerUp(sp, event) {
+            if (touchDrag.playerId !== sp.player_id) return;
+            const wasDragging = touchDrag.active;
+            const el = wasDragging ? document.elementFromPoint(touchDrag.x, touchDrag.y) : null;
+            if (wasDragging) suppressPickClickUntil = Date.now() + 60;
+            clearTouchDrag();
+            if (wasDragging && el) completeTouchDrop(el);
+        }
+        function onCardPointerCancel(sp, event) {
+            if (touchDrag.playerId === sp.player_id) clearTouchDrag();
+        }
+        function clearTouchDrag() {
+            touchDrag.active = false;
+            touchDrag.moved = false;
+            touchDrag.playerId = null;
+            touchDrag.sp = null;
+            draggedQueuePlayerId.value = null;
+            dragOverCourtId.value = null;
+            subDragOver.value = null;
+            dragOverPlayingCourtId.value = null;
+            pendingDropSlot.value = null;
+        }
+        function courtFromCard(card) {
+            const id = Number(card && card.dataset ? card.dataset.courtId : NaN);
+            if (!id) return null;
+            return courts.value.find(c => c.id === id) || null;
+        }
+        function updateTouchDragTarget(x, y) {
+            dragOverCourtId.value = null;
+            subDragOver.value = null;
+            dragOverPlayingCourtId.value = null;
+            pendingDropSlot.value = null;
+            const el = document.elementFromPoint(x, y);
+            const card = el && el.closest ? el.closest('.court-card') : null;
+            const court = courtFromCard(card);
+            if (!court) return;
+            if (!court.match) {
+                dragOverCourtId.value = court.id;
+                pendingDropSlot.value = court.id + '-' + quadrantIndex(court.id, x, y);
+                return;
+            }
+            const box = el.closest('.court-card__player-box');
+            const playerId = box && box.dataset && box.dataset.playerId ? Number(box.dataset.playerId) : cornerPlayerId(court, x, y);
+            if (playerId != null) {
+                const t1i = court.match.t1.findIndex(p => p.player_id === playerId);
+                if (t1i !== -1) subDragOver.value = subDragKey(court.match.id, 1, t1i);
+                else {
+                    const t2i = court.match.t2.findIndex(p => p.player_id === playerId);
+                    if (t2i !== -1) subDragOver.value = subDragKey(court.match.id, 2, t2i);
+                }
+            }
+        }
+        function completeTouchDrop(el) {
+            const card = el && el.closest ? el.closest('.court-card') : null;
+            const court = courtFromCard(card);
+            if (!court) return;
+            const x = touchDrag.x;
+            const y = touchDrag.y;
+            if (!court.match) {
+                dropPlayerOnCourt(court, x, y, null);
+                return;
+            }
+            const box = el.closest('.court-card__player-box');
+            if (box && box.dataset && box.dataset.playerId) {
+                substituteOnCourt(court, Number(box.dataset.playerId), null);
+            } else {
+                dropOnPlayingCourt(court, x, y, null);
+            }
+        }
+
         function removePendingPlayer(courtId, playerId) {
             const list = pendingCourtPlayers[courtId] || [];
-            const next = list.filter(sp => sp.player_id !== playerId);
-            if (next.length === 0) delete pendingCourtPlayers[courtId];
-            else pendingCourtPlayers[courtId] = next;
+            const idx = list.findIndex(slot => slot && slot.player_id === playerId);
+            if (idx === -1) return;
+            list[idx] = null;
+            if (list.every(slot => !slot)) delete pendingCourtPlayers[courtId];
+            else pendingCourtPlayers[courtId] = list;
         }
         // Builds a match card locally (offline mode only) so the court
         // doesn't look stuck empty until the queued assignment syncs. The
@@ -1472,10 +1854,11 @@ createApp({
         }
         async function startCourtMatch(courtId) {
             const list = pendingCourtPlayers[courtId] || [];
-            if (list.length !== 4 || uiPending.court[courtId]) return;
+            const filled = list.filter(Boolean);
+            if (filled.length !== 4 || uiPending.court[courtId]) return;
             uiPending.court[courtId] = true;
             try {
-                const playerIds = list.map(sp => sp.player_id);
+                const playerIds = filled.map(sp => sp.player_id);
                 const court = courts.value.find(c => c.id === courtId);
                 const label = 'Assign ' + (court ? (court.name || ('Court ' + court.court_number)) : '') + ' from queue';
 
@@ -1507,7 +1890,7 @@ createApp({
             }
         }
         function balanceManualTeam(ids) {
-            const selected = ids.map(id => waitingPlayers.value.find(sp => sp.player_id === id)).filter(Boolean);
+            const selected = ids.map(id => players.value.find(sp => sp.player_id === id)).filter(Boolean);
             selected.sort((a, b) => (Number(a.player.rating) || 0) - (Number(b.player.rating) || 0));
             return [selected[0].player_id, selected[3].player_id, selected[1].player_id, selected[2].player_id];
         }
@@ -1868,7 +2251,7 @@ createApp({
                 .join(' + ');
         }
 
-        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue };
+        return { session, sessionName, matchmakingMode, modeLabel, toggleMode, fillCourts, courts, updatingCourts, sessionActionPending, uiPending, adjustCourts, players, tournament, history, historyTotal, historySearch, filteredHistory, waitingPlayers, canFillCourts, queuePlayers, nextFourIds, pendingCourtPlayers, activePlayers, submitting, celebration, celebrationParticles, connectionState, authError, elapsed, showPlayers, showSuggestions, showSuggestionsNow, hideSuggestionsLater, newPlayerName, newPlayerGender, availablePlayers, playerSuggestions, isInSession, confirmRemove, confirmDelete, confirmNewSession, dragOverCourtId, manualAssignment, manualTeams, manualDraggedId, manualDragOverId, manualTapId, openManualAssignment, dropPlayerOnCourt, removePendingPlayer, startCourtMatch, dragPlayerToCourtStart, dragPlayerToCourtEnd, closeManualAssignment, toggleManualPlayer, balanceManualTeam, swapManualPlayers, manualDragStart, manualDragEnd, manualDrop, manualTap, submitManualAssignment, courtAccent, submitFeedback, matchFeedback, openInsights, loadInsights, insights, recordResult, scorePicker, scoreValues, scoreValid, scoreHint, scoreWinner, wheelT1, wheelT2, onWheelScroll, openScorePicker, closeScorePicker, confirmScore, skipScore, courtRename, courtRenameValues, courtValues, courtWheel, onCourtWheelScroll, openCourtRename, closeCourtRename, selectCourtName, startSession, startNewSession, doStartNewSession, pauseSession, resumeSession, finishSession, openPlayers, addPlayers, addExistingPlayer, pausePlayer, resumePlayer, openRemove, confirmLeave, openDelete, openDeleteById, deletePlayer, formatName, genderDotClass, genderLabel, ratingBadge, rankIcon, sitOuts, historyTeam, Math, showTeams, teamsList, teamsError, teamsLoading, selectedPlayerId, draggedPlayerId, dragOverPlayerId, openTeams, closeTeams, selectPlayerForSwap, onPlayerDragStart, onPlayerDragEnd, onPlayerDrop, regenerateTeams, offlineMode, offlineQueue, offlinePreference, offlineMenuOpen, setOfflinePreference, syncPrompt, offlineStatus, offlineIndicatorTitle, syncOfflineQueue, discardOfflineQueue, subDragOver, subDragKey, substituteOnCourt, pickedQueuePlayerId, pickedQueuePlayer, pickQueuePlayer, tapEmptyCourt, tapOnCourtPlayer, dragOverPlayingCourtId, dropOnPlayingCourt, touchDrag, onCardPointerDown, onCardPointerMove, onCardPointerUp, onCardPointerCancel, pendingDropSlot, courtPendingSlots, courtPendingCount, onEmptyCourtDragOver, onEmptyCourtDragLeave, onPlayingCourtDragOver, onPlayingCourtDragLeave, clearCourt };
     }
 }).mount('#courtly-app');
 </script>

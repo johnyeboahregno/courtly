@@ -70,12 +70,12 @@ class MatchmakingService
 
             $sessionPlayers = $lockedSession->sessionPlayers()
                 ->whereIn('player_id', $playerIds)
-                ->where('status', SessionPlayerStatus::WAITING->value)
+                ->whereIn('status', [SessionPlayerStatus::WAITING->value, SessionPlayerStatus::PAUSED->value])
                 ->with('player')
                 ->lockForUpdate()
                 ->get();
             if ($sessionPlayers->count() !== 4 || $sessionPlayers->pluck('player_id')->sort()->values()->all() !== collect($playerIds)->sort()->values()->all()) {
-                throw new \DomainException('Choose four players who are waiting for a court.');
+                throw new \DomainException('Choose four players who are waiting or paused.');
             }
 
             $players = $sessionPlayers->map(fn (SessionPlayer $sp) => $this->attachPlayer($sp))->all();

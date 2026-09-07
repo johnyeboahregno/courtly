@@ -1639,18 +1639,21 @@ textarea,
 }
 
 .player-card__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.05rem;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
+    min-width: 0;
 }
 
-.player-card__name .gender-dot { margin-left: 1px; }
+.player-card__name .gender-dot { margin: 0; }
 
-.player-card__name .rank-icon {
-    margin-left: 5px;
+.name-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .player-card__rating {
@@ -1859,6 +1862,7 @@ textarea,
     flex: 1 1 auto;
     max-height: none;
     min-height: 0;
+    align-content: start;
 }
 
 /* Styled confirmation dialog */
@@ -2071,7 +2075,7 @@ textarea,
     box-sizing: border-box;
     width: 28px;
     height: 28px;
-    margin-left: 6px;
+    margin: 0;
     vertical-align: middle;
     border-radius: 50%;
 }
@@ -2186,10 +2190,16 @@ textarea,
 }
 
 .existing-item__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 0.8rem;
     flex: 1;
+    min-width: 0;
 }
+
+.existing-item__name .gender-dot { margin: 0; }
 
 .existing-item__rating {
     font-size: 0.8rem;
@@ -2725,7 +2735,7 @@ textarea,
 }
 .waiting-list__mode {
     margin-left: auto;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;

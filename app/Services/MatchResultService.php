@@ -327,6 +327,127 @@ class MatchResultService
     }
 
     /**
+     * Swap a waiting player onto an in-progress court, returning the replaced
+     * player to the queue. Ratings are untouched until the match completes —
+     * only the lineup, its pre-match rating snapshots, and the balance metrics
+     * stored on the match row are updated.
+     */
+    public function substitutePlayer(GameMatch $match, int $outPlayerId, int $inPlayerId): array
+    {
+        return DB::transaction(function () use ($match, $outPlayerId, $inPlayerId) {
+            // Matchmaking locks the session first — do the same here so a swap
+            // and a concurrent player action cannot acquire locks in opposite order.
+            $session = Session::query()
+                ->lockForUpdate()
+                ->findOrFail($match->session_id);
+
+            if ($session->isTournament()) {
+                throw new \DomainException('Tournament players cannot be swapped mid-game.');
+            }
+
+            $match = GameMatch::query()
+                ->where('id', $match->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $match->isPlaying()) {
+                throw new \DomainException('Only matches that are currently being played can have players swapped.');
+            }
+
+            $match->load('matchPlayers.player');
+
+            $outMp = $match->matchPlayers->firstWhere('player_id', $outPlayerId);
+
+            if (! $outMp) {
+                throw new \DomainException('That player is not on this court.');
+            }
+
+            if ($match->matchPlayers->contains('player_id', $inPlayerId)) {
+                throw new \DomainException('That player is already on this court.');
+            }
+
+            $inSessionPlayer = $session->sessionPlayers()
+                ->where('player_id', $inPlayerId)
+                ->first();
+
+            if (! $inSessionPlayer || (! $inSessionPlayer->isWaiting() && ! $inSessionPlayer->isPaused())) {
+                throw new \DomainException('Only players waiting or paused in the queue can be brought onto a court.');
+            }
+
+            $outSessionPlayer = $session->sessionPlayers()
+                ->where('player_id', $outPlayerId)
+                ->first();
+
+            $incoming = $inSessionPlayer->player;
+            $now = now();
+
+            // Re-point the outgoing player's slot at the incoming player,
+            // snapshotting their current rating as the pre-match baseline.
+            $outMp->update([
+                'player_id' => $inPlayerId,
+                'rating_before' => $incoming->rating,
+                'rating_confidence_before' => $incoming->rating_confidence,
+                'rating_after' => null,
+                'rating_confidence_after' => null,
+                'result' => null,
+            ]);
+
+            // The outgoing player returns to the queue; the incoming player is now on court.
+            if ($outSessionPlayer) {
+                $outSessionPlayer->update([
+                    'status' => SessionPlayerStatus::WAITING,
+                    'waiting_since' => $now,
+                ]);
+            }
+
+            $inSessionPlayer->update([
+                'status' => SessionPlayerStatus::PLAYING,
+                'waiting_since' => null,
+            ]);
+
+            $this->refreshMatchBalance($match);
+
+            $this->eventService->publish($session->id, 'match.substituted', [
+                'match_id' => $match->id,
+                'court_id' => $match->court_id,
+                'out_player_id' => $outPlayerId,
+                'in_player_id' => $inPlayerId,
+            ]);
+
+            Log::info('match.player.substituted', [
+                'match_id' => $match->id,
+                'out_player_id' => $outPlayerId,
+                'in_player_id' => $inPlayerId,
+            ]);
+
+            return [
+                'match' => $match->fresh(['matchPlayers.player', 'court']),
+            ];
+        }, 3);
+    }
+
+    /**
+     * Recompute the team ratings, balance difference and skill spread stored on
+     * a match row after its lineup changes.
+     */
+    private function refreshMatchBalance(GameMatch $match): void
+    {
+        $match->unsetRelation('matchPlayers');
+        $match->load('matchPlayers.player');
+
+        $team1Rating = $match->matchPlayers->where('team', 1)->avg(fn ($mp) => (float) $mp->player->rating);
+        $team2Rating = $match->matchPlayers->where('team', 2)->avg(fn ($mp) => (float) $mp->player->rating);
+        $ratings = $match->matchPlayers->map(fn ($mp) => (float) $mp->player->rating);
+
+        $match->update([
+            'team_1_rating' => round($team1Rating, 2),
+            'team_2_rating' => round($team2Rating, 2),
+            'team_balance_difference' => round(abs($team1Rating - $team2Rating), 2),
+            'skill_spread' => round($ratings->max() - $ratings->min(), 2),
+        ]);
+    }
+
+    /**
      * Undo a completed match's effect on ratings, player stats, and session stats.
      */
     private function revertResult(GameMatch $match, $session): void

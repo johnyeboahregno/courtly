@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="<?= e($base ?? '') ?>/assets/favicon.png?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <style>
-        .stats-wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
+        .stats-wrap { width: 100%; padding: 24px 20px 64px; }
         .stats-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
         .stats-head h1 { font-size: 1.4rem; margin: 0; }
         .stats-nav-link { margin-left: auto; color: var(--text-muted); font-size: .82rem; text-decoration: none; }

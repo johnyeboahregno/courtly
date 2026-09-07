@@ -599,6 +599,7 @@ Only valid when `session.type === tournament`; every method 422s via `assertTour
 | `POST` | `/api/matches/{match}/result` | Record result: `winning_team` (1 or 2, required), plus optional `close_game`, `team_1_score`/`team_2_score`. Court reallocation is queued (`next_matches` is always `[]`); the frontend picks up the new match via the next event poll. |
 | `POST` | `/api/matches/{match}/correct` | Correct a previously recorded match result |
 | `POST` | `/api/matches/{match}/feedback` | Rate match quality (`quality_rating`: POOR/GOOD/GREAT) — one row per player per match, upserted |
+| `POST` | `/api/matches/{match}/substitute` | Swap a waiting player onto an in-progress court (`out_player_id` + `in_player_id`); the replaced player returns to WAITING and the match's stored balance metrics are recomputed. Ratings are untouched until the match completes. 422 for non-PLAYING matches, non-waiting incoming players, or tournament sessions |
 
 ### Players (🔒)
 | Method | Path | Purpose |
@@ -675,6 +676,7 @@ All API controllers use the `AuthorizesOwnership` trait (`app/Http/Controllers/A
 - `recordResult(Request, GameMatch)` — Validates `winning_team` (1 or 2) + optional `close_game`/`team_1_score`/`team_2_score`, delegates to `MatchResultService`
 - `correctResult(Request, GameMatch)` — Corrects a completed match's winner
 - `feedback(Request, GameMatch)` — 422 unless the match is COMPLETED; validates `quality_rating` (POOR/GOOD/GREAT); upserts `MatchFeedback` on `[match_id, current user's player_id]`
+- `substitute(Request, GameMatch)` — Validates `out_player_id` + `in_player_id` (different), delegates to `MatchResultService::substitutePlayer()`; `DomainException` → 422
 
 ### `Api\PlayerController`
 - No constructor — every service dependency is method-injected per action.
@@ -745,6 +747,7 @@ Atomic match result recording with full idempotency. Depends on `RatingService`,
 **Public Methods:**
 - `recordResult(GameMatch, int $winningTeam, bool $closeGame = false, ?int $team1Score = null, ?int $team2Score = null): array` — Runs in a DB transaction with row locking. For a **tournament** match, delegates to `applyTournamentResult()` (ratings untouched, only WIN/LOSS recorded) and calls `TournamentService::handleMatchCompleted()` instead of triggering matchmaking. For a normal match: derives `close_game` (explicit flag OR score margin ≤ `rating.margin_close_threshold`), calculates rating changes via `RatingService`, batch-upserts session player stats, marks the court AVAILABLE, publishes events, and returns match + rating_changes (`next_matches` always `[]`). After the transaction commits, it queues `AllocateSessionMatches::dispatch($sessionId)->afterResponse()` instead of calling `MatchmakingService::allocateMatches()` inline — that call's DB round-trips cost multiple seconds on their own, which was adding directly to the client's wait on every result submission. **Idempotent**: if already COMPLETED, returns the existing result.
 - `correctResult(GameMatch, int, ?int $team1Score = null, ?int $team2Score = null): array` — Reverts the previous result (`revertTournamentResult()` for tournament matches — undoes just the win/loss bookkeeping), recalculates with the new winner/scores. Only works on COMPLETED matches.
+- `substitutePlayer(GameMatch, int $outPlayerId, int $inPlayerId): array` — Swaps a WAITING session player onto a PLAYING match (row-locked transaction; 422 via `DomainException` otherwise). Re-points the outgoing `match_players` row at the incoming player (re-snapshotting `rating_before`/`rating_confidence_before`), returns the outgoing player to WAITING, sets the incoming player to PLAYING, recomputes `team_1_rating`/`team_2_rating`/`team_balance_difference`/`skill_spread` via `refreshMatchBalance()`, and publishes a `match.substituted` event. Tournament sessions are rejected.
 
 ### `RatingService`
 Elo-based rating system with K-factor, streak bonuses, and result-shape multipliers. Tournament matches never call into the rating-adjustment path at all (see `GameMatch` above).

@@ -110,6 +110,24 @@ class CircleController extends Controller
     }
 
     /**
+     * Invite someone to a circle by email. Admin only.
+     */
+    public function invite(Request $request, Circle $circle, CircleService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+        ]);
+
+        try {
+            $result = $service->inviteByEmail($request->user(), $circle, $validated['email']);
+        } catch (\DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
      * Ask to join a public circle. The admin approves or declines.
      */
     public function requestJoin(Request $request, Circle $circle, CircleService $service): JsonResponse
