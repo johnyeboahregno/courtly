@@ -740,8 +740,10 @@ async function sendInvite(id){
   if(!email){toast('Enter an email address');return}
   const r=await api(`/api/circles/${id}/invite`,{method:'POST',body:{email}});
   if(r.ok){
-    toast((r.data&&r.data.message)||'Invite sent');
-    if(r.data&&r.data.status==='joined'){refreshMap();closePopover()}
+    const d=r.data||{};
+    if(d.status==='failed'){toast(d.message||'Could not send the invite email.');return}
+    toast(d.message||'Invite sent');
+    if(d.status==='joined'){refreshMap();closePopover()}
     else if(input){input.value='';const row=document.getElementById('inviteRow');if(row)row.style.display='none'}
   }else{
     toast(r.message||'Could not send invite');

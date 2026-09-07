@@ -38,6 +38,18 @@ it('emails an invitation to an unknown address', function () {
     Mail::assertSent(CircleInvite::class, fn ($mail) => $mail->hasTo('friend@example.com'));
 });
 
+it('reports a failure when the invite email cannot be delivered', function () {
+    Mail::shouldReceive('to')->once()->with('friend@example.com')->andThrow(new \RuntimeException('SMTP unavailable'));
+
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+    Sanctum::actingAs($admin);
+
+    $this->postJson("/api/circles/{$circle->id}/invite", ['email' => 'friend@example.com'])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'failed');
+});
+
 it('rejects invitations from a non-admin', function () {
     $admin = User::factory()->create();
     $circle = Circle::factory()->create(['admin_id' => $admin->id]);

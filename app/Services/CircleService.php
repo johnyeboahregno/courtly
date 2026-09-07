@@ -131,26 +131,49 @@ class CircleService
 
             $this->ensureLinkedPlayer($existing, $circle);
 
+            // Still notify them by email — "invite by email" should always send one.
+            $emailSent = $this->sendInviteEmail($circle, $inviter, $email);
+
             return [
                 'status' => 'joined',
-                'message' => $existing->name.' has been added to '.$circle->name.'.',
+                'email_sent' => $emailSent,
+                'message' => $existing->name.' has been added to '.$circle->name.'.'
+                    .($emailSent ? '' : ' (Invite email could not be sent.)'),
             ];
         }
 
-        try {
-            Mail::to($email)->send(new \App\Mail\CircleInvite($circle, $inviter));
-        } catch (\Throwable $e) {
-            Log::warning('circle.invite.email.failed', [
-                'circle_id' => $circle->id,
-                'email' => $email,
-                'error' => $e->getMessage(),
-            ]);
+        if (! $this->sendInviteEmail($circle, $inviter, $email)) {
+            return [
+                'status' => 'failed',
+                'message' => 'Could not send the invite email to '.$email.'. Please try again.',
+            ];
         }
 
         return [
             'status' => 'emailed',
             'message' => 'Invite sent to '.$email.'.',
         ];
+    }
+
+    /**
+     * Send the invite email. Returns false (and logs) on any delivery failure
+     * so callers can report the real outcome instead of a false success.
+     */
+    private function sendInviteEmail(Circle $circle, User $inviter, string $email): bool
+    {
+        try {
+            Mail::to($email)->send(new \App\Mail\CircleInvite($circle, $inviter));
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('circle.invite.email.failed', [
+                'circle_id' => $circle->id,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**
