@@ -17,6 +17,26 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Write mail config to VPS .env
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<'REMOTE'
+          set -e
+          cd ~/courtly
+          grep -vE '^MAIL_' .env > .env.mail.tmp || true
+          cat >> .env.mail.tmp <<MAIL
+          MAIL_MAILER=smtp
+          MAIL_HOST=${{ secrets.MAIL_HOST }}
+          MAIL_PORT=${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_ENCRYPTION=${{ secrets.MAIL_ENCRYPTION }}
+          MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}
+          MAIL_FROM_NAME="Courtly Admin"
+          MAIL
+          chmod 600 .env.mail.tmp
+          mv .env.mail.tmp .env
+          REMOTE
+
       - name: Deploy
         run: |
           ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<'REMOTE'
@@ -28,4 +48,12 @@ jobs:
             sudo docker compose up -d --force-recreate app queue
             sudo docker compose exec -T app php artisan migrate --force
             sudo docker compose ps --format 'table {{.Name}}\t{{.Status}}'
+          REMOTE
+
+      - name: Send deployment success email
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<'REMOTE'
+          set -e
+          cd ~/courtly
+          sudo docker compose exec -T app php artisan mail:deploy-success
           REMOTE
