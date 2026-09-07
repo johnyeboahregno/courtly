@@ -3571,3 +3571,40 @@ textarea,
     .app-header .theme-switch { width: 34px; height: 34px; font-size: 0.9rem; }
     .app-logout { width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
 }
+
+/* Gender-block warning — courts can't auto-fill until every waiting player has a gender */
+.gender-block-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0 auto 12px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 176, 32, .45);
+    border-radius: 10px;
+    background: rgba(255, 176, 32, .08);
+    color: #ffb020;
+    font-size: 0.85rem;
+    font-weight: 700;
+    box-sizing: border-box;
+}
+
+.player-card__gender {
+    border: 1px solid var(--stroke);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border-radius: 999px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.player-card__gender--male:hover { border-color: #3b82f6; color: #3b82f6; }
+.player-card__gender--female:hover { border-color: #ff5da2; color: #ff5da2; }
+.player-card__gender:disabled { opacity: .4; cursor: not-allowed; }
