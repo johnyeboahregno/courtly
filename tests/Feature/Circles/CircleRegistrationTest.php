@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\Circle;
 use App\Models\User;
 
-it('creates a personal circle named after the requested name with the Circle suffix', function () {
+it('creates a personal circle with the requested name', function () {
     $this->postJson('/api/register', [
         'name' => 'Ada Lovelace',
         'email' => 'ada@example.com',
@@ -13,12 +13,12 @@ it('creates a personal circle named after the requested name with the Circle suf
         'password_confirmation' => 'Password1',
         'circle_name' => 'Sunday Badminton',
     ])->assertCreated()
-        ->assertJsonPath('data.circle.name', 'Sunday Badminton Circle');
+        ->assertJsonPath('data.circle.name', 'Sunday Badminton');
 
     $user = User::where('email', 'ada@example.com')->firstOrFail();
     $circle = Circle::where('admin_id', $user->id)->firstOrFail();
 
-    expect($circle->name)->toBe('Sunday Badminton Circle')
+    expect($circle->name)->toBe('Sunday Badminton')
         ->and($circle->isAdmin($user))->toBeTrue();
 
     $this->assertDatabaseHas('circle_members', ['circle_id' => $circle->id, 'user_id' => $user->id]);
@@ -29,14 +29,14 @@ it('creates a personal circle named after the requested name with the Circle suf
     ]);
 });
 
-it("defaults the personal circle name to \"{Name}'s Circle\" when blank", function () {
+it('defaults the personal circle name to the user name when blank', function () {
     $this->postJson('/api/register', [
         'name' => 'Grace Hopper',
         'email' => 'grace@example.com',
         'password' => 'Password1',
         'password_confirmation' => 'Password1',
     ])->assertCreated()
-        ->assertJsonPath('data.circle.name', "Grace Hopper's Circle");
+        ->assertJsonPath('data.circle.name', 'Grace Hopper');
 });
 
 it('keeps circle names unique by appending a numeric suffix', function () {
@@ -55,5 +55,5 @@ it('keeps circle names unique by appending a numeric suffix', function () {
         'password_confirmation' => 'Password1',
         'circle_name' => 'Sunday Badminton',
     ])->assertCreated()
-        ->assertJsonPath('data.circle.name', 'Sunday Badminton Circle 2');
+        ->assertJsonPath('data.circle.name', 'Sunday Badminton 2');
 });

@@ -150,7 +150,7 @@ class PlayerController extends Controller
      */
     public function update(Request $request, Player $player): JsonResponse
     {
-        $this->authorizePlayer($player);
+        $this->authorizePlayerManagement($player);
 
         if ($player->isInActiveMatch()) {
             return response()->json([
@@ -190,7 +190,7 @@ class PlayerController extends Controller
      */
     public function resetRating(Player $player): JsonResponse
     {
-        $this->authorizePlayer($player);
+        $this->authorizePlayerManagement($player);
 
         if ($player->isInActiveMatch()) {
             return response()->json([
@@ -274,7 +274,7 @@ class PlayerController extends Controller
      */
     public function destroy(Player $player): JsonResponse
     {
-        $this->authorizePlayer($player);
+        $this->authorizePlayerManagement($player);
 
         if ($player->isInActiveMatch()) {
             return response()->json([

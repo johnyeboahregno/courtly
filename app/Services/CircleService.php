@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\CircleJoinRequestStatus;
 use App\Enums\CircleVisibility;
+use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
 use App\Models\Circle;
 use App\Models\CircleJoinRequest;
@@ -24,17 +25,17 @@ use Illuminate\Support\Facades\Mail;
 class CircleService
 {
     /**
-     * Create the user's personal circle and make them a member.
-     * The requested name (if any) always has " Circle" appended, then is
-     * disambiguated to remain unique.
+     * Create the user's personal circle and make them a member. The requested
+     * name is used as-is; blank falls back to the user's name. Disambiguated
+     * to remain unique.
      */
     public function createPersonalCircle(User $user, ?string $requestedName = null): Circle
     {
         $base = trim((string) $requestedName);
 
         $desired = $base !== ''
-            ? $base.' Circle'
-            : $user->name."'s Circle";
+            ? $base
+            : (trim((string) $user->name) !== '' ? trim((string) $user->name) : 'Circle');
 
         $circle = Circle::create([
             'name' => Circle::uniqueName($desired),
@@ -64,7 +65,7 @@ class CircleService
             $player = Player::create([
                 'circle_id' => $circle->id,
                 'user_id' => $user->id,
-                'name' => $user->name,
+                'name' => $this->uniquePlayerName($circle->id, $user->name),
                 'email' => $user->email,
                 'gender' => $gender,
                 'rating' => config('courtly.rating.default_rating', 0.00),
@@ -74,6 +75,69 @@ class CircleService
         }
 
         return $player;
+    }
+
+    /**
+     * Connect two users' circles in both directions: the joiner becomes a
+     * member of the given circle, and the circle's owner becomes a member of
+     * the joiner's personal circle — so both sides can see each other's
+     * players and sessions.
+     */
+    private function connect(User $joiner, Circle $circle): void
+    {
+        if (! $circle->hasMember($joiner)) {
+            $circle->members()->attach($joiner->id);
+        }
+
+        $this->ensureLinkedPlayer($joiner, $circle);
+
+        $owner = $circle->admin;
+        $joinerCircle = $joiner->personalCircle;
+
+        if ($owner && $joinerCircle && (int) $joinerCircle->id !== (int) $circle->id) {
+            if (! $joinerCircle->hasMember($owner)) {
+                $joinerCircle->members()->attach($owner->id);
+            }
+
+            $this->ensureLinkedPlayer($owner, $joinerCircle);
+        }
+    }
+
+    /**
+     * Remove the connection between a user and a circle in both directions.
+     */
+    private function disconnect(User $user, Circle $circle): void
+    {
+        if ($circle->hasMember($user)) {
+            $circle->members()->detach($user->id);
+        }
+
+        $owner = $circle->admin;
+        $userCircle = $user->personalCircle;
+
+        if ($owner && $userCircle && (int) $userCircle->id !== (int) $circle->id) {
+            if ($userCircle->hasMember($owner)) {
+                $userCircle->members()->detach($owner->id);
+            }
+        }
+    }
+
+    /**
+     * Return a player name unique within the circle (the players table has a
+     * [circle_id, name] unique index — a same-named guest must not collide).
+     */
+    private function uniquePlayerName(int $circleId, string $desired): string
+    {
+        $base = trim($desired) !== '' ? trim($desired) : 'Player';
+        $name = $base;
+        $suffix = 2;
+
+        while (Player::where('circle_id', $circleId)->where('name', $name)->exists()) {
+            $name = $base.' '.$suffix;
+            $suffix++;
+        }
+
+        return $name;
     }
 
     /**
@@ -87,14 +151,7 @@ class CircleService
     {
         $circle = Circle::where('invite_code', strtoupper(trim($code)))->firstOrFail();
 
-        if (! CircleMember::where('circle_id', $circle->id)->where('user_id', $user->id)->exists()) {
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $user->id,
-            ]);
-
-            $this->ensureLinkedPlayer($user, $circle);
-        }
+        $this->connect($user, $circle);
 
         return $circle;
     }
@@ -124,12 +181,7 @@ class CircleService
                 ];
             }
 
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $existing->id,
-            ]);
-
-            $this->ensureLinkedPlayer($existing, $circle);
+            $this->connect($existing, $circle);
 
             // Still notify them by email — "invite by email" should always send one.
             $emailSent = $this->sendInviteEmail($circle, $inviter, $email);
@@ -216,17 +268,7 @@ class CircleService
         $joinRequest->status = CircleJoinRequestStatus::APPROVED;
         $joinRequest->save();
 
-        $circle = $joinRequest->circle;
-        $user = $joinRequest->user;
-
-        if (! CircleMember::where('circle_id', $circle->id)->where('user_id', $user->id)->exists()) {
-            CircleMember::create([
-                'circle_id' => $circle->id,
-                'user_id' => $user->id,
-            ]);
-        }
-
-        $this->ensureLinkedPlayer($user, $circle);
+        $this->connect($joinRequest->user, $joinRequest->circle);
     }
 
     /**
@@ -246,14 +288,10 @@ class CircleService
     public function leaveCircle(User $user, Circle $circle): void
     {
         if ($circle->isAdmin($user)) {
-            throw new \DomainException('You cannot leave your own circle.');
+            throw new \DomainException('You cannot disconnect from your own circle.');
         }
 
-        if (! $circle->hasMember($user)) {
-            return;
-        }
-
-        $circle->members()->detach($user->id);
+        $this->disconnect($user, $circle);
     }
 
     /**
@@ -300,10 +338,53 @@ class CircleService
         $myCircles = $user->circles()->withCount(['members', 'players'])->get();
 
         $nodes = $myCircles->map(fn (Circle $circle) => $this->circleNode($circle, $user, true))->values()->all();
+        $onMap = $myCircles->pluck('id')->map(fn ($id) => (int) $id)->all();
 
+        // Connections: every circle the user belongs to is linked to each of
+        // its members' personal circles. A member's personal circle is added to
+        // the map as a "connected" node (even when private) so the line between
+        // the two circles is visible to both sides after a join is approved.
+        $connections = [];
+        $connected = [];
+
+        foreach ($myCircles as $circle) {
+            foreach ($circle->members()->get() as $member) {
+                $personal = $member->personalCircle;
+
+                if (! $personal || (int) $personal->id === (int) $circle->id) {
+                    continue;
+                }
+
+                $connections[] = [
+                    'a' => (int) $circle->id,
+                    'b' => (int) $personal->id,
+                ];
+
+                if (! in_array((int) $personal->id, $onMap, true)) {
+                    $connected[(int) $personal->id] = $personal;
+                }
+            }
+        }
+
+        foreach ($connected as $personalCircle) {
+            $personalCircle->loadCount(['members', 'players']);
+            $node = $this->circleNode($personalCircle, $user, false, 'connected');
+
+            // A private circle stays private: don't leak its profile details to
+            // co-members, only enough to draw the connection line.
+            if (! $personalCircle->isDiscoverable()) {
+                $node['description'] = null;
+                $node['location_label'] = null;
+            }
+
+            $nodes[] = $node;
+            $onMap[] = (int) $personalCircle->id;
+        }
+
+        // Discoverable public circles (excluding anything already on the map).
         Circle::query()
             ->where('visibility', CircleVisibility::PUBLIC->value)
-            ->whereNotIn('id', $myCircles->pluck('id')->all())
+            ->whereNotIn('id', $onMap)
             ->withCount(['members', 'players'])
             ->orderBy('name')
             ->get()
@@ -322,24 +403,66 @@ class CircleService
             ])
             ->values();
 
+        // The "message sent back": outcomes of join requests this user has sent.
+        $notifications = $user->joinRequests()
+            ->with('circle')
+            ->whereIn('status', [
+                CircleJoinRequestStatus::APPROVED->value,
+                CircleJoinRequestStatus::DECLINED->value,
+            ])
+            ->latest('updated_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (CircleJoinRequest $r) => [
+                'id' => $r->id,
+                'circle_id' => $r->circle_id,
+                'circle_name' => $r->circle?->name,
+                'status' => $r->status->value,
+            ])
+            ->values()
+            ->all();
+
+        $myPlayerIds = Player::where('user_id', $user->id)
+            ->whereIn('circle_id', $myCircles->pluck('id')->all())
+            ->pluck('id', 'circle_id');
+
         $liveSessions = Session::whereIn('circle_id', $myCircles->pluck('id')->all())
+            ->whereIn('created_by', $myCircles->pluck('admin_id')->all())
             ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
+            ->withCount('sessionPlayers')
             ->orderBy('started_at')
             ->get()
-            ->map(fn (Session $session) => [
-                'id' => (int) $session->id,
-                'name' => $session->name,
-                'circle_id' => (int) $session->circle_id,
-                'circle_name' => $myCircles->firstWhere('id', $session->circle_id)?->name ?? 'Session',
-                'status' => $session->status->value,
-            ])
+            ->map(function (Session $session) use ($myCircles, $myPlayerIds) {
+                $myPlayerId = (int) $myPlayerIds->get($session->circle_id, 0);
+                $sp = $myPlayerId
+                    ? $session->sessionPlayers()->where('player_id', $myPlayerId)->first()
+                    : null;
+
+                return [
+                    'id' => (int) $session->id,
+                    'name' => $session->name,
+                    'circle_id' => (int) $session->circle_id,
+                    'circle_name' => $myCircles->firstWhere('id', $session->circle_id)?->name ?? 'Session',
+                    'status' => $session->status->value,
+                    'sport' => $session->sport?->value,
+                    'date' => $session->date?->toDateString(),
+                    'start_time' => $session->start_time,
+                    'number_of_courts' => (int) $session->number_of_courts,
+                    'player_count' => (int) $session->session_players_count,
+                    'my_player_id' => $myPlayerId ?: null,
+                    'joined' => $sp !== null && $sp->status !== SessionPlayerStatus::LEFT,
+                    'my_session_player_id' => $sp ? (int) $sp->id : null,
+                ];
+            })
             ->values()
             ->all();
 
         return [
             'personal_circle_id' => (int) ($user->personalCircle?->id ?? 0),
             'nodes' => $nodes,
+            'connections' => $connections,
             'pending_requests' => $pending,
+            'notifications' => $notifications,
             'live_sessions' => $liveSessions,
         ];
     }
@@ -416,7 +539,7 @@ class CircleService
     /**
      * Serialize a circle into a map node.
      */
-    private function circleNode(Circle $circle, ?User $viewer, bool $isMine): array
+    private function circleNode(Circle $circle, ?User $viewer, bool $isMine, ?string $kind = null): array
     {
         $members = [];
 
@@ -454,7 +577,7 @@ class CircleService
         return [
             'id' => $circle->id,
             'name' => $circle->name,
-            'kind' => $isMine ? ($isAdmin ? 'mine' : 'joined') : 'discoverable',
+            'kind' => $kind ?? ($isMine ? ($isAdmin ? 'mine' : 'joined') : 'discoverable'),
             'is_admin' => $isAdmin,
             'visibility' => $circle->visibility->value,
             'description' => $circle->description,
