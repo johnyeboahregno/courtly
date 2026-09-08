@@ -1093,8 +1093,9 @@ Courtly is installable as a PWA — the web app stays exactly as-is, and mobile 
 
 - **Manifest**: `public/manifest.webmanifest` — `display: standalone`, `start_url`/`scope` are relative (`./`) so they work at the domain root or under a sub-path. `theme_color`/`background_color` `#0b0e2a`.
 - **Service worker**: `public/sw.js` — a deliberate network pass-through (no cache). It exists only to satisfy installability requirements and to provide a clean place to add caching later. The app already has its own queue-based offline handling in `session-live.php`.
-- **Icons**: generated into `public/assets/icons/pwa/` by `tools/make-pwa-icons.php` (pure PHP — no GD/Imagick needed; it decodes the official logo, Catmull-Rom resamples it, and composites it onto a background). Navy set (`icon-192/512`, `icon-maskable-192/512`, `apple-touch-icon`) uses the light `courtly-mark-transparent.png` mark; light set (`icon-light-192/512`) uses `courtly-mark-dark.png`. Regenerate with `php tools/make-pwa-icons.php`.
+- **Icons**: generated into `public/assets/icons/pwa/` by `tools/make-pwa-icons.php` (pure PHP — no GD/Imagick needed; it decodes the official logo, Catmull-Rom resamples it, and composites it onto a background). Navy set (`icon-192/512`, `icon-maskable-192/512`, `apple-touch-icon`) uses the light `courtly-mark.png` mark; light set (`icon-light-192/512`) uses `courtly-mark-dark.png`. Regenerate with `php tools/make-pwa-icons.php`.
 - **Head snippet**: `resources/views/partials/pwa-head.php` outputs the manifest link, `theme-color`, iOS meta tags and the service-worker registration. Included by `session-live.php`, `stats.php`, `rankings.php`, `circles-map.php`, the dashboard route (`routes/web.php`) and the login/register pages (`AuthController::pwaHead()`).
+- **Icon cache-busting**: the manifest `<link>` and every icon `src` carry a `?v=` suffix. The `<link>` suffix is dynamic (`config('courtly.app.version')` via `pwa-head.php`), but `public/manifest.webmanifest` is a static file — when you bump `app.version`, update its icon `src` query strings to match, or Android/Chrome may keep serving the stale installed icon.
 
 ---
 

@@ -9,7 +9,7 @@
 $base = $base ?? rtrim(request()->getBasePath(), '/');
 $version = config('courtly.app.version', '1.0.0');
 ?>
-<link rel="manifest" href="<?= e($base) ?>/manifest.webmanifest">
+<link rel="manifest" href="<?= e($base) ?>/manifest.webmanifest?v=<?= e($version) ?>">
 <meta name="theme-color" content="#0b0e2a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
