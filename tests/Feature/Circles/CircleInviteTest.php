@@ -86,3 +86,28 @@ it('includes live sessions in the circle map', function () {
         ->assertJsonPath('data.live_sessions.0.id', $session->id)
         ->assertJsonPath('data.live_sessions.0.name', 'Live Meetup');
 });
+
+it('only shows live sessions created by the circle owner', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $member = User::factory()->create();
+    $member->circles()->attach($circle->id);
+
+    $memberSession = Session::factory()->active()->for($member, 'createdBy')->create([
+        'circle_id' => $circle->id,
+        'name' => 'Member Meetup',
+    ]);
+
+    $ownerSession = Session::factory()->active()->for($admin, 'createdBy')->create([
+        'circle_id' => $circle->id,
+        'name' => 'Owner Meetup',
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $ids = collect($this->getJson('/api/circles/map')->assertOk()->json('data.live_sessions'))->pluck('id')->all();
+
+    expect($ids)->toContain($ownerSession->id)
+        ->and($ids)->not->toContain($memberSession->id);
+});

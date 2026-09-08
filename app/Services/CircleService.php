@@ -427,6 +427,7 @@ class CircleService
             ->pluck('id', 'circle_id');
 
         $liveSessions = Session::whereIn('circle_id', $myCircles->pluck('id')->all())
+            ->whereIn('created_by', $myCircles->pluck('admin_id')->all())
             ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
             ->withCount('sessionPlayers')
             ->orderBy('started_at')
