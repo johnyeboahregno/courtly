@@ -110,4 +110,14 @@ class Player extends Model
     {
         return $this->circle->hasMember($user);
     }
+
+    /**
+     * Whether the given user can manage (rename, reset, delete) this player.
+     * Reading a shared circle's roster is member-based, but mutating it is
+     * reserved for the circle owner.
+     */
+    public function isManageableBy(User $user): bool
+    {
+        return $this->circle->isAdmin($user);
+    }
 }

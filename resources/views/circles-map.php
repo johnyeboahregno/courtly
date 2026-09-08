@@ -1211,7 +1211,12 @@ function toggleCourtlyTheme(){var next=COURT_THEMES[(COURT_THEMES.indexOf(courtl
 document.getElementById('btnTheme').addEventListener('click',toggleCourtlyTheme);
 document.getElementById('notifBell').addEventListener('click',toggleInbox);
 document.getElementById('recenter').addEventListener('click',recenter);
-document.getElementById('managePlayersBtn').addEventListener('click',()=>openManagePlayers(state.focusId||state.personalId));
+document.getElementById('managePlayersBtn').addEventListener('click',()=>{
+  const id=state.focusId||state.personalId;
+  const n=state.nodeMap[id];
+  if(!n||!n.is_admin){toast('You can only manage players in your own circle.');return}
+  openManagePlayers(id);
+});
 (function(){try{var s=localStorage.getItem('courtly-theme');if(COURT_THEMES.indexOf(s)!==-1&&s!=='dark')document.documentElement.setAttribute('data-theme',s)}catch(e){}updateThemeIcon()})();
 
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});

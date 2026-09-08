@@ -41,4 +41,18 @@ trait AuthorizesOwnership
             'You do not have access to this player.'
         );
     }
+
+    /**
+     * Ensure the authenticated user can manage (rename, reset, delete) the
+     * given player — reserved for the circle owner, unlike read access which
+     * is granted to every circle member.
+     */
+    protected function authorizePlayerManagement(Player $player): void
+    {
+        abort_unless(
+            $player->isManageableBy($this->currentUser()),
+            403,
+            'Only the circle owner can manage players.'
+        );
+    }
 }

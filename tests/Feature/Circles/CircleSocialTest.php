@@ -253,3 +253,49 @@ it('grants the admin access to the joiner\'s sessions after connecting', functio
     Sanctum::actingAs($admin);
     $this->getJson("/api/sessions/{$joinerSession->id}")->assertOk();
 });
+
+it('does not let a non-admin member manage players in a circle', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $member = User::factory()->create();
+    $member->circles()->attach($circle->id);
+
+    $player = Player::factory()->create(['circle_id' => $circle->id, 'name' => 'Alice']);
+
+    Sanctum::actingAs($member);
+
+    $this->patchJson("/api/players/{$player->id}", ['name' => 'Hacked'])->assertForbidden();
+    $this->postJson("/api/players/{$player->id}/reset-rating")->assertForbidden();
+    $this->deleteJson("/api/players/{$player->id}")->assertForbidden();
+
+    $this->assertDatabaseHas('players', ['id' => $player->id, 'name' => 'Alice']);
+});
+
+it('lets a non-admin member read a circle\'s players without managing them', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $member = User::factory()->create();
+    $member->circles()->attach($circle->id);
+
+    Player::factory()->create(['circle_id' => $circle->id, 'name' => 'Alice']);
+
+    Sanctum::actingAs($member);
+
+    $this->getJson("/api/players?circle_id={$circle->id}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+});
+
+it('lets the circle owner manage players', function () {
+    $admin = User::factory()->create();
+    $circle = Circle::factory()->create(['admin_id' => $admin->id]);
+
+    $player = Player::factory()->create(['circle_id' => $circle->id, 'name' => 'Alice']);
+
+    Sanctum::actingAs($admin);
+
+    $this->patchJson("/api/players/{$player->id}", ['name' => 'Alicia'])->assertOk();
+    $this->assertDatabaseHas('players', ['id' => $player->id, 'name' => 'Alicia']);
+});
