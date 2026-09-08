@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\CircleJoinRequestStatus;
 use App\Enums\CircleVisibility;
+use App\Enums\SessionPlayerStatus;
 use App\Enums\SessionStatus;
 use App\Models\Circle;
 use App\Models\CircleJoinRequest;
@@ -24,17 +25,17 @@ use Illuminate\Support\Facades\Mail;
 class CircleService
 {
     /**
-     * Create the user's personal circle and make them a member.
-     * The requested name (if any) always has " Circle" appended, then is
-     * disambiguated to remain unique.
+     * Create the user's personal circle and make them a member. The requested
+     * name is used as-is; blank falls back to the user's name. Disambiguated
+     * to remain unique.
      */
     public function createPersonalCircle(User $user, ?string $requestedName = null): Circle
     {
         $base = trim((string) $requestedName);
 
         $desired = $base !== ''
-            ? $base.' Circle'
-            : $user->name."'s Circle";
+            ? $base
+            : (trim((string) $user->name) !== '' ? trim((string) $user->name) : 'Circle');
 
         $circle = Circle::create([
             'name' => Circle::uniqueName($desired),
@@ -421,17 +422,37 @@ class CircleService
             ->values()
             ->all();
 
+        $myPlayerIds = Player::where('user_id', $user->id)
+            ->whereIn('circle_id', $myCircles->pluck('id')->all())
+            ->pluck('id', 'circle_id');
+
         $liveSessions = Session::whereIn('circle_id', $myCircles->pluck('id')->all())
             ->whereIn('status', [SessionStatus::ACTIVE->value, SessionStatus::PAUSED->value])
+            ->withCount('sessionPlayers')
             ->orderBy('started_at')
             ->get()
-            ->map(fn (Session $session) => [
-                'id' => (int) $session->id,
-                'name' => $session->name,
-                'circle_id' => (int) $session->circle_id,
-                'circle_name' => $myCircles->firstWhere('id', $session->circle_id)?->name ?? 'Session',
-                'status' => $session->status->value,
-            ])
+            ->map(function (Session $session) use ($myCircles, $myPlayerIds) {
+                $myPlayerId = (int) $myPlayerIds->get($session->circle_id, 0);
+                $sp = $myPlayerId
+                    ? $session->sessionPlayers()->where('player_id', $myPlayerId)->first()
+                    : null;
+
+                return [
+                    'id' => (int) $session->id,
+                    'name' => $session->name,
+                    'circle_id' => (int) $session->circle_id,
+                    'circle_name' => $myCircles->firstWhere('id', $session->circle_id)?->name ?? 'Session',
+                    'status' => $session->status->value,
+                    'sport' => $session->sport?->value,
+                    'date' => $session->date?->toDateString(),
+                    'start_time' => $session->start_time,
+                    'number_of_courts' => (int) $session->number_of_courts,
+                    'player_count' => (int) $session->session_players_count,
+                    'my_player_id' => $myPlayerId ?: null,
+                    'joined' => $sp !== null && $sp->status !== SessionPlayerStatus::LEFT,
+                    'my_session_player_id' => $sp ? (int) $sp->id : null,
+                ];
+            })
             ->values()
             ->all();
 
