@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+ini_set('memory_limit', '512M');
+
 /**
  * Generate Courtly PWA icons from the official logo mark.
  *
@@ -19,8 +21,8 @@ if (! function_exists('gzuncompress')) {
 $assetDir = __DIR__ . '/../public/assets';
 $outDir = $assetDir . '/icons/pwa';
 
-$lightMarkPath = $assetDir . '/courtly-mark-transparent.png'; // white "C" + dot, transparent
-$darkMarkPath  = $assetDir . '/courtly-mark-dark.png';        // dark "C" + dot, for light backgrounds
+$lightMarkPath = $assetDir . '/courtly-mark.png';      // light mark (white "C" + dot) on transparent
+$darkMarkPath  = $assetDir . '/courtly-mark-dark.png'; // dark mark (navy "C" + dot) on transparent
 
 if (! is_dir($outDir) && ! mkdir($outDir, 0777, true) && ! is_dir($outDir)) {
     fwrite(STDERR, "Cannot create output directory: {$outDir}\n");
@@ -423,14 +425,14 @@ $maskSizes = [192, 512];
 
 $targets = [];
 foreach ($anySizes as $s) {
-    $targets["icon-{$s}.png"]       = [$s, $lightMark, $navy, false, 0.64];
-    $targets["icon-light-{$s}.png"] = [$s, $darkMark, $paper, false, 0.64];
+    $targets["icon-{$s}.png"]       = [$s, $lightMark, $navy, false, 0.78];
+    $targets["icon-light-{$s}.png"] = [$s, $darkMark, $paper, false, 0.78];
 }
 foreach ($maskSizes as $s) {
-    $targets["icon-maskable-{$s}.png"]       = [$s, $lightMark, $navy, true, 0.52];
-    $targets["icon-light-maskable-{$s}.png"] = [$s, $darkMark, $paper, true, 0.52];
+    $targets["icon-maskable-{$s}.png"]       = [$s, $lightMark, $navy, true, 0.58];
+    $targets["icon-light-maskable-{$s}.png"] = [$s, $darkMark, $paper, true, 0.58];
 }
-$targets['apple-touch-icon.png'] = [180, $lightMark, $navy, true, 0.60];
+$targets['apple-touch-icon.png'] = [180, $lightMark, $navy, true, 0.68];
 
 foreach ($targets as $file => [$size, $mark, $bg, $fullBleed, $markScale]) {
     $raw = renderIconRaw($size, $mark[2], $mark[0], $mark[1], $bg, $fullBleed, $markScale);
