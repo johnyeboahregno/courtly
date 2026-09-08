@@ -48,7 +48,11 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .map-header{position:fixed;top:0;left:0;right:0;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 16px;z-index:40;background:linear-gradient(180deg,rgba(8,10,30,.94),rgba(8,10,30,.55));backdrop-filter:blur(10px);pointer-events:none}
 .map-header>*{pointer-events:auto}
 .map-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;letter-spacing:.01em;color:var(--text);text-decoration:none}
-.map-brand img{width:30px;height:30px;object-fit:contain}
+.map-brand__img{width:30px;height:30px;object-fit:contain;display:block}
+.map-brand__img--dark{display:none}
+[data-theme="light"] .map-brand__img--light{display:none}
+[data-theme="light"] .map-brand__img--dark{display:block}
+@media (prefers-color-scheme: light){:root:not([data-theme]) .map-brand__img--light{display:none}:root:not([data-theme]) .map-brand__img--dark{display:block}}
 .map-brand b{color:var(--accent2)}
 .map-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .map-pill{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;letter-spacing:.03em;padding:6px 13px;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);background:transparent;text-decoration:none;font-weight:700;transition:border-color .15s,color .15s,background .15s}
@@ -204,7 +208,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
   /* Header — compact two-row layout: brand + score on top, nav scrolls below */
   .map-header{padding:8px 10px;gap:8px;min-height:0;justify-content:space-between}
   .map-brand{font-size:.92rem;gap:6px}
-  .map-brand img{width:24px;height:24px}
+  .map-brand__img{width:24px;height:24px}
   .hud{margin-left:auto;gap:10px}
   .hud__name{display:none}
   .hud__score .n{font-size:1.25rem}
@@ -250,7 +254,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </head>
 <body>
 <header class="map-header">
-  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt=""><span>COURT<b>LY</b></span></a>
+  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="" class="map-brand__img map-brand__img--light"><img src="<?= $base ?>/assets/courtly-mark-dark.png" alt="" class="map-brand__img map-brand__img--dark"><span>COURT<b>LY</b></span></a>
   <div class="hud">
     <div class="hud__name" id="hudName">—</div>
     <div class="hud__score"><div class="n" id="hudScore">—</div><div class="l">NETWORK SCORE</div></div>

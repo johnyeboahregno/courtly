@@ -4,7 +4,8 @@ $active = $active ?? 'sessions';
 ?>
 <header class="app-header">
     <a class="app-brand" href="<?= e($base) ?>/circles" title="Circles home">
-        <img src="<?= e($base) ?>/assets/courtly-mark.png" alt="Courtly">
+        <img src="<?= e($base) ?>/assets/courtly-mark.png" alt="Courtly" class="app-brand__img app-brand__img--light">
+        <img src="<?= e($base) ?>/assets/courtly-mark-dark.png" alt="Courtly" class="app-brand__img app-brand__img--dark">
         <span>COURT<b>LY</b></span>
     </a>
     <nav class="app-nav" aria-label="Main navigation">

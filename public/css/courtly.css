@@ -3538,7 +3538,14 @@ textarea,
     color: var(--text);
     text-decoration: none;
 }
-.app-brand img { width: 30px; height: 30px; object-fit: contain; display: block; }
+.app-brand__img { width: 30px; height: 30px; object-fit: contain; display: block; }
+.app-brand__img--dark { display: none; }
+[data-theme="light"] .app-brand__img--light { display: none; }
+[data-theme="light"] .app-brand__img--dark { display: block; }
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .app-brand__img--light { display: none; }
+    :root:not([data-theme]) .app-brand__img--dark { display: block; }
+}
 .app-brand b { color: var(--accent-2); font-weight: 900; }
 .app-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .app-pill {
@@ -3587,7 +3594,7 @@ textarea,
 @media (max-width: 767px) {
     .app-header { gap: 10px; padding: 10px 12px; }
     .app-brand { font-size: 0.95rem; gap: 7px; }
-    .app-brand img { width: 24px; height: 24px; }
+    .app-brand__img { width: 24px; height: 24px; }
     .app-actions { margin-left: auto; }
     .app-nav {
         order: 3;
