@@ -395,24 +395,18 @@ function layout(){
   state.positions=pos;
 }
 
-function attachmentsFor(){
+function attachmentsFor(node){
   const list=[];
-  const seenM=new Set();
-  state.nodes.forEach(n=>{
-    if(n.kind==='mine'||n.kind==='joined'){
-      (n.members||[]).forEach(m=>{
-        if(!seenM.has('u'+m.user_id)){seenM.add('u'+m.user_id);list.push(Object.assign({type:'member',key:'m'+m.user_id},m));}
-      });
-    }
-  });
-  state.liveSessions.forEach(s=>list.push(Object.assign({type:'session',key:'s'+s.id},s)));
+  (node && node.members ? node.members : []).forEach(m=>list.push(Object.assign({type:'member',key:'m'+m.user_id},m)));
+  if(node)state.liveSessions.filter(s=>s.circle_id===node.id).forEach(s=>list.push(Object.assign({type:'session',key:'s'+s.id},s)));
   return list;
 }
 
 function computeAttachPositions(){
   const focusId=state.focusId||state.personalId;
+  const node=state.nodeMap[focusId];
   const base=state.positions[focusId]||{x:0,y:0};
-  const list=attachmentsFor();
+  const list=attachmentsFor(node);
   const ring=i=>(206+i*56)/2; // radius of the decorative .cnode__rings lines
   const place=(items,R,offset)=>items.map((item,i)=>{
     const def=(i/Math.max(items.length,1))*Math.PI*2-Math.PI/2+offset;
