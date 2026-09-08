@@ -12,6 +12,7 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
 <meta name="csrf-token" content="<?= e($csrf) ?>">
 <title>Circles — Courtly</title>
 <link rel="icon" type="image/png" href="<?= $base ?>/assets/favicon.png?v=<?= e($version) ?>">
+<?php include resource_path('views/partials/pwa-head.php'); ?>
 <style>
 :root{
   --bg:#0b0e2a;

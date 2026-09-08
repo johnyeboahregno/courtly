@@ -97,6 +97,10 @@ Route::get('/', function () {
     include resource_path('views/partials/app-header.php');
     $headerHtml = ob_get_clean();
 
+    ob_start();
+    include resource_path('views/partials/pwa-head.php');
+    $pwaHead = ob_get_clean();
+
     $circleId = \Illuminate\Support\Facades\Auth::user()->personalCircle?->id;
 
     $sessions = \App\Models\Session::select('id', 'name', 'sport', 'date', 'number_of_courts', 'status', 'matchmaking_mode')
@@ -242,6 +246,7 @@ Route::get('/', function () {
         h2.list-title{margin-top:28px;margin-bottom:12px}
         .brand-word{font-family:"Arial Black","Space Grotesk","Manrope",sans-serif;font-size:1.7rem;font-weight:900;letter-spacing:.01em;line-height:1;color:var(--text)}
     </style>
+    '.$pwaHead.'
     </head><body><div class="wrap">
         '.$headerHtml.'
         <div class="view" id="view-sessions">

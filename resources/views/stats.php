@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title>Player Stats — Courtly</title>
     <link rel="icon" type="image/png" href="<?= e($base ?? '') ?>/assets/favicon.png?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
+    <?php include resource_path('views/partials/pwa-head.php'); ?>
     <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <style>
         .stats-wrap { width: 100%; padding: 24px 20px 64px; }

@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title>Courtly — <?= htmlspecialchars($sessionName ?? 'Session') ?></title>
     <link rel="icon" type="image/png" href="<?= $base ?? '/courtly' ?>/assets/favicon.png?v=<?= htmlspecialchars($appVersion ?? '1.0.0') ?>">
+    <?php include resource_path('views/partials/pwa-head.php'); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
