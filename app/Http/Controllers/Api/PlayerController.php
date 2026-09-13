@@ -287,6 +287,8 @@ class PlayerController extends Controller
         \Illuminate\Support\Facades\DB::transaction(function () use ($player) {
             // Remove from all sessions
             \App\Models\SessionPlayer::where('player_id', $player->id)->delete();
+            // Remove from any tournament teams (FK has no cascade)
+            \App\Models\TournamentTeamPlayer::where('player_id', $player->id)->delete();
             // Delete match participation records
             \App\Models\MatchPlayer::where('player_id', $player->id)->delete();
             // Delete rating history
