@@ -15,7 +15,7 @@ class SendDeployEmail extends Command
 
     public function handle(): int
     {
-        $to = $this->argument('to') ?: (string) config('mail.from.address');
+        $to = $this->argument('to') ?: (string) config('courtly.deploy_email', 'appdeployments@regno.ai');
         $version = (string) config('courtly.app.version', '1.0.0');
 
         try {

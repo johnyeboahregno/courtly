@@ -29,13 +29,15 @@ $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
   --gold:#ffc24b;
   --glow1:rgba(60,60,160,.14);
   --glow2:rgba(120,50,160,.08);
+  --graticule:rgba(120,140,255,.07);
+  --land:rgba(120,150,255,.10);
+  --land-line:rgba(140,160,255,.22);
 }
 [data-theme="blue"]{--bg:#0f172a;--panel:rgba(15,23,42,.92);--stroke:rgba(147,197,253,.28);--text:#e5e7eb;--muted:#b7c1d1;--accent:#3b82f6;--accent2:#60a5fa;--cyan:#93c5fd;--team1:#3b82f6;--team2:#10b981;--gold:#fbbf24;--glow1:rgba(59,130,246,.11);--glow2:rgba(147,197,253,.07)}
 [data-theme="cyber"]{--bg:#04151f;--panel:rgba(6,30,40,.88);--stroke:rgba(0,229,255,.22);--text:#d8f7ff;--muted:#7fb8c8;--accent:#00e5ff;--accent2:#00ff9d;--cyan:#7df3ff;--team1:#00e5ff;--team2:#00ff9d;--gold:#ffd166;--glow1:rgba(0,229,255,.10);--glow2:rgba(0,255,157,.06)}
 [data-theme="emerald"]{--bg:#061711;--panel:rgba(8,28,20,.88);--stroke:rgba(0,199,100,.22);--text:#e1fff0;--muted:#8fc7aa;--accent:#00c764;--accent2:#22d3ee;--cyan:#22d3ee;--team1:#00c764;--team2:#22d3ee;--gold:#ffd166;--glow1:rgba(0,199,100,.10);--glow2:rgba(34,211,238,.06)}
-[data-theme="light"]{--bg:#f5f5fa;--panel:rgba(255,255,255,.95);--stroke:rgba(15,23,42,.15);--text:#0f172a;--muted:#475569;--accent:#6d4fff;--accent2:#d61e7b;--cyan:#0e7490;--team1:#2563eb;--team2:#059669;--gold:#b45309;--glow1:rgba(99,102,241,.06);--glow2:rgba(217,70,239,.04)}
+[data-theme="light"]{--bg:#f5f5fa;--panel:rgba(255,255,255,.95);--stroke:rgba(15,23,42,.15);--text:#0f172a;--muted:#475569;--accent:#6d4fff;--accent2:#d61e7b;--cyan:#0e7490;--team1:#2563eb;--team2:#059669;--gold:#b45309;--glow1:rgba(99,102,241,.06);--glow2:rgba(217,70,239,.04);--graticule:rgba(15,23,42,.08);--land:rgba(15,23,42,.07);--land-line:rgba(15,23,42,.20)}
 [data-theme="light"] .map-header{background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.6))}
-[data-theme="light"] #grid{background-image:linear-gradient(rgba(15,23,42,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.06) 1px,transparent 1px)}
 [data-theme="light"] .link{stroke:rgba(15,23,42,.30)}
 [data-theme="light"] .link--soft{stroke:rgba(15,23,42,.16)}
 *{box-sizing:border-box}
@@ -77,14 +79,9 @@ input,textarea{user-select:text;-webkit-user-select:text}
   var(--bg)}
 #map.dragging{cursor:grabbing}
 #world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
-#grid{position:absolute;left:-2400px;top:-2400px;width:4800px;height:4800px;
-  background-image:
-    linear-gradient(rgba(120,140,255,.055) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(120,140,255,.055) 1px,transparent 1px);
-  background-size:64px 64px;
-  -webkit-mask:radial-gradient(circle at center,rgba(0,0,0,.9),rgba(0,0,0,.15) 70%,transparent);
-  mask:radial-gradient(circle at center,rgba(0,0,0,.9),rgba(0,0,0,.15) 70%,transparent)}
-#landmass{position:absolute;left:-2400px;top:-2400px;pointer-events:none}
+#globe{position:absolute;left:-2400px;top:-1200px;pointer-events:none}
+#globe .graticule{stroke:var(--graticule);stroke-width:1}
+#globe .land{fill:var(--land);stroke:var(--land-line);stroke-width:1.5;stroke-linejoin:round}
 #links{position:absolute;left:-2400px;top:-2400px;width:4800px;height:4800px;pointer-events:none;overflow:visible}
 .link{fill:none;stroke-linecap:round}
 .link--soft{opacity:.5}
@@ -100,6 +97,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .cnode--visiting .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#3a1f63;border-color:rgba(180,120,255,.55);box-shadow:0 0 0 1px rgba(180,120,255,.2),0 0 16px rgba(160,100,255,.4),0 6px 24px rgba(0,0,0,.5)}
 .cnode--joined .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.22),transparent 45%),var(--c,var(--cyan));border-color:rgba(255,255,255,.35)}
 .cnode--connected .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#0f5c4d;border-color:rgba(0,199,100,.5);box-shadow:0 0 0 1px rgba(0,199,100,.2),0 0 14px rgba(0,199,100,.3),0 6px 22px rgba(0,0,0,.5)}
+.cnode--cluster .cnode__core{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.18),transparent 45%),#1a2b5e;border:1.5px dashed rgba(140,160,255,.55);box-shadow:0 0 0 1px rgba(140,160,255,.2),0 0 18px rgba(90,130,255,.35),0 6px 24px rgba(0,0,0,.5)}
 .cnode__core--hub{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.24),transparent 52%),var(--c,var(--accent));box-shadow:0 0 0 2px rgba(255,255,255,.28),0 0 14px var(--c,var(--accent)),0 0 28px var(--c,var(--accent)),0 10px 28px rgba(0,0,0,.5)}
 .hub{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
 .hub__num{font-size:2.05rem;font-weight:900;text-shadow:0 2px 14px rgba(0,0,0,.65)}
@@ -144,6 +142,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .scard__txt .t{font-size:.6rem;letter-spacing:.14em;color:var(--muted);font-weight:800}
 .scard__txt .s{font-size:.68rem;color:var(--text);font-weight:700;margin-top:3px}
 .scard__name{font-size:1rem;font-weight:900;color:#fff;letter-spacing:.01em;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scard__location{font-size:.68rem;color:var(--muted);font-weight:700;letter-spacing:.04em;margin-top:2px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scard--row{justify-content:space-between;gap:20px}
 .scard__cell .v{font-size:1.45rem;font-weight:900;color:#fff;line-height:1}
 .scard__cell .t{font-size:.58rem;letter-spacing:.12em;color:var(--muted);font-weight:800;margin-top:4px}
@@ -310,15 +309,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 
 <div id="map">
   <div id="world">
-    <div id="grid"></div>
-    <svg id="landmass" viewBox="0 0 4800 4800" width="4800" height="4800">
-      <g fill="rgba(120,150,255,.06)" stroke="rgba(120,150,255,.08)" stroke-width="2">
-        <path d="M900 1200 Q1250 950 1550 1150 Q1800 1300 2100 1150 Q2350 1000 2150 1450 Q2000 1850 2250 2200 Q2500 2600 2250 2950 Q2050 3250 1600 3200 Q1150 3150 1000 2800 Q850 2450 900 2050 Q940 1650 900 1200Z"/>
-        <path d="M2600 900 Q3000 700 3400 900 Q3750 1100 3900 1400 Q4050 1750 3850 2050 Q3650 2300 3300 2250 Q3000 2200 2850 1900 Q2700 1550 2600 1200Z"/>
-        <path d="M1150 3400 Q1500 3200 1850 3350 Q2200 3500 2450 3350 Q2650 3200 2800 3450 Q2950 3700 2750 4000 Q2550 4250 2100 4300 Q1650 4350 1300 4200 Q1050 4050 1150 3750Z"/>
-        <path d="M3300 2500 Q3600 2400 3900 2600 Q4200 2850 4100 3150 Q4000 3450 3650 3500 Q3350 3550 3200 3300 Q3050 3050 3150 2750Z"/>
-      </g>
-    </svg>
+    <svg id="globe" viewBox="0 0 4800 2400" width="4800" height="2400"></svg>
     <svg id="links" viewBox="0 0 4800 4800" width="4800" height="4800"></svg>
     <div id="nodes"></div>
   </div>
@@ -341,6 +332,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
     <div class="scard__ring" id="scRing"><span class="n" id="scScore">—</span></div>
     <div class="scard__txt">
       <div class="scard__name" id="scName">FOCUSED CIRCLE</div>
+      <div class="scard__location" id="scLocation">—</div>
       <div class="t">NETWORK SCORE</div>
       <div class="s" id="scScoreCap">0–100 engagement</div>
     </div>
@@ -365,6 +357,7 @@ const state = {
   nodes: [], nodeMap: {}, positions: {}, personalId: null,
   focusId: null, pending: [], liveSessions: [], connections: [], notifications: [], unreadNotifs: 0,
   nodePos: {}, focusedAttachments: [], orbitAngles: {}, lastFocusId: null, lastClickId: null, lastClickTime: 0,
+  clusters: [], clusteredIds: new Set(), expandedCells: new Set(),
   view: { x: 0, y: 0, scale: 1 },
   drag: null, pointers: new Map(), lastWheel: 0,
 };
@@ -376,6 +369,54 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 function initialsOf(name){const p=String(name||'?').trim().split(/\s+/);const a=p[0]?p[0][0]:'?';const b=p.length>1?p[p.length-1][0]:'';return (a+b).toUpperCase()}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},2600)}
 const NODE_COLORS=['#7c5cff','#39d0ff','#8b5cf6','#00c764','#3b82f6','#ff8a5c','#a06bff','#00e0a0'];function colorFor(id){return NODE_COLORS[id%NODE_COLORS.length]}function nodeColor(n){return n&&n.kind==='mine'?'var(--accent)':colorFor(n.id)}
+
+/* ── geography: equirectangular projection + rough world map ── */
+const GEO_PX=2400/180; // px per degree (world half-width 2400)
+const CLUSTER_DEG=2;   // degrees per cluster cell (~220km — "same area")
+function hasGeo(n){return !!(n&&n.latitude!=null&&n.longitude!=null)}
+function geoToWorld(lat,lng){return{x:lng*GEO_PX,y:-lat*GEO_PX}}
+function clusterKey(n){return Math.round(n.longitude/CLUSTER_DEG)+':'+Math.round(n.latitude/CLUSTER_DEG)}
+const LAND=[
+  // North America
+  [[-168,66],[-166,61],[-158,58],[-145,60],[-135,57],[-128,53],[-124,48],[-122,40],[-118,34],[-110,26],[-105,20],[-98,22],[-90,28],[-84,30],[-81,26],[-82,32],[-78,35],[-75,37],[-70,42],[-66,45],[-60,47],[-56,52],[-59,58],[-66,60],[-75,62],[-85,65],[-95,68],[-110,70],[-128,70],[-148,71],[-168,66]],
+  // Greenland
+  [[-45,60],[-55,66],[-53,72],[-45,78],[-33,83],[-21,82],[-18,76],[-23,70],[-31,64],[-45,60]],
+  // South America
+  [[-78,8],[-70,12],[-62,10],[-52,5],[-46,-2],[-38,-6],[-35,-11],[-39,-16],[-41,-22],[-48,-28],[-55,-33],[-62,-40],[-68,-50],[-72,-54],[-75,-50],[-72,-40],[-70,-30],[-75,-22],[-80,-14],[-81,-6],[-78,8]],
+  // Europe
+  [[-9,43],[-9,37],[-2,36],[3,41],[8,44],[13,47],[18,54],[25,60],[30,63],[42,67],[52,69],[60,71],[42,72],[28,70],[18,65],[10,59],[4,54],[0,50],[-9,43]],
+  // Africa
+  [[-17,15],[-17,22],[-10,31],[-4,35],[10,37],[20,32],[32,31],[42,28],[51,15],[48,11],[42,0],[36,-8],[32,-17],[28,-28],[20,-34],[18,-35],[15,-30],[11,-18],[6,-5],[2,5],[-8,4],[-17,15]],
+  // Asia
+  [[30,61],[42,68],[58,72],[78,73],[100,75],[120,72],[140,70],[160,67],[178,66],[180,62],[170,58],[158,53],[145,50],[132,43],[122,37],[112,22],[105,10],[100,5],[95,8],[90,12],[84,17],[77,24],[72,25],[66,25],[60,28],[55,28],[48,30],[43,38],[38,48],[30,61]],
+  // Australia
+  [[113,-22],[120,-20],[130,-13],[140,-12],[150,-15],[154,-23],[152,-28],[146,-38],[135,-35],[125,-32],[116,-29],[113,-22]],
+];
+function buildWorld(){
+  const svg=document.getElementById('globe');
+  if(!svg)return;
+  const NS='http://www.w3.org/2000/svg',W=4800,H=2400;
+  const px=lon=>(lon+180)/360*W, py=lat=>(90-lat)/180*H;
+  const g=document.createElementNS(NS,'g');g.setAttribute('class','graticule');
+  for(let lon=-180;lon<=180;lon+=30){const l=document.createElementNS(NS,'line');l.setAttribute('x1',px(lon));l.setAttribute('y1',0);l.setAttribute('x2',px(lon));l.setAttribute('y2',H);g.appendChild(l);}
+  for(let lat=-60;lat<=60;lat+=30){const l=document.createElementNS(NS,'line');l.setAttribute('x1',0);l.setAttribute('y1',py(lat));l.setAttribute('x2',W);l.setAttribute('y2',py(lat));g.appendChild(l);}
+  svg.appendChild(g);
+  const land=document.createElementNS(NS,'g');land.setAttribute('class','land');
+  LAND.forEach(poly=>{
+    const pts=poly.map(pt=>[px(pt[0]),py(pt[1])]);
+    let d='M'+pts[0][0].toFixed(1)+' '+pts[0][1].toFixed(1);
+    const n=pts.length;
+    for(let i=0;i<n;i++){
+      const p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
+      const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6;
+      const c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
+      d+='C'+c1x.toFixed(1)+' '+c1y.toFixed(1)+','+c2x.toFixed(1)+' '+c2y.toFixed(1)+','+p2[0].toFixed(1)+' '+p2[1].toFixed(1);
+    }
+    d+='Z';
+    const p=document.createElementNS(NS,'path');p.setAttribute('d',d);land.appendChild(p);
+  });
+  svg.appendChild(land);
+}
 
 /* ── api ────────────────────────────────────────────────── */
 async function api(path, opts={}){
@@ -394,13 +435,36 @@ function layout(){
   const pos={};
   const byKind=k=>state.nodes.filter(n=>n.kind===k);
   const mine=state.nodes.find(n=>n.id===state.personalId);
-  if(mine)pos[mine.id]={x:0,y:0};
+  const minePos=(mine&&hasGeo(mine))?geoToWorld(mine.latitude,mine.longitude):{x:0,y:0};
+  if(mine)pos[mine.id]=minePos;
   const joined=byKind('joined');
-  joined.forEach((n,i)=>{const a=(i/Math.max(joined.length,1))*Math.PI*2-Math.PI/2;pos[n.id]={x:Math.cos(a)*460,y:Math.sin(a)*460}});
+  joined.forEach((n,i)=>{const a=(i/Math.max(joined.length,1))*Math.PI*2-Math.PI/2;pos[n.id]={x:minePos.x+Math.cos(a)*460,y:minePos.y+Math.sin(a)*460}});
   const conn=byKind('connected');
-  conn.forEach((n,i)=>{const a=(i/Math.max(conn.length,1))*Math.PI*2+Math.PI/4;pos[n.id]={x:Math.cos(a)*600,y:Math.sin(a)*600}});
-  const disc=byKind('discoverable');
-  disc.forEach(n=>{const h=hashId(n.id),h2=hashId(n.id*7+13);const a=h*Math.PI*2;const r=760+h2*980;pos[n.id]={x:Math.cos(a)*r,y:Math.sin(a)*r}});
+  conn.forEach((n,i)=>{if(hasGeo(n))return;const a=(i/Math.max(conn.length,1))*Math.PI*2+Math.PI/4;pos[n.id]={x:minePos.x+Math.cos(a)*600,y:minePos.y+Math.sin(a)*600}});
+  const geoNodes=[];
+  conn.forEach(n=>{if(hasGeo(n))geoNodes.push(n)});
+  byKind('discoverable').forEach(n=>{if(hasGeo(n))geoNodes.push(n);else{const h=hashId(n.id),h2=hashId(n.id*7+13);const a=h*Math.PI*2;const r=760+h2*980;pos[n.id]={x:Math.cos(a)*r,y:Math.sin(a)*r}}});
+  // cluster geographically-placed nodes that share a ~2° cell
+  const cells={};
+  geoNodes.forEach(n=>{(cells[clusterKey(n)]=cells[clusterKey(n)]||[]).push(n)});
+  const clusters=[];const inCluster=new Set();
+  Object.values(cells).forEach(members=>{
+    const key=clusterKey(members[0]);
+    if(members.length>=2&&!state.expandedCells.has(key)){
+      const x=members.reduce((s,m)=>s+geoToWorld(m.latitude,m.longitude).x,0)/members.length;
+      const y=members.reduce((s,m)=>s+geoToWorld(m.latitude,m.longitude).y,0)/members.length;
+      const first=members.find(m=>m.location_label)||members[0];
+      clusters.push({key,x,y,members,location_label:first.location_label||null});
+      members.forEach(m=>{inCluster.add(m.id);pos[m.id]={x,y}});
+    }else{
+      members.forEach((m,i)=>{
+        const p=geoToWorld(m.latitude,m.longitude);
+        if(state.expandedCells.has(key)&&members.length>1){const a=i*2.39996,r=34*Math.sqrt(i+1);p.x+=Math.cos(a)*r;p.y+=Math.sin(a)*r;}
+        pos[m.id]=p;
+      });
+    }
+  });
+  state.clusters=clusters;state.clusteredIds=inCluster;
   const focusPos=pos[state.focusId]||pos[state.personalId]||{x:0,y:0};
   byKind('visiting').forEach(n=>{const h=hashId(n.id);const a=h*Math.PI*2;pos[n.id]={x:focusPos.x+Math.cos(a)*300,y:focusPos.y+Math.sin(a)*300}});
   for(const id in state.nodePos){pos[id]=state.nodePos[id];}
@@ -477,6 +541,23 @@ function buildNode(n,p,focused){
   el.addEventListener('pointerdown',e=>onNodePointerDown(e,n,el));
   el.addEventListener('contextmenu',e=>{e.preventDefault();openPopover(el,n)});
   return el;
+}
+
+function buildCluster(c){
+  const el=document.createElement('div');
+  el.className='cnode cnode--cluster';
+  el.style.left=c.x+'px';el.style.top=c.y+'px';
+  const size=Math.min(96,58+c.members.length*6);
+  el.innerHTML=`<div class="cnode__inner"><div class="cnode__wrap" style="width:${size}px;height:${size}px;--c:#39d0ff"><div class="cnode__core" style="font-size:${Math.round(size*0.34)}px">${c.members.length}<span style="display:block;font-size:.42em;letter-spacing:.12em;margin-top:2px">CIRCLES</span></div></div></div>`;
+  el.addEventListener('pointerdown',e=>{e.stopPropagation();expandCluster(c);});
+  return el;
+}
+
+function expandCluster(c){
+  state.expandedCells.add(c.key);
+  layout();render();
+  const mapEl=document.getElementById('map');
+  animateView(mapEl.clientWidth/2-c.x*state.view.scale,mapEl.clientHeight/2-c.y*state.view.scale,Math.max(state.view.scale,1.1));
 }
 
 function buildSessionNode(s,p){
@@ -574,9 +655,11 @@ function render(){
   const focusId=state.focusId||state.personalId;
   computeAttachPositions();
   for(const n of state.nodes){
+    if(state.clusteredIds.has(n.id))continue;
     const p=state.positions[n.id]||{x:0,y:0};
     nodesEl.appendChild(buildNode(n,p,n.id===focusId));
   }
+  (state.clusters||[]).forEach(c=>nodesEl.appendChild(buildCluster(c)));
   state.focusedAttachments.forEach(a=>{
     const p={x:a.x,y:a.y};
     if(a.type==='session')nodesEl.appendChild(buildSessionNode(a,p));
@@ -693,6 +776,12 @@ function updateHud(focusId){
   updateStatCards(focusId);
 }
 
+function countryOf(node){
+  if(!node||!node.location_label)return null;
+  const parts=String(node.location_label).split(',').map(s=>s.trim()).filter(Boolean);
+  return parts.length?parts[parts.length-1]:null;
+}
+
 function updateStatCards(focusId){
   const n=state.nodeMap[focusId];
   const score=n?(n.network_score||0):0;
@@ -702,6 +791,8 @@ function updateStatCards(focusId){
   if(ring)ring.style.setProperty('--p',score);
   const name=document.getElementById('scName');
   if(name)name.textContent=n?n.name:'FOCUSED CIRCLE';
+  const loc=document.getElementById('scLocation');
+  if(loc)loc.textContent=countryOf(n)||'—';
 }
 
 /* ── view transform ─────────────────────────────────────── */
@@ -1277,7 +1368,7 @@ document.getElementById('managePlayersBtn').addEventListener('click',()=>{
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});
 
 /* boot */
-(async()=>{ await loadMap(); await handleJoinParam(); })();
+(async()=>{ buildWorld(); await loadMap(); await handleJoinParam(); })();
 setInterval(refreshMap,15000);
 </script>
 </body>

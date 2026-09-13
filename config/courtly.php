@@ -16,6 +16,9 @@ return [
 
         // Short label shown next to the COURTLY wordmark in the headers.
         'version_label' => '.beta',
+
+        // Where deployment-success emails are sent.
+        'deploy_email' => env('DEPLOY_EMAIL', 'appdeployments@regno.ai'),
     ],
 
     /*

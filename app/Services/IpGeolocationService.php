@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Best-effort, city-level IP geolocation. Falls back to null on any failure
@@ -29,14 +29,14 @@ class IpGeolocationService
             .'?fields=status,lat,lon,city,regionName,country';
 
         try {
-            $client = new Client([
-                'timeout' => (int) config('courtly.geo.timeout_seconds', 3),
-                'connect_timeout' => (int) config('courtly.geo.timeout_seconds', 3),
-                'http_errors' => false,
-            ]);
+            $response = Http::timeout((int) config('courtly.geo.timeout_seconds', 3))
+                ->get($url);
 
-            $response = $client->get($url);
-            $json = json_decode((string) $response->getBody(), true);
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $json = $response->json();
 
             if (! is_array($json) || ($json['status'] ?? null) !== 'success') {
                 return null;
