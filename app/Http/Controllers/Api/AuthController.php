@@ -53,6 +53,8 @@ class AuthController extends Controller
 
         $user->sendEmailVerificationNotification();
 
+        app(CircleService::class)->ensureLocated($circle, true);
+
         return response()->json([
             'data' => [
                 'user' => $user->only(['id', 'name', 'email', 'role', 'email_verified_at']),
@@ -90,6 +92,8 @@ class AuthController extends Controller
         if ($request->hasSession()) {
             $request->session()->regenerate();
         }
+
+        app(CircleService::class)->ensureLocated($request->user()?->personalCircle, true);
 
         return response()->json([
             'data' => [

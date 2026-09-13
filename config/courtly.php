@@ -218,6 +218,11 @@ return [
         // ip-api.com free endpoint (HTTP, no key). City-level accuracy.
         'base_url' => env('GEO_BASE_URL', 'http://ip-api.com/json'),
         'timeout_seconds' => (int) env('GEO_TIMEOUT_SECONDS', 3),
+        // Dev-only: geolocate this IP instead of the (loopback/private) request
+        // IP when running locally without a reverse proxy.
+        'test_ip' => env('GEO_TEST_IP'),
+        // Secondary provider (HTTPS, no key) used when ip-api.com fails.
+        'fallback_url' => env('GEO_FALLBACK_URL', 'https://ipwho.is'),
     ],
 
 ];

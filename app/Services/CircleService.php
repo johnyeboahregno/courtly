@@ -547,7 +547,7 @@ class CircleService
      * hammers the geolocation provider. Never breaks on provider failure, and
      * never overwrites a manually-set location label.
      */
-    private function ensureLocated(?Circle $circle): void
+    public function ensureLocated(?Circle $circle, bool $force = false): void
     {
         if (! $circle) {
             return;
@@ -555,17 +555,17 @@ class CircleService
 
         $ip = request()->ip();
 
-        if ($ip && $circle->geo_ip === $ip) {
-            return; // already resolved (or already known unresolvable) for this IP
+        // Skip only when we've already resolved a location for this IP, unless
+        // a login/registration forced a refresh. (Circles that failed a previous
+        // lookup have geo_ip set but no coordinates, so they retry anyway.)
+        if (! $force && $ip && $circle->geo_ip === $ip && $circle->latitude !== null) {
+            return;
         }
 
         $geo = app(IpGeolocationService::class)->locate($ip);
 
-        if ($ip) {
-            $circle->geo_ip = $ip;
-        }
-
         if ($geo) {
+            $circle->geo_ip = $ip;
             $circle->latitude = $geo['latitude'];
             $circle->longitude = $geo['longitude'];
 

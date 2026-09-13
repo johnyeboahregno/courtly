@@ -147,6 +147,8 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
 
+            app(CircleService::class)->ensureLocated(Auth::user()?->personalCircle, true);
+
             return redirect()->intended('/circles');
         }
 
@@ -245,5 +247,6 @@ class AuthController extends Controller
         }
 
         app(CircleService::class)->ensureLinkedPlayer($user, $circle);
+        app(CircleService::class)->ensureLocated($circle, true);
     }
 }
