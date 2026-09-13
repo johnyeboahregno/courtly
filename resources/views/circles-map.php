@@ -154,7 +154,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 @keyframes radarspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .cnode__members{position:absolute;left:50%;top:50%;width:0;height:0}
 .member-wrap{position:absolute;left:0;top:0;z-index:3}
-.member{position:absolute;left:0;top:0;width:46px;height:46px;transform:translate(0,0) translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.25),transparent 45%),#16204d;border:1.5px solid rgba(140,160,255,.45);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .18s cubic-bezier(.34,1.56,.64,1),border-color .15s}
+.member{position:absolute;left:0;top:0;width:36px;height:36px;transform:translate(0,0) translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.25),transparent 45%),#16204d;border:1.5px solid rgba(140,160,255,.45);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:transform .18s cubic-bezier(.34,1.56,.64,1),border-color .15s}
 .member:hover{border-color:var(--accent2);z-index:5}
 .member::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid transparent;transition:border-color .15s}
 .member:hover::after{border-color:var(--accent2)}
@@ -828,7 +828,7 @@ function drawLinks(linksEl,focusId,offset){
 function attachConnector(g,cx,cy,a,coreR,O,cls){
   const len=Math.hypot(a.x-cx,a.y-cy)||1;
   const ux=(a.x-cx)/len,uy=(a.y-cy)/len;
-  const itemR=23;
+  const itemR=18;
   const sx=cx+ux*coreR+O, sy=cy+uy*coreR+O;
   const ex=a.x-ux*itemR+O, ey=a.y-uy*itemR+O;
   const line=document.createElementNS('http://www.w3.org/2000/svg','line');
