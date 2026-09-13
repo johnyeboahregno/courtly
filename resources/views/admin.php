@@ -57,6 +57,13 @@ select.role{border:1px solid var(--stroke);background:var(--bg);color:var(--text
 code.invite{letter-spacing:.12em;font-weight:800}
 .toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
 .toast{background:var(--surface);border:1px solid var(--stroke);border-radius:999px;padding:9px 16px;font-size:.82rem;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.dialog-overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(8,10,30,.62);backdrop-filter:blur(5px);padding:18px}
+.dialog-overlay--open{display:flex}
+.dialog{width:min(420px,100%);background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.dialog__icon{font-size:1.7rem;line-height:1}
+.dialog h3{margin:10px 0 6px;font-size:1.05rem}
+.dialog p{margin:0 0 18px;color:var(--text-muted);font-size:.9rem;line-height:1.55}
+.dialog .row{display:flex;gap:8px;justify-content:flex-end}
 .form{max-width:420px;background:var(--surface);border:1px solid var(--stroke);border-radius:12px;padding:18px}
 .field{margin-bottom:12px}
 .field label{display:block;font-size:.78rem;font-weight:700;color:var(--text-muted);margin-bottom:5px}
@@ -109,6 +116,25 @@ code.invite{letter-spacing:.12em;font-weight:800}
     </section>
   </main>
 </div>
+<div class="dialog-overlay" id="errorDialog" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <div class="dialog__icon">⚠️</div>
+    <h3 id="errorDialogTitle">Could not delete</h3>
+    <p id="errorDialogMessage"></p>
+    <div class="row"><button class="act act--primary" onclick="closeErrorDialog()">OK</button></div>
+  </div>
+</div>
+<div class="dialog-overlay" id="confirmDialog" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <div class="dialog__icon">🗑️</div>
+    <h3 id="confirmTitle">Delete</h3>
+    <p id="confirmMessage"></p>
+    <div class="row">
+      <button class="act" onclick="resolveConfirm(false)">Cancel</button>
+      <button class="act act--danger" id="confirmOk" onclick="resolveConfirm(true)">Delete</button>
+    </div>
+  </div>
+</div>
 <div class="toasts" id="toasts"></div>
 
 <script>
@@ -118,6 +144,13 @@ const data = { users: [], circles: [], sessions: [], players: [], counts: {} };
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},2600)}
+function showErrorDialog(title,message){document.getElementById('errorDialogTitle').textContent=title;document.getElementById('errorDialogMessage').textContent=message;document.getElementById('errorDialog').classList.add('dialog-overlay--open')}
+function closeErrorDialog(){document.getElementById('errorDialog').classList.remove('dialog-overlay--open')}
+document.getElementById('errorDialog').addEventListener('click',e=>{if(e.target===e.currentTarget)closeErrorDialog()});
+let confirmResolve=null;
+function confirmDialog(title,message,label){document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmMessage').textContent=message;const ok=document.getElementById('confirmOk');ok.textContent=label||'Delete';document.getElementById('confirmDialog').classList.add('dialog-overlay--open');return new Promise(res=>{confirmResolve=res})}
+function resolveConfirm(v){document.getElementById('confirmDialog').classList.remove('dialog-overlay--open');if(confirmResolve){const r=confirmResolve;confirmResolve=null;r(v)}}
+document.getElementById('confirmDialog').addEventListener('click',e=>{if(e.target===e.currentTarget)resolveConfirm(false)});
 
 async function api(path, opts){
   opts=opts||{};
@@ -213,10 +246,10 @@ async function changeRole(sel){
   const r=await api(`/admin/users/${id}/role`,{method:'PATCH',body:{role}});
   if(r.ok){toast('Role updated');reload()}else{toast(r.message||'Could not update role');reload()}
 }
-async function delUser(id){const u=data.users.find(x=>x.id===id);const name=u?u.name:'this user';if(!confirm(`Delete user "${name}" and all their data? This cannot be undone.`))return;const r=await api(`/admin/users/${id}`,{method:'DELETE'});if(r.ok){toast('User deleted');reload()}else toast(r.message||'Could not delete user')}
-async function delCircle(id){const c=data.circles.find(x=>x.id===id);const name=c?c.name:'this circle';if(!confirm(`Delete circle "${name}" and all its sessions/players?`))return;const r=await api(`/admin/circles/${id}`,{method:'DELETE'});if(r.ok){toast('Circle deleted');reload()}else toast(r.message||'Could not delete circle')}
-async function delSession(id){const s=data.sessions.find(x=>x.id===id);const name=s?s.name:'this session';if(!confirm(`Delete session "${name}"?`))return;const r=await api(`/admin/sessions/${id}`,{method:'DELETE'});if(r.ok){toast('Session deleted');reload()}else toast(r.message||'Could not delete session')}
-async function delPlayer(id){const p=data.players.find(x=>x.id===id);const name=p?p.name:'this player';if(!confirm(`Delete player "${name}" permanently?`))return;const r=await api(`/admin/players/${id}`,{method:'DELETE'});if(r.ok){toast('Player deleted');reload()}else toast(r.message||'Could not delete player')}
+async function delUser(id){const u=data.users.find(x=>x.id===id);const name=u?u.name:'this user';if(!await confirmDialog('Delete user',`Delete user "${name}" and all their data? This cannot be undone.`))return;const r=await api(`/admin/users/${id}`,{method:'DELETE'});if(r.ok){toast('User deleted');reload()}else showErrorDialog('Could not delete user',r.message||`The server returned an error (HTTP ${r.status}).`)}
+async function delCircle(id){const c=data.circles.find(x=>x.id===id);const name=c?c.name:'this circle';if(!await confirmDialog('Delete circle',`Delete circle "${name}" and all its sessions/players? This cannot be undone.`))return;const r=await api(`/admin/circles/${id}`,{method:'DELETE'});if(r.ok){toast('Circle deleted');reload()}else showErrorDialog('Could not delete circle',r.message||`The server returned an error (HTTP ${r.status}).`)}
+async function delSession(id){const s=data.sessions.find(x=>x.id===id);const name=s?s.name:'this session';if(!await confirmDialog('Delete session',`Delete session "${name}"? This cannot be undone.`))return;const r=await api(`/admin/sessions/${id}`,{method:'DELETE'});if(r.ok){toast('Session deleted');reload()}else showErrorDialog('Could not delete session',r.message||`The server returned an error (HTTP ${r.status}).`)}
+async function delPlayer(id){const p=data.players.find(x=>x.id===id);const name=p?p.name:'this player';if(!await confirmDialog('Delete player',`Delete player "${name}" permanently? This cannot be undone.`))return;const r=await api(`/admin/players/${id}`,{method:'DELETE'});if(r.ok){toast('Player deleted');reload()}else showErrorDialog('Could not delete player',r.message||`The server returned an error (HTTP ${r.status}).`)}
 
 async function changePassword(){
   const current=document.getElementById('pwCurrent').value;

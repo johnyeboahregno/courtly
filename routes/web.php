@@ -762,9 +762,16 @@ Route::get('/sessions/{session}/live', function ($session) {
     $sessionStatus = 'UNKNOWN';
 
     try {
-        $s = \App\Models\Session::with(['courts', 'sessionPlayers.player'])
-            ->whereIn('circle_id', \Illuminate\Support\Facades\Auth::user()->circles()->pluck('circles.id'))
-            ->findOrFail($session);
+        $query = \App\Models\Session::with(['courts', 'sessionPlayers.player']);
+
+        // Super admins can open any session from the admin panel; everyone
+        // else stays scoped to their own circles.
+        $viewer = \Illuminate\Support\Facades\Auth::user();
+        if (! $viewer->isSuperAdmin()) {
+            $query->whereIn('circle_id', $viewer->circles()->pluck('circles.id'));
+        }
+
+        $s = $query->findOrFail($session);
         $sessionName = $s->name;
         $sessionStatus = $s->status->value;
     } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

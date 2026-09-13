@@ -137,30 +137,53 @@ class AdminController extends Controller
             return response()->json(['message' => 'You cannot delete your own account.'], 422);
         }
 
-        $user->delete();
-
-        return response()->json(['message' => 'User deleted.']);
+        try {
+            $user->delete();
+            return response()->json(['message' => 'User deleted.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not delete user: '.$this->deleteFailureReason($e)], 500);
+        }
     }
 
     public function destroyCircle(Circle $circle): JsonResponse
     {
-        $circle->delete();
-
-        return response()->json(['message' => 'Circle deleted.']);
+        try {
+            $circle->delete();
+            return response()->json(['message' => 'Circle deleted.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not delete circle: '.$this->deleteFailureReason($e)], 500);
+        }
     }
 
     public function destroySession(Session $session): JsonResponse
     {
-        $session->delete();
-
-        return response()->json(['message' => 'Session deleted.']);
+        try {
+            $session->delete();
+            return response()->json(['message' => 'Session deleted.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not delete session: '.$this->deleteFailureReason($e)], 500);
+        }
     }
 
     public function destroyPlayer(Player $player): JsonResponse
     {
-        $player->delete();
+        try {
+            $player->delete();
+            return response()->json(['message' => 'Player deleted.']);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not delete player: '.$this->deleteFailureReason($e)], 500);
+        }
+    }
 
-        return response()->json(['message' => 'Player deleted.']);
+    private function deleteFailureReason(\Throwable $e): string
+    {
+        if ($e instanceof \Illuminate\Database\QueryException) {
+            if (stripos($e->getMessage(), 'foreign key') !== false) {
+                return 'it still has related records that prevent deletion';
+            }
+            return 'a database constraint prevented the deletion';
+        }
+        return 'an unexpected error occurred';
     }
 
     /**
