@@ -76,7 +76,7 @@ code.invite{letter-spacing:.12em;font-weight:800}
 <body>
 <div class="admin">
   <header class="admin__head">
-    <a class="admin__brand" href="<?= e($base) ?>/circles"><img src="<?= e($base) ?>/assets/courtly-mark.png" alt="">COURT<b>LY</b><em class="app-version"><?= e($versionLabel) ?></em></a>
+    <a class="admin__brand" href="<?= e($base) ?>/circles"><img src="<?= e($base) ?>/assets/courtly-mark.png" alt=""><span>COURT<b>LY</b><em class="app-version"><?= e($versionLabel) ?></em></span></a>
     <span class="admin__title">Super Admin</span>
     <div class="admin__spacer"></div>
     <a class="act" href="<?= e($base) ?>/circles">← Back to app</a>
