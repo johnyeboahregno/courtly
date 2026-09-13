@@ -432,6 +432,42 @@ async function api(path, opts={}){
   return Object.assign({ok:res.ok,status:res.status},json);
 }
 
+/* ── collision-free separation ──────────────────────────── */
+const NODE_MARGIN=16; // ~1rem of breathing room around every circle
+function separateCircles(pos){
+  const focusId=state.focusId||state.personalId;
+  const items=[];
+  state.nodes.forEach(n=>{
+    if(state.clusteredIds.has(n.id))return;
+    const p=pos[n.id];
+    if(!p)return;
+    items.push({p,r:coreSize(n,n.id===focusId).px/2});
+  });
+  (state.clusters||[]).forEach(c=>items.push({p:c,r:Math.min(96,58+c.members.length*6)/2}));
+
+  for(let iter=0;iter<12;iter++){
+    let moved=false;
+    for(let i=0;i<items.length;i++){
+      for(let j=i+1;j<items.length;j++){
+        const a=items[i],b=items[j];
+        let dx=b.p.x-a.p.x,dy=b.p.y-a.p.y;
+        let dist=Math.hypot(dx,dy);
+        const min=a.r+b.r+NODE_MARGIN;
+        if(dist>=min)continue;
+        if(dist<0.001){dx=1;dy=0;dist=1;}
+        const push=(min-dist)/2;
+        const nx=dx/dist,ny=dy/dist;
+        a.p.x-=nx*push;a.p.y-=ny*push;
+        b.p.x+=nx*push;b.p.y+=ny*push;
+        moved=true;
+      }
+    }
+    if(!moved)break;
+  }
+  // keep collapsed cluster members pinned to their cluster's final centre
+  (state.clusters||[]).forEach(c=>c.members.forEach(m=>{if(pos[m.id])pos[m.id]={x:c.x,y:c.y};}));
+}
+
 /* ── layout ─────────────────────────────────────────────── */
 function layout(){
   const pos={};
@@ -470,6 +506,7 @@ function layout(){
   const focusPos=pos[state.focusId]||pos[state.personalId]||{x:0,y:0};
   byKind('visiting').forEach(n=>{const h=hashId(n.id);const a=h*Math.PI*2;pos[n.id]={x:focusPos.x+Math.cos(a)*300,y:focusPos.y+Math.sin(a)*300}});
   for(const id in state.nodePos){pos[id]=state.nodePos[id];}
+  separateCircles(pos);
   state.positions=pos;
 }
 
