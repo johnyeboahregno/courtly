@@ -206,6 +206,8 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .qr__img{display:block;border-radius:10px;background:#fff;padding:4px;box-sizing:border-box}
 .qr__logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;padding:4px;border-radius:50%;background:#fff;box-sizing:border-box}
 .qr__code{font-size:.95rem;letter-spacing:.18em;margin-top:4px;font-weight:800}
+.qr__actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+#popover .qr__actions .act{flex:1 1 auto;min-width:0;width:auto;margin-bottom:0;text-align:center;display:flex;align-items:center;justify-content:center;white-space:nowrap;padding:8px 6px;gap:4px}
 
 /* ── Toasts ─────────────────────────────────────────────── */
 #toasts{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center}
@@ -834,20 +836,63 @@ async function toggleVisibility(id){
   else toast(r.message||'Could not update');
 }
 
-function copyCode(id){
-  const n=state.nodeMap[id];
-  if(!n||!n.invite_code){toast('No invite code');return}
-  const fallback=()=>toast('Invite code: '+n.invite_code);
+function inviteUrl(node){
+  return location.origin+BASE+'/circles?join='+encodeURIComponent(node.invite_code);
+}
+
+function copyText(text,okMsg){
+  const fallback=()=>{
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+      toast(okMsg);
+    }catch(e){toast(text)}
+  };
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(n.invite_code).then(()=>toast('Invite code copied ✦'),fallback);
+    navigator.clipboard.writeText(text).then(()=>toast(okMsg),fallback);
   }else fallback();
 }
 
+function copyCode(id){
+  const n=state.nodeMap[id];
+  if(!n||!n.invite_code){toast('No invite code');return}
+  copyText(n.invite_code,'Invite code copied ✦');
+}
+
+function copyInviteLink(id){
+  const n=state.nodeMap[id];
+  if(!n||!n.invite_code){toast('No invite code');return}
+  copyText(inviteUrl(n),'Invite link copied ✦');
+}
+
+async function shareInvite(id){
+  const n=state.nodeMap[id];
+  if(!n||!n.invite_code){toast('No invite code');return}
+  const url=inviteUrl(n);
+  const text=`Join my "${n.name}" circle on Courtly! Invite code: ${n.invite_code}`;
+  if(navigator.share){
+    try{
+      await navigator.share({title:`Join ${n.name} on Courtly`,text:text,url});
+      return;
+    }catch(e){
+      if(e&&e.name==='AbortError')return; // user dismissed the native share sheet
+      // fall through to the copy fallback below
+    }
+  }
+  copyText(url,'Invite link copied ✦ (sharing not supported here)');
+}
+
 function inviteQr(node){
-  const url=location.origin+BASE+'/circles?join='+encodeURIComponent(node.invite_code);
+  const url=inviteUrl(node);
   const img='https://api.qrserver.com/v1/create-qr-code/?size=102x102&margin=8&ecc=H&data='+encodeURIComponent(url);
   const logo=BASE+'/assets/courtly-mark-transparent.png';
-  return `<div class="qr"><div class="qr__box"><img class="qr__img" src="${img}" alt="Invite QR code"><img class="qr__logo" src="${logo}" alt=""></div><div class="qr__code">${esc(node.invite_code)}</div></div>`;
+  return `<div class="qr"><div class="qr__box"><img class="qr__img" src="${img}" alt="Invite QR code"><img class="qr__logo" src="${logo}" alt=""></div><div class="qr__code">${esc(node.invite_code)}</div>
+    <div class="qr__actions">
+      <button class="act act--primary" onclick="shareInvite(${node.id})">📤 Share</button>
+      <button class="act" onclick="copyInviteLink(${node.id})">🔗 Copy link</button>
+      <button class="act" onclick="copyCode(${node.id})">Copy code</button>
+    </div></div>`;
 }
 
 function recenter(){
