@@ -575,10 +575,13 @@ function computeAttachPositions(){
 
 /* ── render ─────────────────────────────────────────────── */
 function coreSize(n,focused){
-  if(focused)return{px:150,label:90};
-  if(n.kind==='discoverable')return{px:64,label:44};
-  if(n.kind==='mine')return{px:110,label:70};
-  return{px:92,label:60};
+  let s;
+  if(focused)s={px:150,label:90};
+  else if(n.kind==='discoverable')s={px:64,label:44};
+  else if(n.kind==='mine')s={px:110,label:70};
+  else s={px:92,label:60};
+  if(n.id===state.personalId)s={px:Math.round(s.px/2),label:Math.round(s.label/2)};
+  return s;
 }
 
 function gaugeSvg(score,size){
@@ -616,7 +619,7 @@ function buildNode(n,p,focused){
   const rings=focused?`<div class="cnode__rings">${Array.from({length:ringCount},(_,i)=>{const d=s.px+56+i*56;return `<i style="width:${d}px;height:${d}px"></i>`}).join('')}</div>`:'';
   const gauge=focused?gaugeSvg(n.network_score||0,s.px+20):'';
   const radar=focused?`<div class="cnode__radar" style="width:${s.px}px;height:${s.px}px"></div>`:'';
-  const coreHtml=`<span class="cnode__name">${esc(n.name)}</span>`;
+  const coreHtml=`<span class="cnode__name">${esc(initialsOf(n.name))}</span>`;
   const coreStyle=`--c:${c};font-size:${Math.round(s.px*(focused?0.2:0.28))}px`;
   const lockHtml=n.visibility==='PRIVATE'?`<span class="cnode__lock" title="Private">🔒</span>`:'';
   const pendCount=(n.is_admin&&n.pending_requests)?n.pending_requests.length:0;
