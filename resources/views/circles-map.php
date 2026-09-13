@@ -2,6 +2,7 @@
 $base = $base ?? rtrim(request()->getBasePath(), '/');
 $csrf = $csrf ?? csrf_token();
 $version = config('courtly.app.version', '1.0.0');
+$versionLabel = config('courtly.app.version_label', '.beta');
 $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
 ?>
 <!DOCTYPE html>
@@ -54,6 +55,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 [data-theme="light"] .map-brand__img--dark{display:block}
 @media (prefers-color-scheme: light){:root:not([data-theme]) .map-brand__img--light{display:none}:root:not([data-theme]) .map-brand__img--dark{display:block}}
 .map-brand b{color:var(--accent2)}
+.app-version{font-style:normal;font-size:.5em;font-weight:700;letter-spacing:.05em;color:var(--muted);opacity:.8}
 .map-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .map-pill{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;letter-spacing:.03em;padding:6px 13px;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);background:transparent;text-decoration:none;font-weight:700;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .map-pill:hover{border-color:var(--accent);color:var(--text)}
@@ -283,7 +285,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </head>
 <body>
 <header class="map-header">
-  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="" class="map-brand__img map-brand__img--light"><img src="<?= $base ?>/assets/courtly-mark-dark.png" alt="" class="map-brand__img map-brand__img--dark"><span>COURT<b>LY</b></span></a>
+  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="" class="map-brand__img map-brand__img--light"><img src="<?= $base ?>/assets/courtly-mark-dark.png" alt="" class="map-brand__img map-brand__img--dark"><span>COURT<b>LY</b><em class="app-version"><?= e($versionLabel) ?></em></span></a>
   <div class="hud">
     <div class="hud__name" id="hudName">—</div>
   </div>
@@ -291,6 +293,9 @@ input,textarea{user-select:text;-webkit-user-select:text}
     <a class="map-pill map-pill--active" href="<?= $base ?>/circles" title="Circles"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="map-pill__label">Circles</span></a>
     <a class="map-pill" href="<?= $base ?>/" title="Sessions"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="map-pill__label">Sessions</span></a>
     <a class="map-pill" href="<?= $base ?>/rankings" title="Rankings"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="map-pill__label">Rankings</span></a>
+    <?php if (\Illuminate\Support\Facades\Auth::user()?->isSuperAdmin()): ?>
+    <a class="map-pill" href="<?= $base ?>/admin" title="Admin"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="map-pill__label">Admin</span></a>
+    <?php endif; ?>
     <button class="map-pill" id="managePlayersBtn" title="Manage players"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="map-pill__label">Manage players</span></button>
     <div class="notif-wrap">
       <button class="hdr-icon" id="notifBell" title="Notifications" aria-label="Notifications" style="color:var(--muted)"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span></button>

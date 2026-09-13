@@ -23,12 +23,17 @@ class Circle extends Model
         'description',
         'visibility',
         'location_label',
+        'latitude',
+        'longitude',
+        'geo_ip',
     ];
 
     protected function casts(): array
     {
         return [
             'visibility' => CircleVisibility::class,
+            'latitude' => 'decimal:6',
+            'longitude' => 'decimal:6',
         ];
     }
 

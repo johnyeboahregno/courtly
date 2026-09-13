@@ -6,13 +6,16 @@ $active = $active ?? 'sessions';
     <a class="app-brand" href="<?= e($base) ?>/circles" title="Circles home">
         <img src="<?= e($base) ?>/assets/courtly-mark.png" alt="Courtly" class="app-brand__img app-brand__img--light">
         <img src="<?= e($base) ?>/assets/courtly-mark-dark.png" alt="Courtly" class="app-brand__img app-brand__img--dark">
-        <span>COURT<b>LY</b></span>
+        <span>COURT<b>LY</b><em class="app-version"><?= e(config('courtly.app.version_label', '.beta')) ?></em></span>
     </a>
     <nav class="app-nav" aria-label="Main navigation">
         <a class="app-pill<?= $active === 'circles' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/circles" title="Circles"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="app-pill__label">Circles</span></a>
         <a class="app-pill<?= $active === 'sessions' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/" title="Sessions"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="app-pill__label">Sessions</span></a>
         <a class="app-pill<?= $active === 'stats' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/stats" title="Player Stats"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-8M12 20V4M19 20v-6"/></svg><span class="app-pill__label">Player Stats</span></a>
         <a class="app-pill<?= $active === 'rankings' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/rankings" title="Rankings"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="app-pill__label">Rankings</span></a>
+        <?php if (\Illuminate\Support\Facades\Auth::user()?->isSuperAdmin()): ?>
+        <a class="app-pill" href="<?= e($base) ?>/admin" title="Admin"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="app-pill__label">Admin</span></a>
+        <?php endif; ?>
         <?php if ($active === 'sessions'): ?>
         <button type="button" class="app-pill" onclick="openManage()" title="Manage Players"><svg class="app-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="app-pill__label">Manage Players</span></button>
         <?php endif; ?>

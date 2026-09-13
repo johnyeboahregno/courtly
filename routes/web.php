@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\AuthController;
 
 // ── Authentication ────────────────────────────────────────────────────
@@ -18,6 +19,18 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:6,1');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// ── Super-admin panel ────────────────────────────────────────────────
+Route::middleware(['auth', 'verified', 'super.admin'])->group(function () {
+    Route::get('/admin', [AdminController::class, 'index'])->name('admin');
+    Route::get('/admin/data', [AdminController::class, 'data'])->name('admin.data');
+    Route::patch('/admin/users/{user}/role', [AdminController::class, 'updateRole'])->name('admin.users.role');
+    Route::delete('/admin/users/{user}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
+    Route::delete('/admin/circles/{circle}', [AdminController::class, 'destroyCircle'])->name('admin.circles.destroy');
+    Route::delete('/admin/sessions/{session}', [AdminController::class, 'destroySession'])->name('admin.sessions.destroy');
+    Route::delete('/admin/players/{player}', [AdminController::class, 'destroyPlayer'])->name('admin.players.destroy');
+    Route::post('/admin/password', [AdminController::class, 'updatePassword'])->name('admin.password');
+});
 
 // Social login
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);

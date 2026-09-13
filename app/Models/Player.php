@@ -108,16 +108,24 @@ class Player extends Model
      */
     public function isAccessibleBy(User $user): bool
     {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
         return $this->circle->hasMember($user);
     }
 
     /**
      * Whether the given user can manage (rename, reset, delete) this player.
      * Reading a shared circle's roster is member-based, but mutating it is
-     * reserved for the circle owner.
+     * reserved for the circle owner (super admins manage everything).
      */
     public function isManageableBy(User $user): bool
     {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
         return $this->circle->isAdmin($user);
     }
 }

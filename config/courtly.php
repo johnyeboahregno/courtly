@@ -10,9 +10,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'app' => [
-        // Single source of truth for the app version. Displayed in the
-        // session header and used as the cache-busting (?v=) suffix for CSS/favicon assets.
-        'version' => '1.0.14',
+        // Single source of truth for the app version. Used as the
+        // cache-busting (?v=) suffix for CSS/favicon assets (not shown to users).
+        'version' => '1.0.15',
+
+        // Short label shown next to the COURTLY wordmark in the headers.
+        'version_label' => '.beta',
     ],
 
     /*
@@ -195,6 +198,23 @@ return [
         'timeout_seconds' => (int) env('AI_TIMEOUT_SECONDS', 30),
         'max_tokens' => (int) env('AI_MAX_TOKENS', 2000),
         'temperature' => (float) env('AI_TEMPERATURE', 0.2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Courtly IP Geolocation Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Best-effort, city-level geolocation from the visitor's IP address. Used
+    | to place circles on the map and cluster nearby ones. Not pinpoint — the
+    | IP alone is never more precise than a city/metro area.
+    |
+    */
+    'geo' => [
+        'enabled' => (bool) env('GEO_ENABLED', true),
+        // ip-api.com free endpoint (HTTP, no key). City-level accuracy.
+        'base_url' => env('GEO_BASE_URL', 'http://ip-api.com/json'),
+        'timeout_seconds' => (int) env('GEO_TIMEOUT_SECONDS', 3),
     ],
 
 ];

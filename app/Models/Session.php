@@ -125,6 +125,10 @@ class Session extends Model
      */
     public function isAccessibleBy(User $user): bool
     {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
         return $this->circle->hasMember($user);
     }
 }

@@ -3547,6 +3547,7 @@ textarea,
     :root:not([data-theme]) .app-brand__img--dark { display: block; }
 }
 .app-brand b { color: var(--accent-2); font-weight: 900; }
+.app-version { font-style: normal; font-size: .5em; font-weight: 700; letter-spacing: .05em; color: var(--text-muted); opacity: .8; }
 .app-nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .app-pill {
     display: inline-flex;

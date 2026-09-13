@@ -101,11 +101,24 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isOrganiser(): bool
     {
-        return $this->role === UserRole::ORGANISER || $this->role === UserRole::ADMIN;
+        return in_array($this->role, [
+            UserRole::ORGANISER,
+            UserRole::ADMIN,
+            UserRole::SUPER_ADMIN,
+        ], true);
     }
 
     public function isAdmin(): bool
     {
-        return $this->role === UserRole::ADMIN;
+        return $this->role === UserRole::ADMIN || $this->role === UserRole::SUPER_ADMIN;
+    }
+
+    /**
+     * A super admin is a platform-wide administrator with access to every
+     * account, circle, session and player — not scoped to any single circle.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SUPER_ADMIN;
     }
 }

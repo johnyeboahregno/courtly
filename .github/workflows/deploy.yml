@@ -47,6 +47,7 @@ jobs:
             sudo docker compose build app queue
             sudo docker compose up -d --force-recreate app queue
             sudo docker compose exec -T app php artisan migrate --force
+            sudo docker compose exec -T app php artisan db:seed --class=SuperAdminSeeder --force
             sudo docker compose ps --format 'table {{.Name}}\t{{.Status}}'
           REMOTE
 

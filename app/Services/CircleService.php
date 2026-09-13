@@ -335,6 +335,9 @@ class CircleService
      */
     public function buildMapGraph(User $user): array
     {
+        $personalCircle = $user->personalCircle;
+        $this->ensureLocated($personalCircle);
+
         $myCircles = $user->circles()->withCount(['members', 'players'])->get();
 
         $nodes = $myCircles->map(fn (Circle $circle) => $this->circleNode($circle, $user, true))->values()->all();
@@ -458,7 +461,8 @@ class CircleService
             ->all();
 
         return [
-            'personal_circle_id' => (int) ($user->personalCircle?->id ?? 0),
+            'personal_circle_id' => (int) ($personalCircle?->id ?? 0),
+            'my_location' => $this->locationOf($personalCircle),
             'nodes' => $nodes,
             'connections' => $connections,
             'pending_requests' => $pending,
@@ -537,6 +541,62 @@ class CircleService
     }
 
     /**
+     * Keep the circle's rough location in sync with the current request IP.
+     * Re-geolocates whenever the visitor's IP changes (e.g. they log in from
+     * a new network) and caches the last-seen IP so the 15s map refresh never
+     * hammers the geolocation provider. Never breaks on provider failure, and
+     * never overwrites a manually-set location label.
+     */
+    private function ensureLocated(?Circle $circle): void
+    {
+        if (! $circle) {
+            return;
+        }
+
+        $ip = request()->ip();
+
+        if ($ip && $circle->geo_ip === $ip) {
+            return; // already resolved (or already known unresolvable) for this IP
+        }
+
+        $geo = app(IpGeolocationService::class)->locate($ip);
+
+        if ($ip) {
+            $circle->geo_ip = $ip;
+        }
+
+        if ($geo) {
+            $circle->latitude = $geo['latitude'];
+            $circle->longitude = $geo['longitude'];
+
+            if ($circle->location_label === null || trim((string) $circle->location_label) === '') {
+                $circle->location_label = trim(implode(', ', array_filter([
+                    $geo['city'],
+                    $geo['region'],
+                    $geo['country'],
+                ])));
+            }
+        }
+
+        $circle->save();
+    }
+
+    /**
+     * Serialize a circle's coordinates (nullable).
+     */
+    private function locationOf(?Circle $circle): ?array
+    {
+        if (! $circle || $circle->latitude === null || $circle->longitude === null) {
+            return null;
+        }
+
+        return [
+            'latitude' => (float) $circle->latitude,
+            'longitude' => (float) $circle->longitude,
+        ];
+    }
+
+    /**
      * Serialize a circle into a map node.
      */
     private function circleNode(Circle $circle, ?User $viewer, bool $isMine, ?string $kind = null): array
@@ -582,6 +642,8 @@ class CircleService
             'visibility' => $circle->visibility->value,
             'description' => $circle->description,
             'location_label' => $circle->location_label,
+            'latitude' => $circle->latitude !== null ? (float) $circle->latitude : null,
+            'longitude' => $circle->longitude !== null ? (float) $circle->longitude : null,
             'member_count' => (int) ($circle->members_count ?? $circle->members()->count()),
             'player_count' => (int) ($circle->players_count ?? $circle->players()->count()),
             'network_score' => $this->networkScore($circle),

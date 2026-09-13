@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
 
+        $middleware->alias([
+            'super.admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+        ]);
+
         // Trust the Caddy reverse proxy in front of the app container so
         // request()->isSecure() reflects the original HTTPS request instead
         // of the plain-HTTP hop between Caddy and php-fpm. Safe as '*' here:
