@@ -137,6 +137,8 @@ input,textarea{user-select:text;-webkit-user-select:text}
 #statcards{position:fixed;top:74px;left:16px;z-index:34;display:flex;flex-direction:column;gap:12px;pointer-events:none}
 .scard{background:rgba(16,20,48,.55);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(14px);padding:14px;box-shadow:0 16px 44px rgba(0,0,0,.4);display:flex;align-items:center;gap:14px;min-width:176px}
 .scard__ring{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),rgba(255,255,255,.08) 0);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.scard__ring{cursor:pointer;pointer-events:auto}
+.scard--collapsed .scard__txt{display:none}
 .scard__ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:rgba(10,13,34,.92)}
 .scard__ring .n{position:relative;font-size:1.45rem;font-weight:900;color:#fff}
 .scard__txt .t{font-size:.6rem;letter-spacing:.14em;color:var(--muted);font-weight:800}
@@ -253,8 +255,8 @@ input,textarea{user-select:text;-webkit-user-select:text}
   .hdr-btn__icon{font-size:1rem;line-height:1}
   .hdr-icon{width:32px;height:32px;font-size:.9rem}
 
-  /* Stat cards — compact, pinned bottom-left so they never cover the focused circle */
-  #statcards{top:auto;bottom:14px;left:10px;right:auto;gap:8px}
+  /* Stat cards — compact, pinned top-left below the two-row header */
+  #statcards{top:104px;bottom:auto;left:10px;right:auto;gap:8px}
   .scard{padding:10px 12px;gap:10px;min-width:0;border-radius:14px}
   .scard__ring{width:52px;height:52px}
   .scard__ring::before{inset:5px}
@@ -1368,6 +1370,10 @@ document.getElementById('managePlayersBtn').addEventListener('click',()=>{
 window.addEventListener('resize',()=>{if(!state.drag)centerView()});
 
 /* boot */
+document.getElementById('scRing').addEventListener('click',()=>{
+  const card=document.getElementById('scRing').closest('.scard');
+  if(card)card.classList.toggle('scard--collapsed');
+});
 (async()=>{ buildWorld(); await loadMap(); await handleJoinParam(); })();
 setInterval(refreshMap,15000);
 </script>
