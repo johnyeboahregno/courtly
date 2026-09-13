@@ -143,7 +143,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .hub{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px}
 .hub__num{font-size:2.05rem;font-weight:900;text-shadow:0 2px 14px rgba(0,0,0,.65)}
 .hub__cap{font-size:.52rem;letter-spacing:.22em;font-weight:800;opacity:.9}
-.cnode__name{max-width:82%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.62em;line-height:1.15;text-align:center}
+.cnode__name{max-width:82%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.62em;line-height:1.15;text-align:center;font-weight:200;-webkit-text-stroke:.03em currentColor}
 .cnode__label{position:absolute;left:0;top:0;font-weight:800;font-size:1.02rem;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.7)}
 .cnode__meta{position:absolute;left:0;top:0;font-size:.8rem;color:var(--muted);white-space:nowrap;text-shadow:0 1px 6px rgba(0,0,0,.5)}
 .cnode__gauge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 0 3px rgba(124,92,255,.35))}
@@ -580,7 +580,7 @@ function coreSize(n,focused){
   else if(n.kind==='discoverable')s={px:64,label:44};
   else if(n.kind==='mine')s={px:110,label:70};
   else s={px:92,label:60};
-  if(n.id===state.personalId)s={px:Math.round(s.px/2),label:Math.round(s.label/2)};
+  if(n.id===state.personalId)s={px:Math.round(s.px*0.55),label:Math.round(s.label*0.55)};
   return s;
 }
 
@@ -619,7 +619,9 @@ function buildNode(n,p,focused){
   const rings=focused?`<div class="cnode__rings">${Array.from({length:ringCount},(_,i)=>{const d=s.px+56+i*56;return `<i style="width:${d}px;height:${d}px"></i>`}).join('')}</div>`:'';
   const gauge=focused?gaugeSvg(n.network_score||0,s.px+20):'';
   const radar=focused?`<div class="cnode__radar" style="width:${s.px}px;height:${s.px}px"></div>`:'';
-  const coreHtml=`<span class="cnode__name">${esc(initialsOf(n.name))}</span>`;
+  const ini=initialsOf(n.name);
+  const iniSize=Math.round(s.px*(ini.length>1?0.37:0.53));
+  const coreHtml=`<span class="cnode__name" style="font-size:${iniSize}px">${esc(ini)}</span>`;
   const coreStyle=`--c:${c};font-size:${Math.round(s.px*(focused?0.2:0.28))}px`;
   const lockHtml=n.visibility==='PRIVATE'?`<span class="cnode__lock" title="Private">🔒</span>`:'';
   const pendCount=(n.is_admin&&n.pending_requests)?n.pending_requests.length:0;
