@@ -3,12 +3,9 @@ $base = $base ?? rtrim(request()->getBasePath(), '/');
 $active = $active ?? 'sessions';
 ?>
 <header class="app-header">
-    <a class="app-brand" href="<?= e($base) ?>/circles" title="Circles home">
-        <img src="<?= e($base) ?>/assets/courtly-mark.png" alt="Courtly" class="app-brand__img app-brand__img--light">
-        <img src="<?= e($base) ?>/assets/courtly-mark-dark.png" alt="Courtly" class="app-brand__img app-brand__img--dark">
-        <span>COURT<b>LY</b><em class="app-version"><?= e(config('courtly.app.version_label', '.beta')) ?></em></span>
-    </a>
-    <?php $managePlayers = $managePlayers ?? 'dashboard'; ?>
+    <?php include resource_path('views/partials/app-brand.php'); ?>
+    <?php /* The Manage Players pill only works on the dashboard, which defines openManage(). */ ?>
+    <?php $managePlayers = $managePlayers ?? ($active === 'sessions' ? 'dashboard' : false); ?>
     <?php include resource_path('views/partials/app-nav.php'); ?>
     <div class="app-actions">
         <button type="button" class="theme-switch" id="themeSwitch" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>

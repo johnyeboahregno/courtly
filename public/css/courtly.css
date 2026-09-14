@@ -3521,7 +3521,10 @@ textarea,
     gap: 14px;
     flex-wrap: wrap;
     padding: 1rem 18px;
-    background: linear-gradient(180deg, rgba(8,10,30,.92), rgba(8,10,30,.55));
+    /* Theme-aware: was a hardcoded dark navy, which left the header dark (and its
+       icons low-contrast/grey) in the light theme. --bg-overlay-* is already
+       themed per palette — light resolves to solid white. */
+    background: linear-gradient(180deg, var(--bg-overlay-1), var(--bg-overlay-2));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--stroke);

@@ -64,7 +64,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .map-pill--active{border-color:var(--accent);color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
 .hud{display:flex;align-items:center;gap:14px}
 .hud__score{text-align:center}
-.hud__score .n{font-size:1.7rem;font-weight:900;line-height:1;color:#fff}
+.hud__score .n{font-size:1.7rem;font-weight:900;line-height:1;color:var(--text)}
 .hud__score .l{font-size:.6rem;letter-spacing:.14em;color:var(--muted)}
 .hud__name{font-size:.95rem;font-weight:700}
 .hud__name small{display:block;color:var(--muted);font-weight:400;font-size:.68rem;letter-spacing:.06em}
@@ -181,19 +181,21 @@ input,textarea{user-select:text;-webkit-user-select:text}
 
 /* ── Glass stat cards ───────────────────────────────────── */
 #statcards{position:fixed;top:74px;left:16px;z-index:34;display:flex;flex-direction:column;gap:12px;pointer-events:none}
-.scard{background:rgba(16,20,48,.55);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(14px);padding:14px;box-shadow:0 16px 44px rgba(0,0,0,.4);display:flex;align-items:center;gap:14px;min-width:176px}
-.scard__ring{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),rgba(255,255,255,.08) 0);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+/* Stat cards — theme-aware. These previously hardcoded dark navy values, which
+   left the card grey and its white text unreadable in the light theme. */
+.scard{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(14px);padding:14px;box-shadow:0 16px 44px rgba(0,0,0,.4);display:flex;align-items:center;gap:14px;min-width:176px}
+.scard__ring{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,0)*1%),var(--stroke) 0);display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
 .scard__ring{cursor:pointer;pointer-events:auto}
 .scard--collapsed .scard__txt{display:none}
 .scard.scard--collapsed{padding:0;min-width:0;gap:0;border-radius:50%;align-self:flex-start}
-.scard__ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:rgba(10,13,34,.92)}
-.scard__ring .n{position:relative;font-size:1.45rem;font-weight:900;color:#fff}
+.scard__ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg)}
+.scard__ring .n{position:relative;font-size:1.45rem;font-weight:900;color:var(--text)}
 .scard__txt .t{font-size:.6rem;letter-spacing:.14em;color:var(--muted);font-weight:800}
 .scard__txt .s{font-size:.68rem;color:var(--text);font-weight:700;margin-top:3px}
-.scard__name{font-size:1rem;font-weight:900;color:#fff;letter-spacing:.01em;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scard__name{font-size:1rem;font-weight:900;color:var(--text);letter-spacing:.01em;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scard__location{font-size:.68rem;color:var(--muted);font-weight:700;letter-spacing:.04em;margin-top:2px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scard--row{justify-content:space-between;gap:20px}
-.scard__cell .v{font-size:1.45rem;font-weight:900;color:#fff;line-height:1}
+.scard__cell .v{font-size:1.45rem;font-weight:900;color:var(--text);line-height:1}
 .scard__cell .t{font-size:.58rem;letter-spacing:.12em;color:var(--muted);font-weight:800;margin-top:4px}
 
 /* ── Shared actions + request lists ─────────────────────── */
@@ -271,7 +273,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 .stats-card__head h3{margin:0;font-size:1.05rem}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .stat{background:rgba(255,255,255,.05);border:1px solid var(--stroke);border-radius:12px;padding:12px;text-align:center}
-.stat b{display:block;font-size:1.4rem;font-weight:900;color:#fff}
+.stat b{display:block;font-size:1.4rem;font-weight:900;color:var(--text)}
 .stat span{font-size:.68rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
 .stats-note{margin:10px 0 0;font-size:.85rem;color:var(--text)}
 .stats-note b{color:var(--accent2)}
