@@ -9,7 +9,7 @@
     <?php include resource_path('views/partials/pwa-head.php'); ?>
     <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <style>
-        .stats-wrap { width: 100%; padding: 24px 20px 64px; }
+        .stats-wrap { width: 100%; }
         .stats-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
         .stats-head h1 { font-size: 1.4rem; margin: 0; }
         .stats-nav-link { margin-left: auto; color: var(--text-muted); font-size: .82rem; text-decoration: none; }

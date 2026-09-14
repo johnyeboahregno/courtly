@@ -2,10 +2,24 @@
 /vendor
 /node_modules
 
-# Environment — never commit real secrets
-/.env
-/.env.backup
-/.env.production
+# Local Composer binary — machine-specific. CI and the production Docker image
+# both use the official `composer:2` image, so this is never needed on the VPS.
+/composer.phar
+
+# Environment — never commit real secrets.
+# Covers .env, .env.local, .env.production, .env.*.local, etc. Only the two
+# tracked templates ship: .env.example (local) and .env.docker.example (VPS).
+/.env*
+!/.env.example
+!/.env.docker.example
+
+# Local SQLite database — local dev only. Production uses the MySQL container.
+/database/*.sqlite
+/database/*.sqlite-journal
+
+# Playwright (browser E2E) output
+/playwright-report
+/test-results
 
 # Logs
 *.log
@@ -22,3 +36,4 @@
 Thumbs.db
 /.idea
 /.vscode/*
+/.vs/

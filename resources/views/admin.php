@@ -75,17 +75,8 @@ code.invite{letter-spacing:.12em;font-weight:800}
 </head>
 <body>
 <div class="admin">
-  <header class="admin__head">
-    <a class="admin__brand" href="<?= e($base) ?>/circles"><img src="<?= e($base) ?>/assets/courtly-mark.png" alt=""><span>COURT<b>LY</b><em class="app-version"><?= e($versionLabel) ?></em></span></a>
-    <span class="admin__title">Super Admin</span>
-    <div class="admin__spacer"></div>
-    <a class="act" href="<?= e($base) ?>/circles">← Back to app</a>
-    <button type="button" class="act" id="themeSwitch" onclick="toggleTheme()">☾</button>
-    <form method="POST" action="<?= e($base) ?>/logout" style="margin:0">
-      <input type="hidden" name="_token" value="<?= e($csrf) ?>">
-      <button type="submit" class="act act--danger">Logout</button>
-    </form>
-  </header>
+  <?php /* Shared app menu — the same header every screen uses. */ ?>
+  <?php $active = 'admin'; include resource_path('views/partials/app-header.php'); ?>
 
   <nav class="admin__tabs" id="tabs">
     <button class="tab tab--active" data-tab="overview">Overview</button>

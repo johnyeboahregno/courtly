@@ -14,7 +14,7 @@
     <?php include resource_path('views/partials/pwa-head.php'); ?>
     <link rel="stylesheet" href="<?= e($base ?? '') ?>/css/courtly.css?v=<?= e(config('courtly.app.version', '1.0.0')) ?>">
     <style>
-        .rankings-wrap { width: 100%; padding: 24px 20px 64px; }
+        .rankings-wrap { width: 100%; }
         .rankings-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
         .rankings-head h1 { font-size: 1.4rem; margin: 0; }
     </style>

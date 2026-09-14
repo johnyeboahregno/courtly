@@ -11,3 +11,12 @@ storage/framework/views/*
 tests
 .phpunit.cache
 docker-compose.yml
+
+# Local dev tooling / databases — never part of the production image
+database/*.sqlite
+database/*.sqlite-journal
+playwright.config.ts
+playwright-report
+test-results
+package.json
+package-lock.json

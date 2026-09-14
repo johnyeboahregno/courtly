@@ -1,11 +1,25 @@
 @echo off
-REM Courtly — Windows dev server launcher
+REM Courtly - start the whole application locally.
+REM
+REM Two processes are required:
+REM   1. the web server (php artisan serve)
+REM   2. the queue worker - court re-allocation after a recorded result is
+REM      dispatched as a queued job, so without it courts never refill.
+REM
 REM Double-click this file, or run `start.bat` from PowerShell/CMD.
 
 cd /d "%~dp0"
 
-REM Clear stale route cache (prevents 405 Method Not Allowed)
+if not exist ".env" (
+  echo x .env is missing - copy .env.example to .env first.
+  exit /b 1
+)
+
+REM Stale route cache (prevents 405 Method Not Allowed)
 if exist "bootstrap\cache\routes-v7.php" del /q "bootstrap\cache\routes-v7.php"
+
+REM Make sure the local SQLite database is up to date (idempotent, quick).
+php artisan migrate --force
 
 echo Starting Courtly on http://localhost:8000 ...
 start "Courtly Queue" /B php artisan queue:work database --sleep=1 --tries=2

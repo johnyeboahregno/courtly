@@ -69,20 +69,22 @@ class SessionController extends Controller
             'tournament_format' => ['nullable', 'string', 'in:round_robin,ladder'],
         ]);
 
-        $isTournament = ($validated['type'] ?? 'casual') === 'tournament';
-
+        // Every session is created UPCOMING so the organiser can set it up
+        // completely — courts, players, tournament teams — before pressing START.
+        // Matchmaking is a no-op until the session is ACTIVE (see
+        // MatchmakingService::allocateMatchesLocked), so nothing is allocated early.
         $session = Session::create([
             'name' => $validated['name'],
             'sport' => $validated['sport'] ?? 'badminton',
             'date' => $validated['date'] ?? now()->toDateString(),
             'start_time' => $validated['start_time'] ?? null,
             'number_of_courts' => $validated['number_of_courts'],
-            'status' => $isTournament ? SessionStatus::UPCOMING : SessionStatus::ACTIVE,
+            'status' => SessionStatus::UPCOMING,
             'type' => $validated['type'] ?? 'casual',
             'tournament_format' => $validated['tournament_format'] ?? 'round_robin',
             'created_by' => $request->user()->id,
             'circle_id' => $this->targetCircleId($request),
-            'started_at' => $isTournament ? null : now(),
+            'started_at' => null,
         ]);
 
         // Create courts

@@ -8,24 +8,29 @@ use App\Models\Player;
 use App\Models\Session;
 use App\Models\SessionPlayer;
 use App\Models\User;
+use App\Services\CircleService;
 use Illuminate\Database\Seeder;
 
 class DevelopmentSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create an organiser
-        $organiser = User::create([
+        $circles = app(CircleService::class);
+
+        // Create an organiser. The User factory provisions the personal circle
+        // (plus membership) that every player and session must belong to.
+        $organiser = User::factory()->create([
             'name' => 'Organiser',
             'email' => 'organiser@courtly.test',
             'password' => bcrypt('password'),
             'role' => 'ORGANISER',
-            'email_verified_at' => now(),
         ]);
 
-        Player::create([
-            'user_id' => $organiser->id,
-            'name' => $organiser->name,
+        $circle = $organiser->personalCircle;
+
+        // The organiser's own player — the only row linked to their account.
+        $self = $circles->ensureLinkedPlayer($organiser, $circle);
+        $self->update([
             'rating' => 65.00,
             'rating_status' => 'ESTABLISHED',
             'rating_confidence' => 0.85,
@@ -35,29 +40,39 @@ class DevelopmentSeeder extends Seeder
             'losses' => 8,
         ]);
 
-        // Create players with varied ratings
+        // Roster players with varied ratings. Guests (no account) scoped to the
+        // circle — players.user_id is the linked account, not the owner.
         $ratings = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
         $playerIds = [];
 
         foreach ($ratings as $rating) {
-            $player = Player::factory()->withRating($rating)->create(['user_id' => $organiser->id]);
+            $player = Player::factory()->withRating($rating)->create([
+                'user_id' => null,
+                'circle_id' => $circle->id,
+            ]);
             $playerIds[] = $player->id;
         }
 
         // Create provisional players
         for ($i = 0; $i < 6; $i++) {
-            $player = Player::factory()->provisional()->create(['user_id' => $organiser->id]);
+            $player = Player::factory()->provisional()->create([
+                'user_id' => null,
+                'circle_id' => $circle->id,
+            ]);
             $playerIds[] = $player->id;
         }
 
-        // Create "Sunday Social" session with 3 courts, 14 checked-in players
+        // Create "Sunday Social" session with 3 courts, 14 checked-in players.
+        // Left UPCOMING, exactly like a freshly created session: press START in
+        // the live view to run matchmaking (nothing is allocated before that).
         $session = Session::create([
             'name' => 'Sunday Social',
-            'date' => '2026-08-09',
+            'date' => now()->toDateString(),
             'start_time' => '14:00',
             'number_of_courts' => 3,
             'status' => 'UPCOMING',
             'created_by' => $organiser->id,
+            'circle_id' => $circle->id,
         ]);
 
         // Create courts

@@ -10,7 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <?php /* Vendored (not a CDN) so the app runs fully offline — no unpkg request. */ ?>
+    <script src="<?= $base ?? '/courtly' ?>/js/vendor/vue.global.prod.js?v=<?= htmlspecialchars($appVersion ?? '1.0.0') ?>"></script>
     <script>
         var COURT_THEMES = ['dark', 'blue', 'cyber', 'emerald', 'light'];
         var COURT_GLYPHS = { dark: '☾', blue: '✦', cyber: '✧', emerald: '❖', light: '☀' };
@@ -54,6 +55,8 @@
             </a>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
+        <?php /* Shared app menu — same nav as every other screen, session controls stay below/right. */ ?>
+        <?php $managePlayers = 'players'; include resource_path('views/partials/app-nav.php'); ?>
         <div class="session-header__stats">
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'round_robin' && tournament.round_progress" class="session-header__badge session-header__badge--tournament">Round {{ tournament.round_progress.current_round }}/{{ tournament.round_progress.total_rounds }}</span>
@@ -87,6 +90,7 @@
         <div class="courts-toolbar__actions">
             <button class="mode-switch mode-switch--insights" @click="openInsights" title="Matchmaking insights"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="mode-switch__label">INSIGHTS</span></button>
             <button class="mode-switch mode-switch--players" @click="openPlayers" title="Players"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="mode-switch__label">PLAYERS</span></button>
+            <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" :class="{ 'is-busy': sessionActionPending === 'start' }" :disabled="sessionActionPending === 'start'" @click="startSession" title="Start the session and fill the courts"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg><span class="mode-switch__label">START</span></button>
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession" title="Finish session"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="mode-switch__label">FINISH</span></button>
         </div>
     </div>

@@ -1,0 +1,13 @@
+{
+  "name": "courtly-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests (Playwright) for Courtly, runnable fully offline.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

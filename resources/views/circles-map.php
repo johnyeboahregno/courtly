@@ -48,7 +48,7 @@ button{font-family:inherit}
 input,textarea{user-select:text;-webkit-user-select:text}
 
 /* ── Header ─────────────────────────────────────────────── */
-.map-header{position:fixed;top:0;left:0;right:0;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 16px;z-index:40;background:linear-gradient(180deg,rgba(8,10,30,.94),rgba(8,10,30,.55));backdrop-filter:blur(10px);pointer-events:none}
+.map-header{position:fixed;top:0;left:0;right:0;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:1rem 16px;z-index:40;background:linear-gradient(180deg,rgba(8,10,30,.94),rgba(8,10,30,.55));backdrop-filter:blur(10px);pointer-events:none}
 .map-header>*{pointer-events:auto}
 .map-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;letter-spacing:.01em;color:var(--text);text-decoration:none}
 .map-brand__img{width:30px;height:30px;object-fit:contain;display:block}
@@ -340,6 +340,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
   <nav class="map-nav">
     <a class="map-pill map-pill--active" href="<?= $base ?>/circles" title="Circles"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="map-pill__label">Circles</span></a>
     <a class="map-pill" href="<?= $base ?>/" title="Sessions"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="map-pill__label">Sessions</span></a>
+    <a class="map-pill" href="<?= $base ?>/stats" title="Player Stats"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-8M12 20V4M19 20v-6"/></svg><span class="map-pill__label">Player Stats</span></a>
     <a class="map-pill" href="<?= $base ?>/rankings" title="Rankings"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg><span class="map-pill__label">Rankings</span></a>
     <?php if (\Illuminate\Support\Facades\Auth::user()?->isSuperAdmin()): ?>
     <a class="map-pill" href="<?= $base ?>/admin" title="Admin"><svg class="map-pill__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="map-pill__label">Admin</span></a>

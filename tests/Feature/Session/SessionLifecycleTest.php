@@ -29,13 +29,13 @@ it('creates a session with courts for the authenticated user', function () {
         ->assertCreated()
         ->assertJsonPath('data.name', 'Saturday Doubles')
         ->assertJsonPath('data.sport', 'tennis')
-        ->assertJsonPath('data.status', SessionStatus::ACTIVE->value)
+        ->assertJsonPath('data.status', SessionStatus::UPCOMING->value)
         ->assertJsonCount(3, 'data.courts');
 
     $session = Session::query()->where('name', 'Saturday Doubles')->firstOrFail();
 
     expect($session->created_by)->toBe($user->id)
-        ->and($session->started_at)->not->toBeNull();
+        ->and($session->started_at)->toBeNull();
 
     $this->assertDatabaseCount('courts', 3);
     $this->assertDatabaseHas('courts', [
@@ -43,6 +43,99 @@ it('creates a session with courts for the authenticated user', function () {
         'court_number' => 1,
         'status' => CourtStatus::AVAILABLE->value,
     ]);
+});
+
+it('keeps a new session in setup mode until START is pressed', function () {
+    $user = User::factory()->create();
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/sessions', [
+        'name' => 'Setup First',
+        'date' => now()->toDateString(),
+        'number_of_courts' => 1,
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.status', SessionStatus::UPCOMING->value);
+
+    $session = Session::query()->where('name', 'Setup First')->firstOrFail();
+
+    // Three players is not a full court, so the session stays in setup and
+    // nothing is allocated.
+    $players = [];
+
+    foreach ([['MALE', 40.0], ['MALE', 50.0], ['FEMALE', 60.0]] as [$gender, $rating]) {
+        $players[] = Player::factory()->create([
+            'circle_id' => $session->circle_id,
+            'user_id' => null,
+            'gender' => $gender,
+            'rating' => $rating,
+        ]);
+    }
+
+    $this->postJson("/api/sessions/{$session->id}/players", [
+        'player_ids' => array_map(fn (Player $player) => $player->id, $players),
+    ])->assertSuccessful();
+
+    expect($session->refresh()->status)->toBe(SessionStatus::UPCOMING)
+        ->and(GameMatch::query()->where('session_id', $session->id)->count())->toBe(0);
+
+    // Explicit START is what moves it out of setup.
+    $this->postJson("/api/sessions/{$session->id}/start")
+        ->assertOk()
+        ->assertJsonPath('data.session.status', SessionStatus::ACTIVE->value);
+
+    expect($session->refresh()->status)->toBe(SessionStatus::ACTIVE)
+        ->and($session->started_at)->not->toBeNull();
+
+    // A fourth player then completes the court.
+    $fourth = Player::factory()->create([
+        'circle_id' => $session->circle_id,
+        'user_id' => null,
+        'gender' => 'FEMALE',
+        'rating' => 70.0,
+    ]);
+
+    $this->postJson("/api/sessions/{$session->id}/players", [
+        'player_ids' => [$fourth->id],
+    ])->assertSuccessful();
+
+    expect(GameMatch::query()->where('session_id', $session->id)->count())->toBe(1);
+});
+
+it('auto-starts a casual session once a full court is checked in', function () {
+    $user = User::factory()->create();
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/sessions', [
+        'name' => 'Auto Start',
+        'date' => now()->toDateString(),
+        'number_of_courts' => 1,
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.status', SessionStatus::UPCOMING->value);
+
+    $session = Session::query()->where('name', 'Auto Start')->firstOrFail();
+
+    $players = [];
+
+    foreach ([['MALE', 40.0], ['MALE', 50.0], ['FEMALE', 60.0], ['FEMALE', 70.0]] as [$gender, $rating]) {
+        $players[] = Player::factory()->create([
+            'circle_id' => $session->circle_id,
+            'user_id' => null,
+            'gender' => $gender,
+            'rating' => $rating,
+        ]);
+    }
+
+    $this->postJson("/api/sessions/{$session->id}/players", [
+        'player_ids' => array_map(fn (Player $player) => $player->id, $players),
+    ])->assertSuccessful();
+
+    // Checking in a full, gender-complete court starts play without a START press.
+    expect($session->refresh()->status)->toBe(SessionStatus::ACTIVE)
+        ->and(GameMatch::query()->where('session_id', $session->id)->count())->toBe(1);
 });
 
 it('creates tournaments as upcoming for explicit setup', function () {

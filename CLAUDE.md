@@ -1,3 +1,30 @@
+# Communication Style
+
+Be concise by default.
+
+For normal questions and debugging:
+- Answer in 1–4 short paragraphs.
+- Do not restate my question.
+- Do not explain obvious background unless I ask.
+- Do not give long lists of possibilities unless needed.
+- Do not add summaries, conclusions, or “next steps” unless useful.
+- Do not tell me what you are about to do.
+- Do not narrate your reasoning.
+- Do not use headings unless the answer benefits from them.
+- Prefer the direct answer first.
+
+For code changes:
+- Make the change.
+- Briefly state what changed.
+- Show only the important commands/tests/results.
+
+Only give a detailed explanation when I explicitly ask for:
+- detail
+- architecture
+- rationale
+- comparison
+- step-by-step guidance
+
 # Courtly — Badminton Session Management
 
 PHP 8.4+ / Laravel 11 / Vue 3 / MySQL
@@ -643,7 +670,7 @@ All API controllers use the `AuthorizesOwnership` trait (`app/Http/Controllers/A
 ### `Api\SessionController`
 - **Dependencies**: `MatchmakingService`, `RealtimeEventService`, `SessionAnalyticsService`, `TournamentService` (constructor); `MatchmakingCriticService` (method-injected into `matchmakingInsights` only)
 - `index(Request)` — 🔒 Lists sessions owned by the user, paginated 20/page
-- `store(Request)` — Creates session with N courts (1-8), status=UPCOMING, owner=current user
+- `store(Request)` — Creates session with N courts (1-8), status=UPCOMING, owner=current user. Both casual and tournament sessions start UPCOMING so the organiser can set the session up completely (courts, players, tournament teams) before play begins; `MatchmakingService::allocateMatchesLocked()` is a no-op until the session is ACTIVE. Note `SessionPlayerController::store()` auto-starts a *casual* session once 4 gender-complete players are checked in (tournaments keep their explicit setup flow), so an explicit START is only needed to start early.
 - `show(Session)` — Gets session detail; if ACTIVE, calls `allocateMatches()` to fill idle courts (synchronized-rounds gate still applies)
 - `start(Session)` — UPCOMING→ACTIVE, sets waiting_since on all WAITING players; runs `TournamentService::setupTournament()` for tournament sessions, otherwise matchmaking
 - `pause(Session)` — ACTIVE→PAUSED
@@ -966,7 +993,7 @@ File: `resources/views/session-live.php`
 |--------|---------|
 | `fetchSession()` | GET `/api/sessions/{id}`, maps response to `courts`, `players`, `session` |
 | `recordResult(matchId, team, scores)` | Optimistic UI clear → POST result (`team` = `scoreWinner`, the score-derived winner) → background `fetchSession()` |
-| `startSession()` | POST `/api/sessions/{id}/start` → refresh |
+| `startSession()` | POST `/api/sessions/{id}/start` → refresh. Bound to the **START** badge in the courts toolbar, shown while the session is `UPCOMING` |
 | `pauseSession()` / `resumeSession()` / `finishSession()` | POST lifecycle endpoints → refresh |
 | `addPlayers()` | Optimistic add → POST `/api/sessions/{id}/players` with name |
 | `addExistingPlayer(id)` | Optimistic add → POST with player_ids |
@@ -1001,12 +1028,12 @@ File: `resources/views/session-live.php`
 
 ### UI Sections
 1. **Header**: Back link, logo, session name, stats (players, courts, timer), a tournament round badge (round-robin) or "LADDER" badge, connection dot, mode-switch pill (PEG/SMART, click to toggle), sport icon, offline-mode indicator (simple line icon — banned/network/refresh for forced-offline/forced-online/automatic; click opens the Automatic/Offline/Online menu), theme toggle (☀ ☾ ◐)
-2. **Courts Toolbar** *(non-tournament, session not FINISHED)*: + ADD COURT, INSIGHTS, + PLAYERS, FINISH (while ACTIVE)
+2. **Courts Toolbar** *(non-tournament, session not FINISHED)*: + ADD COURT, INSIGHTS, + PLAYERS, and the lifecycle badges — START (while UPCOMING, `mode-switch--start`) and FINISH (while ACTIVE, `mode-switch--finish`)
 3. **Courts Grid**: Card per court showing either an empty state (drag-and-drop or tap ASSIGN for manual assignment) or a 2v2 match layout with tap-to-score WIN zones per team, a "WHY" button (match explanation), and a remove-court (×) button
 4. **Waiting List ("NEXT UP")**: Animated queue of WAITING and PAUSED players with pause/resume buttons, plus a FILL COURTS button
 5. **Standings Panel** *(tournament only)*: Live standings (round-robin) or ladder rank order
 6. **Match History**: Searchable list of completed matches with per-team scores/ratings and POOR/GOOD/GREAT feedback buttons
-7. **Footer Controls**: START/PAUSE/RESUME/FINISH buttons, +PLAYERS, 👥MANAGE
+7. **Footer Controls**: RESUME (while PAUSED) and START NEW SESSION (while FINISHED), +PLAYERS, 👥MANAGE. The START/FINISH lifecycle badges live in the courts toolbar (see §2)
 8. **Players Modal**: New player input (name + gender) + existing players list (tap to add, 🗑 to delete)
 9. **Teams Modal** *(tournament, before start)*: Preview auto-formed teams, drag/tap to swap players between them, shuffle
 10. **Manual Assignment Modal**: Pick/adjust 4 waiting players and their team split for one specific court
@@ -1014,6 +1041,16 @@ File: `resources/views/session-live.php`
 12. **Score Picker**: Roller-wheel score entry after tapping a team to record a win — the entered score determines the winner (see `scoreWinner`), not the tapped side
 13. **Confirmation Dialogs**: Remove from session, Delete permanently, Start new session
 14. **Sync Prompt**: Shown automatically once back online with queued offline changes — lists them and offers Sync now / Discard
+
+### Shared app menu (one menu on every screen)
+Every authenticated screen renders the same top menu from a single source: **`resources/views/partials/app-nav.php`**.
+
+- Icon-only pills (Circles, Sessions, Player Stats, Rankings, Admin — super admin only — Manage Players), matching the Circles map header. Labels stay in the markup but are visually hidden (`.app-pill__label`), so they still reach screen readers and `title` tooltips.
+- The row is pushed right (`margin-left: auto` on `.app-nav`) so it sits next to the theme toggle and logout.
+- `partials/app-header.php` wraps it: brand + `app-nav.php` + theme/logout actions. Included by the dashboard (`routes/web.php`), `stats.php`, `rankings.php` and `admin.php`.
+- `circles-map.php` keeps its own `.map-header` (it also carries the HUD and the notifications bell) but embeds `app-nav.php` alongside its `.map-pill` markup, so its items match the rest of the app.
+- `session-live.php` embeds `app-nav.php` inside its `.session-header`, immediately before `.session-header__stats`, so the session controls (timer, mode switch, offline indicator, theme) stay intact.
+- Optional flags passed by the caller: `$managePlayers` (`false` | `'dashboard'` | `'map'` | `'players'`) and `$showNotifications` (the map wires `#notifBell` itself).
 
 ### Other Frontend Files
 - `resources/views/stats.php` — served at `/stats`; client-fetched player rating trend + performance metrics (backed by `PlayerAnalyticsService` via `GET /api/players/{player}/stats`).
