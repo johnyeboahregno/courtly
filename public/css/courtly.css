@@ -908,7 +908,13 @@ textarea,
     background: var(--surface-2);
     color: var(--text-muted);
     cursor: pointer;
-    font: 700 1.1rem/1 inherit;
+    /* Explicit longhands: the old `font: 700 1.1rem/1 inherit` shorthand was
+       invalid (inherit can't be a shorthand component), so it was dropped and
+       the glyph fell back to an inherited size. Larger now, so the × reads at
+       the same weight as the court's other controls. */
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3100,7 +3106,7 @@ textarea,
     .court-remove-btn {
         width: 30px;
         height: 30px;
-        font-size: 1rem;
+        font-size: 1.2rem;
     }
 
     .court-card__player {
