@@ -19,11 +19,18 @@ $base = $base ?? rtrim(request()->getBasePath(), '/');
 $active = $active ?? 'sessions';
 $managePlayers = $managePlayers ?? false;
 $showNotifications = $showNotifications ?? false;
+// Pre-rendered screen-specific controls to place inside the menu, so small
+// screens collapse them into the hamburger instead of crowding the header.
+$navExtra = $navExtra ?? '';
 
 $icon = 'viewBox="0 0 24 24" width="1.15em" height="1.15em" aria-hidden="true"';
 $stroke = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 ?>
 <nav class="app-nav" aria-label="Main navigation">
+    <button type="button" class="app-nav__toggle" data-nav-toggle aria-expanded="false" aria-controls="appNavMenu" aria-label="Menu" title="Menu">
+        <svg class="app-nav__toggle-icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <div class="app-nav__menu" id="appNavMenu">
     <a class="app-pill<?= $active === 'circles' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/circles" title="Circles"><svg class="app-pill__icon" <?= $icon ?> <?= $stroke ?>><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span class="app-pill__label">Circles</span></a>
     <a class="app-pill<?= $active === 'sessions' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/" title="Sessions"><svg class="app-pill__icon" <?= $icon ?> fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg><span class="app-pill__label">Sessions</span></a>
     <a class="app-pill<?= $active === 'stats' ? ' app-pill--active' : '' ?>" href="<?= e($base) ?>/stats" title="Player Stats"><svg class="app-pill__icon" <?= $icon ?> <?= $stroke ?>><path d="M5 20v-8M12 20V4M19 20v-6"/></svg><span class="app-pill__label">Player Stats</span></a>
@@ -41,4 +48,60 @@ $stroke = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="ro
         <button type="button" class="app-pill" id="notifBell" title="Notifications" aria-label="Notifications"><svg class="app-pill__icon" <?= $icon ?> <?= $stroke ?>><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
     </div>
     <?php endif; ?>
+    <?= $navExtra ?>
+    <?php /* Theme + logout come last, so logout is always the final item.
+             They live inside the menu so a small screen collapses everything
+             — links and actions — into the hamburger. */ ?>
+    <div class="app-nav__theme" onclick="toggleCourtlyTheme()">
+        <button type="button" class="theme-switch" id="themeSwitch" aria-label="Switch theme" title="Switch theme">☾</button>
+        <span class="app-nav__label">Theme</span>
+    </div>
+    <form method="POST" action="<?= e($base) ?>/logout" class="app-nav__logout">
+        <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+        <button type="submit" class="app-logout" title="Log out"><svg class="app-logout__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span class="app-logout__label">Logout</span></button>
+    </form>
+    </div>
 </nav>
+<script>
+/* Hamburger menu for small screens. Delegated from document so it keeps working
+   after Vue re-renders the live session header, and guarded so it is installed
+   only once per page. */
+(function () {
+    if (window.__courtlyNavInit) { return; }
+    window.__courtlyNavInit = true;
+
+    /* The open state lives on <body>: Vue re-renders the live session header and
+       would drop a class applied directly to the menu element. */
+    function closeMenu(menu) {
+        document.body.classList.remove('nav-open');
+        var toggle = menu.parentNode.querySelector('[data-nav-toggle]');
+        if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
+    }
+
+    document.addEventListener('click', function (event) {
+        var toggle = event.target.closest('[data-nav-toggle]');
+
+        if (toggle) {
+            var menu = toggle.parentNode.querySelector('.app-nav__menu');
+            if (menu) {
+                var open = document.body.classList.toggle('nav-open');
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            return;
+        }
+
+        if (! document.body.classList.contains('nav-open')) { return; }
+
+        Array.prototype.forEach.call(document.querySelectorAll('.app-nav__menu'), function (menu) {
+            if (! menu.contains(event.target)) { closeMenu(menu); }
+        });
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') { return; }
+        Array.prototype.forEach.call(document.querySelectorAll('.app-nav__menu'), function (menu) {
+            closeMenu(menu);
+        });
+    });
+})();
+</script>

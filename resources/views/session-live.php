@@ -53,30 +53,31 @@
             <?php include resource_path('views/partials/app-brand.php'); ?>
             <h1 class="session-header__name">{{ sessionName }}</h1>
         </div>
-        <?php /* Shared app menu — same nav as every other screen; the session's own
-                 PLAYERS control stays in the courts toolbar below. */ ?>
-        <?php include resource_path('views/partials/app-nav.php'); ?>
-        <div class="session-header__stats">
+        <?php
+        /* Every piece of session chrome except the sport icon is collected into
+           $navExtra, so the menu can hold it all and a small screen collapses it
+           into the hamburger. */
+        ob_start(); ?>
             <span v-if="elapsed" class="session-header__timer">⏱ {{ elapsed }}</span>
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'round_robin' && tournament.round_progress" class="session-header__badge session-header__badge--tournament">Round {{ tournament.round_progress.current_round }}/{{ tournament.round_progress.total_rounds }}</span>
             <span v-if="session.type === 'tournament' && tournament && tournament.format === 'ladder'" class="session-header__badge session-header__badge--tournament">LADDER</span>
             <span v-if="connectionState !== 'connected'" class="connection-dot" :class="'connection-dot--' + connectionState" :title="connectionState === 'connecting' ? 'Connecting to server…' : 'Server unreachable — data may be stale'"></span>
             <button v-if="session.type === 'tournament' && session.status === 'UPCOMING'" class="mode-switch mode-switch--players" @click="openTeams">TEAMS</button>
-            <span class="session-sport-icon" :style="{ '--session-sport-image': 'url(/assets/' + session.sport + '.png)' }" aria-hidden="true"></span>
-            <div class="offline-control">
-                <button type="button" class="offline-indicator" :class="'offline-indicator--' + offlineStatus" :title="offlineIndicatorTitle" @click="offlineMenuOpen = !offlineMenuOpen" aria-label="Offline mode">
+            <div class="offline-control" @click="offlineMenuOpen = !offlineMenuOpen">
+                <button type="button" class="offline-indicator" :class="'offline-indicator--' + offlineStatus" :title="offlineIndicatorTitle" aria-label="Offline mode">
                     <svg v-if="offlinePreference === 'offline'" class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                     <svg v-else-if="offlinePreference === 'online'" class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5 12a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg>
                     <svg v-else class="offline-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
                 </button>
-                <div v-if="offlineMenuOpen" class="offline-menu">
+                <span class="app-nav__label">Offline</span>
+                <div v-if="offlineMenuOpen" class="offline-menu" @click.stop>
                     <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'auto' }" @click="setOfflinePreference('auto')">Automatic</button>
                     <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'offline' }" @click="setOfflinePreference('offline')">Offline</button>
                     <button type="button" class="offline-menu__item" :class="{ 'offline-menu__item--active': offlinePreference === 'online' }" @click="setOfflinePreference('online')">Online</button>
                 </div>
             </div>
-            <button class="theme-switch" id="themeSwitch" type="button" onclick="toggleCourtlyTheme()" aria-label="Switch theme" title="Switch theme">☾</button>
-        </div>
+        <?php $navExtra = ob_get_clean(); ?>
+        <?php include resource_path('views/partials/app-nav.php'); ?>
     </header>
 
     <div v-if="authError" class="sync-error-banner" role="alert">
@@ -87,7 +88,7 @@
         <button class="court-toolbar-btn" type="button" :disabled="courts.length >= 8 || updatingCourts" @click="adjustCourts('add')" title="Add a court"><svg class="court-toolbar-btn__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span class="court-toolbar-btn__label">ADD COURT</span></button>
         <div class="courts-toolbar__actions">
             <button class="mode-switch mode-switch--insights" @click="openInsights" title="Matchmaking insights"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="mode-switch__label">INSIGHTS</span></button>
-            <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</button>
+            <button class="mode-switch" :class="['mode-switch--' + matchmakingMode, { 'is-busy': uiPending.mode }]" :disabled="uiPending.mode" @click="toggleMode" :title="'Matchmaking: ' + modeLabel + ' — click to switch'"><span class="mode-switch__full">{{ matchmakingMode === 'peg' ? 'PEG' : 'SMART' }}</span><span class="mode-switch__abbr" aria-hidden="true">{{ matchmakingMode === 'peg' ? 'P' : 'S' }}</span></button>
             <button class="mode-switch mode-switch--players" @click="openPlayers" title="Players"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="mode-switch__label">PLAYERS</span></button>
             <button v-if="session.status === 'UPCOMING'" class="mode-switch mode-switch--start" :class="{ 'is-busy': sessionActionPending === 'start' }" :disabled="sessionActionPending === 'start'" @click="startSession" title="Start the session and fill the courts"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg><span class="mode-switch__label">START</span></button>
             <button v-if="session.status === 'ACTIVE'" class="mode-switch mode-switch--finish" :class="{ 'is-busy': sessionActionPending === 'finish' }" :disabled="sessionActionPending === 'finish'" @click="finishSession" title="Finish session"><svg class="mode-switch__icon" viewBox="0 0 24 24" width="1.15em" height="1.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="mode-switch__label">FINISH</span></button>
