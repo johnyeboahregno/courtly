@@ -929,7 +929,7 @@ Note: Authorization is enforced directly in the controllers via the `AuthorizesO
 ### App
 | Key | Default | Description |
 |-----|---------|-------------|
-| `version` | `1.0.0` | Single source of truth for the app version — used as the session header's version display and the `?v=` cache-busting suffix for CSS/favicon |
+| `version` | `1.0.0` | Single source of truth for the app version — used as the `?v=` cache-busting suffix for CSS/favicon. Not displayed in the UI. |
 
 ### Sync — **currently unused**
 | Key | Default | Description |

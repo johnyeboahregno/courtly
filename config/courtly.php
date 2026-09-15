@@ -12,7 +12,7 @@ return [
     'app' => [
         // Single source of truth for the app version. Used as the
         // cache-busting (?v=) suffix for CSS/favicon assets (not shown to users).
-        'version' => '1.0.23',
+        'version' => '1.0.24',
 
         // Short label shown next to the COURTLY wordmark in the headers.
         'version_label' => '.beta',

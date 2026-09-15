@@ -2,7 +2,6 @@
 $base = $base ?? rtrim(request()->getBasePath(), '/');
 $csrf = $csrf ?? csrf_token();
 $version = config('courtly.app.version', '1.0.0');
-$versionLabel = config('courtly.app.version_label', '.beta');
 ?>
 <!DOCTYPE html>
 <html lang="en">

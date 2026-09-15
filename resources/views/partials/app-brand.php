@@ -14,5 +14,5 @@ $base = $base ?? rtrim(request()->getBasePath(), '/');
 <a class="app-brand" href="<?= e($base) ?>/circles" title="Circles home">
     <img src="<?= e($base) ?>/assets/courtly-mark.png" alt="Courtly" class="app-brand__img app-brand__img--light">
     <img src="<?= e($base) ?>/assets/courtly-mark-dark.png" alt="Courtly" class="app-brand__img app-brand__img--dark">
-    <span>COURT<b>LY</b><em class="app-version"><?= e(config('courtly.app.version_label', '.beta')) ?></em></span>
+    <span>COURT<b>LY</b></span>
 </a>

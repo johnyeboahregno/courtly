@@ -2,7 +2,6 @@
 $base = $base ?? rtrim(request()->getBasePath(), '/');
 $csrf = $csrf ?? csrf_token();
 $version = config('courtly.app.version', '1.0.0');
-$versionLabel = config('courtly.app.version_label', '.beta');
 $userName = e(\Illuminate\Support\Facades\Auth::user()->name);
 ?>
 <!DOCTYPE html>
@@ -57,7 +56,6 @@ input,textarea{user-select:text;-webkit-user-select:text}
 [data-theme="light"] .map-brand__img--dark{display:block}
 @media (prefers-color-scheme: light){:root:not([data-theme]) .map-brand__img--light{display:none}:root:not([data-theme]) .map-brand__img--dark{display:block}}
 .map-brand b{color:var(--accent2)}
-.app-version{font-style:normal;font-size:.5em;font-weight:700;letter-spacing:.05em;color:var(--muted);opacity:.8}
 .map-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .map-pill{display:inline-flex;align-items:center;justify-content:center;gap:0;width:38px;height:38px;padding:0;font-size:.8rem;letter-spacing:.03em;border-radius:999px;border:1px solid var(--stroke);color:var(--muted);background:transparent;text-decoration:none;font-weight:700;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .map-pill:hover{border-color:var(--accent);color:var(--text)}
@@ -335,7 +333,7 @@ input,textarea{user-select:text;-webkit-user-select:text}
 </head>
 <body>
 <header class="map-header">
-  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="" class="map-brand__img map-brand__img--light"><img src="<?= $base ?>/assets/courtly-mark-dark.png" alt="" class="map-brand__img map-brand__img--dark"><span>COURT<b>LY</b><em class="app-version"><?= e($versionLabel) ?></em></span></a>
+  <a class="map-brand" href="<?= $base ?>/circles" title="Circles"><img src="<?= $base ?>/assets/courtly-mark.png" alt="" class="map-brand__img map-brand__img--light"><img src="<?= $base ?>/assets/courtly-mark-dark.png" alt="" class="map-brand__img map-brand__img--dark"><span>COURT<b>LY</b></span></a>
   <div class="hud">
     <div class="hud__name" id="hudName">—</div>
   </div>
